@@ -19,6 +19,7 @@ const tierColors: Record<string, 'brand' | 'teal' | 'ink'> = {
 export function Companies() {
   const [selected, setSelected] = useState<Company | null>(null);
   const [search, setSearch] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const filtered = companies.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.industry.toLowerCase().includes(search.toLowerCase())
@@ -134,12 +135,18 @@ export function Companies() {
 
   return (
     <div className="space-y-6">
+      {showAddForm && (
+  <div className="card p-5">Add Company form will go here.</div>
+)}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Companies</h2>
           <p className="text-sm text-ink-500">{companies.length} corporate clients under contract</p>
         </div>
-        <button className="btn-primary">
+       <button
+  className="btn-primary"
+  onClick={() => setShowAddForm(true)}
+>
           <Plus size={16} />
           Add Company
         </button>
