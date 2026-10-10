@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-ink-50 text-ink-900 font-sans antialiased;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd2dc transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply bg-ink-200 rounded-full;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-card border border-ink-100;
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-card-lg hover:border-ink-200;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 text-white font-medium rounded-lg transition-all duration-200 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-ink-700 font-medium rounded-lg border border-ink-200 transition-all duration-200 hover:bg-ink-50 hover:border-ink-300 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-ink-600 font-medium rounded-lg transition-all duration-200 hover:bg-ink-100 hover:text-ink-900;
+  }
+  .input {
+    @apply w-full px-3.5 py-2.5 bg-white border border-ink-200 rounded-lg text-ink-900 placeholder-ink-400 transition-all duration-200 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-ink-600 transition-all duration-200 hover:bg-ink-50 hover:text-ink-900 cursor-pointer;
+  }
+  .nav-item-active {
+    @apply bg-brand-50 text-brand-700 hover:bg-brand-50 hover:text-brand-700;
+  }
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(26,110,245,0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(26,110,245,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
