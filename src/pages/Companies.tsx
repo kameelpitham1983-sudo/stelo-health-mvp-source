@@ -135,8 +135,64 @@ export function Companies() {
 
   return (
     <div className="space-y-6">
-      {showAddForm && (
-  <div className="card p-5">Add Company form will go here.</div>
+     
+{showAddForm && (
+  <div className="card p-5 space-y-4">
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-bold text-ink-900">
+        Add New Company
+      </h3>
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={() => setShowAddForm(false)}
+      >
+        Cancel
+      </button>
+    </div>
+
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        alert('The form is working. Company saving is the next step.');
+      }}
+    >
+      <div>
+        <label className="block text-sm mb-1">Company Name *</label>
+        <input className="input w-full" name="name" required placeholder="Company name" />
+      </div>
+
+      <div>
+        <label className="block text-sm mb-1">Industry *</label>
+        <input className="input w-full" name="industry" required placeholder="e.g. Mining, Security, Energy" />
+      </div>
+
+      <div>
+        <label className="block text-sm mb-1">Contact Person *</label>
+        <input className="input w-full" name="contactName" required placeholder="Full name" />
+      </div>
+
+      <div>
+        <label className="block text-sm mb-1">Contact Email *</label>
+        <input className="input w-full" type="email" name="contactEmail" required placeholder="name@company.co.za" />
+      </div>
+
+      <div>
+        <label className="block text-sm mb-1">Contact Phone</label>
+        <input className="input w-full" name="contactPhone" placeholder="Phone number" />
+      </div>
+
+      <div>
+        <label className="block text-sm mb-1">Primary Location *</label>
+        <input className="input w-full" name="primaryLocation" required placeholder="City or site" />
+      </div>
+
+      <button type="submit" className="btn-primary">
+        Submit Company
+      </button>
+    </form>
+  </div>
 )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
