@@ -19,8 +19,9 @@ const tierColors: Record<string, 'brand' | 'teal' | 'ink'> = {
 export function Companies() {
   const [selected, setSelected] = useState<Company | null>(null);
   const [search, setSearch] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-
+  const [showAddForm, setShowAddForm] = useState(false);  
+  const [companyList, setCompanyList] = useState<Company[]>(companies);
+  
   const filtered = companyList.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.industry.toLowerCase().includes(search.toLowerCase())
   );
@@ -220,7 +221,7 @@ export function Companies() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Companies</h2>
-          <p className="text-sm text-ink-500">{companies.length} corporate clients under contract</p>
+       <p className="text-sm text-ink-500">{companyList.length} corporate clients under contract</p>
         </div>
        <button
   className="btn-primary"
