@@ -154,9 +154,32 @@ export function Companies() {
     <form
       className="space-y-4"
       onSubmit={(e) => {
-        e.preventDefault();
-        alert('The form is working. Company saving is the next step.');
-      }}
+  e.preventDefault();
+
+  const form = e.currentTarget;
+  const formData = new FormData(form);
+
+  const newCompany: Company = {
+    id: `company-${Date.now()}`,
+    name: String(formData.get('name') ?? '').trim(),
+    industry: String(formData.get('industry') ?? '').trim(),
+    tier: 'SMB',
+    status: 'Onboarding',
+    employeeCount: 0,
+    locations: 1,
+    primaryLocation: String(formData.get('primaryLocation') ?? '').trim(),
+    contractStart: 'Not set',
+    contractEnd: 'Not set',
+    contactName: String(formData.get('contactName') ?? '').trim(),
+    contactEmail: String(formData.get('contactEmail') ?? '').trim(),
+    contactPhone: String(formData.get('contactPhone') ?? '').trim() || 'Not provided',
+    logoColor: 'brand',
+  };
+
+  setCompanyList((current) => [...current, newCompany]);
+  setShowAddForm(false);
+  form.reset();
+}}
     >
       <div>
         <label className="block text-sm mb-1">Company Name *</label>
