@@ -21,7 +21,7 @@ export function Companies() {
   const [search, setSearch] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const filtered = companies.filter(
+  const filtered = companyList.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.industry.toLowerCase().includes(search.toLowerCase())
   );
 
