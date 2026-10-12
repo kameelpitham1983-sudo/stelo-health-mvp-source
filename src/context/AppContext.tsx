@@ -12,7 +12,9 @@ export type PageId =
   | 'documents'
   | 'reports'
   | 'ai'
-  | 'settings';
+  | 'settings'
+  | 'synopsis'
+  | 'sickness';
 
 interface AppContextValue {
   user: User | null;

@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Search, Users, Filter, Plane, Mail, Phone, Building2, ChevronDown } from 'lucide-react';
-import { employees, companies } from '@/data/mockData';
+import { Search, Users, Filter, Plane, ChevronDown, AlertCircle } from 'lucide-react';
+import { useEmployees, useCompanies } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 
-const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'brand'> = {
+const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'brand' | 'teal' | 'ink'> = {
   Active: 'success',
   'On Leave': 'warning',
   'Pending Clearance': 'brand',
-  Cleared: 'teal' as never,
+  Cleared: 'teal',
 };
 
 const healthColors: Record<string, 'success' | 'warning' | 'danger' | 'brand'> = {
@@ -18,6 +18,8 @@ const healthColors: Record<string, 'success' | 'warning' | 'danger' | 'brand'> =
 };
 
 export function Employees() {
+  const { data: employees, loading, error } = useEmployees();
+  const { data: companies } = useCompanies();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -28,6 +30,14 @@ export function Employees() {
     const matchStatus = statusFilter === 'all' || e.status === statusFilter;
     return matchSearch && matchCompany && matchStatus;
   });
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><span className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
+  }
+
+  if (error) {
+    return <div className="card p-6 text-center"><AlertCircle size={24} className="text-danger-500 mx-auto mb-2" /><p className="text-sm text-ink-600">Failed to load employees: {error}</p></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -97,7 +107,7 @@ export function Employees() {
                     <p className="text-sm text-ink-600">{emp.department}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge color={healthColors[emp.healthStatus]}>{emp.healthStatus}</Badge>
+                    <Badge color={healthColors[emp.healthStatus] || 'ink'}>{emp.healthStatus}</Badge>
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <Badge color={statusColors[emp.status] || 'ink'} dot>{emp.status}</Badge>

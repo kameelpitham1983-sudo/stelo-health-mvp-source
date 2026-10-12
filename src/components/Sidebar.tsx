@@ -12,6 +12,8 @@ import {
   LogOut,
   X,
   ShieldCheck,
+  ClipboardList,
+  HeartPulse,
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
@@ -26,10 +28,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'synopsis', label: 'Synopsis', icon: ClipboardList, roles: ['admin', 'provider'] },
   { id: 'companies', label: 'Companies', icon: Building2, roles: ['admin', 'provider'] },
   { id: 'employees', label: 'Employees', icon: Users, roles: ['admin', 'employer', 'provider'] },
   { id: 'medicals', label: 'Medicals', icon: Stethoscope, roles: ['admin', 'employer', 'provider'] },
   { id: 'appointments', label: 'Appointments', icon: CalendarDays },
+  { id: 'sickness', label: 'Sickness Absence', icon: HeartPulse, roles: ['admin', 'employer', 'provider'] },
   { id: 'travel', label: 'Travel Health', icon: Plane, roles: ['admin', 'employer', 'provider'] },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employer'] },

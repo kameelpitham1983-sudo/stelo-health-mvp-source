@@ -151,3 +151,80 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
 }
+
+// --- New types for Synopsis and Sickness Absence ---
+
+export type SicknessCaseStatus =
+  | 'Referral Received'
+  | 'Initial Review'
+  | 'Information Gathering'
+  | 'Risk Assessment'
+  | 'Case Management'
+  | 'Accommodation Planning'
+  | 'RTW Review'
+  | 'Follow-up'
+  | 'Closed';
+
+export interface SicknessAbsenceCase {
+  id: string;
+  caseReference: string;
+  employeeName: string;
+  companyName: string;
+  referralDate: string;
+  referringPerson: string;
+  referralTrigger: string;
+  injuryOnDuty: boolean;
+  incidentDate: string;
+  absenceStartDate: string;
+  expectedReturnDate: string;
+  actualReturnDate: string | null;
+  caseStatus: SicknessCaseStatus;
+  jobDuties: string;
+  functionalLimitations: string;
+  workplaceAccommodations: string;
+  caseManager: string;
+  reviewDate: string | null;
+  closureDate: string | null;
+  closureReason: string | null;
+}
+
+export interface SicknessRiskAssessment {
+  id: string;
+  caseId: string;
+  severity: 'Low' | 'Medium' | 'High';
+  likelihood: 'Low' | 'Medium' | 'High';
+  riskLevel: string;
+  notes: string;
+  reviewDate: string;
+  responsiblePerson: string;
+}
+
+export type SynopsisStatus = 'Draft' | 'Saved' | 'Displayed';
+
+export interface Synopsis {
+  id: string;
+  employeeName: string;
+  employeeId: string | null;
+  prompt: string;
+  content: string;
+  status: SynopsisStatus;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface SynopsisMeetingNote {
+  id: string;
+  synopsisId: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface SynopsisFollowUp {
+  id: string;
+  synopsisId: string;
+  action: string;
+  responsiblePerson: string;
+  dueDate: string | null;
+  completed: boolean;
+}

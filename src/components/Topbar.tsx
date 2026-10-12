@@ -5,10 +5,12 @@ import { useState, useRef, useEffect } from 'react';
 
 const pageTitles: Record<string, string> = {
   dashboard: 'Dashboard',
+  synopsis: 'Synopsis',
   companies: 'Companies',
   employees: 'Employees',
   medicals: 'Medicals',
   appointments: 'Appointments',
+  sickness: 'Sickness Absence',
   travel: 'Travel Health',
   documents: 'Documents',
   reports: 'Reports',

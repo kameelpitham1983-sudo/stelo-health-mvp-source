@@ -11,6 +11,8 @@ import { Documents } from '@/pages/Documents';
 import { Reports } from '@/pages/Reports';
 import { SteloAI } from '@/pages/SteloAI';
 import { Settings } from '@/pages/Settings';
+import { Synopsis } from '@/pages/Synopsis';
+import { SicknessAbsence } from '@/pages/SicknessAbsence';
 
 function AppContent() {
   const { user, currentPage } = useApp();
@@ -19,10 +21,12 @@ function AppContent() {
 
   const pages: Record<string, React.ReactNode> = {
     dashboard: <Dashboard />,
+    synopsis: <Synopsis />,
     companies: <Companies />,
     employees: <Employees />,
     medicals: <Medicals />,
     appointments: <Appointments />,
+    sickness: <SicknessAbsence />,
     travel: <TravelHealth />,
     documents: <Documents />,
     reports: <Reports />,
