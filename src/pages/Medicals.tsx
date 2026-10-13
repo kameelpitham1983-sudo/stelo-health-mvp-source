@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check } from 'lucide-react';
+import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck } from 'lucide-react';
 import { useMedicals, useEmployees, useCompanies } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import { useApp } from '@/context/AppContext';
-import type { Medical, MedicalType, MedicalStatus } from '@/types';
+import type { Medical, MedicalType, MedicalStatus, HealthStatus } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'brand' | 'ink'> = {
   Completed: 'success',
@@ -31,8 +31,18 @@ const medicalTypes: MedicalType[] = [
 
 const medicalStatuses: MedicalStatus[] = ['Completed', 'Scheduled', 'In Progress', 'Overdue', 'Cancelled'];
 
+const fitnessOutcomes: { value: string; label: string; healthStatus: HealthStatus }[] = [
+  { value: 'Fit for duty', label: 'Fit for duty', healthStatus: 'Fit' },
+  { value: 'Fit with Restrictions', label: 'Fit with restrictions', healthStatus: 'Fit with Restrictions' },
+  { value: 'Unfit for duty', label: 'Unfit for duty', healthStatus: 'Unfit' },
+  { value: 'Pending further assessment', label: 'Pending further assessment', healthStatus: 'Pending Assessment' },
+  { value: 'Negative', label: 'Negative (drug screen)', healthStatus: 'Fit' },
+  { value: 'Fit for travel', label: 'Fit for travel', healthStatus: 'Fit' },
+];
+
 const emptyForm: Partial<Medical> = {
   employeeName: '',
+  employeeId: '',
   companyName: '',
   type: 'Annual Occupational',
   status: 'Scheduled',
@@ -45,7 +55,7 @@ const emptyForm: Partial<Medical> = {
 export function Medicals() {
   const { user } = useApp();
   const { data: medicals, loading, error, addMedical, updateMedical } = useMedicals();
-  const { data: employees } = useEmployees();
+  const { data: employees, updateEmployeeFitness } = useEmployees();
   const { data: companies } = useCompanies();
 
   const [search, setSearch] = useState('');
@@ -56,6 +66,10 @@ export function Medicals() {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [selectedMedical, setSelectedMedical] = useState<Medical | null>(null);
+  const [restrictions, setRestrictions] = useState('');
+  const [nextDueDate, setNextDueDate] = useState('');
+  const [fitnessNotice, setFitnessNotice] = useState<string | null>(null);
 
   const isProvider = user?.role === 'admin' || user?.role === 'provider';
 
@@ -68,7 +82,7 @@ export function Medicals() {
   const handleEmployeeSelect = (empId: string) => {
     const emp = employees.find((e) => e.id === empId);
     if (emp) {
-      setFormData({ ...formData, employeeName: emp.name, companyName: emp.companyName });
+      setFormData({ ...formData, employeeName: emp.name, employeeId: emp.id, companyName: emp.companyName });
     }
   };
 
@@ -79,6 +93,29 @@ export function Medicals() {
     try {
       if (editingId) {
         await updateMedical(editingId, formData);
+
+        // If status is being set to Completed with a fitness outcome, update the employee record
+        if (formData.status === 'Completed' && formData.result && formData.employeeId) {
+          const outcome = fitnessOutcomes.find((o) => o.value === formData.result);
+          if (outcome) {
+            try {
+              await updateEmployeeFitness(
+                formData.employeeId,
+                outcome.healthStatus,
+                formData.date || new Date().toISOString().slice(0, 10),
+                nextDueDate || null,
+                restrictions || undefined,
+              );
+              setFitnessNotice(`Employee fitness record updated: ${outcome.healthStatus}.`);
+              setTimeout(() => setFitnessNotice(null), 4000);
+            } catch {
+              // Non-fatal: the medical record was saved, employee update failed
+              setFitnessNotice('Medical saved but employee fitness record could not be updated automatically.');
+              setTimeout(() => setFitnessNotice(null), 4000);
+            }
+          }
+        }
+
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
         setEditingId(null);
@@ -87,6 +124,8 @@ export function Medicals() {
       }
       setShowForm(false);
       setFormData(emptyForm);
+      setRestrictions('');
+      setNextDueDate('');
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to save medical');
     } finally {
@@ -97,6 +136,7 @@ export function Medicals() {
   const startEdit = (med: Medical) => {
     setFormData({
       employeeName: med.employeeName,
+      employeeId: med.employeeId,
       companyName: med.companyName,
       type: med.type,
       status: med.status,
@@ -106,7 +146,12 @@ export function Medicals() {
       notes: med.notes,
     });
     setEditingId(med.id);
+    setSelectedMedical(null);
     setShowForm(true);
+    // Pre-fill restrictions from existing employee data
+    const emp = employees.find((e) => e.id === med.employeeId);
+    setRestrictions(emp ? '' : '');
+    setNextDueDate('');
   };
 
   if (loading) {
@@ -115,6 +160,109 @@ export function Medicals() {
 
   if (error) {
     return <div className="card p-6 text-center"><AlertCircle size={24} className="text-danger-500 mx-auto mb-2" /><p className="text-sm text-ink-600">Failed to load medicals: {error}</p></div>;
+  }
+
+  // --- Detail view ---
+  if (selectedMedical) {
+    const med = selectedMedical;
+    const emp = employees.find((e) => e.id === med.employeeId);
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button onClick={() => setSelectedMedical(null)} className="btn-secondary">
+            <ArrowLeft size={16} />
+            Back to Medicals
+          </button>
+          {isProvider && (
+            <button onClick={() => startEdit(med)} className="btn-primary">
+              <Edit3 size={16} />
+              Edit Assessment
+            </button>
+          )}
+        </div>
+
+        <div className="card overflow-hidden">
+          <div className="h-20 bg-gradient-to-br from-brand-600 to-brand-900" />
+          <div className="p-5 lg:p-6 -mt-8">
+            <div className="flex items-end gap-4">
+              <div className="h-16 w-16 rounded-2xl bg-white border-4 border-white shadow-lg flex items-center justify-center">
+                <Stethoscope size={28} className="text-brand-600" />
+              </div>
+              <div className="mb-1">
+                <h2 className="text-xl font-display font-bold text-ink-900">{med.type}</h2>
+                <p className="text-sm text-ink-500">{med.employeeName}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="card p-5">
+            <h3 className="font-display font-bold text-ink-900 mb-4">Assessment Details</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="flex items-center gap-2 text-sm text-ink-500"><User size={15} /> Employee</span>
+                <span className="font-semibold text-ink-900">{med.employeeName}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="flex items-center gap-2 text-sm text-ink-500"><Building2 size={15} /> Company</span>
+                <span className="font-semibold text-ink-900">{med.companyName}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="flex items-center gap-2 text-sm text-ink-500"><Calendar size={15} /> Date</span>
+                <span className="font-semibold text-ink-900">{med.date || 'Not set'}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="text-sm text-ink-500">Type</span>
+                <span className="font-semibold text-ink-900">{med.type}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="text-sm text-ink-500">Status</span>
+                <Badge color={statusColors[med.status]} dot>{med.status}</Badge>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-ink-500">Provider</span>
+                <span className="font-semibold text-ink-900">{med.providerName || 'Not assigned'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-5">
+            <h3 className="font-display font-bold text-ink-900 mb-4">Clinical Outcome</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1">Result</p>
+                <div className="flex items-center gap-2">
+                  <Badge color={
+                    med.result === 'Fit for duty' || med.result === 'Negative' || med.result === 'Fit for travel' ? 'success' :
+                    med.result === 'Fit with Restrictions' ? 'warning' :
+                    med.result === 'Unfit for duty' ? 'danger' :
+                    'brand'
+                  } dot>{med.result || 'Pending'}</Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1">Clinical Notes</p>
+                <p className="text-sm text-ink-700 leading-relaxed">{med.notes || 'No notes recorded.'}</p>
+              </div>
+              {emp && (
+                <div className="pt-3 border-t border-ink-100">
+                  <p className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-2">Employee Health Status</p>
+                  <div className="flex items-center gap-2">
+                    <Badge color={
+                      emp.healthStatus === 'Fit' ? 'success' :
+                      emp.healthStatus === 'Fit with Restrictions' ? 'warning' :
+                      emp.healthStatus === 'Unfit' ? 'danger' : 'brand'
+                    } dot>{emp.healthStatus}</Badge>
+                    <span className="text-xs text-ink-400">Next due: {emp.nextMedicalDue || 'Not scheduled'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -126,6 +274,7 @@ export function Medicals() {
             <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditingId(null); setFormData(emptyForm); }}><X size={16} /> Cancel</button>
           </div>
           {submitError && <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg">{submitError}</div>}
+          {fitnessNotice && <div className="p-3 bg-success-50 text-success-700 text-sm rounded-lg flex items-center gap-2"><ShieldCheck size={16} /> {fitnessNotice}</div>}
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {!editingId && (
@@ -177,14 +326,41 @@ export function Medicals() {
                 <input className="input w-full" value={formData.providerName || ''} onChange={(e) => setFormData({ ...formData, providerName: e.target.value })} placeholder="Clinician name" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Result</label>
-                <input className="input w-full" value={formData.result || ''} onChange={(e) => setFormData({ ...formData, result: e.target.value })} placeholder="e.g. Fit for duty" />
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Fitness Outcome</label>
+                <div className="relative">
+                  <select className="input w-full pr-9 appearance-none cursor-pointer" value={formData.result || 'Pending'} onChange={(e) => setFormData({ ...formData, result: e.target.value })}>
+                    <option value="Pending">Pending</option>
+                    {fitnessOutcomes.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+                </div>
               </div>
+
+              {/* Conditional fields when completing with fitness outcome */}
+              {editingId && formData.status === 'Completed' && formData.result && formData.result !== 'Pending' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-ink-700 mb-1">Restrictions (if applicable)</label>
+                    <input className="input w-full" value={restrictions} onChange={(e) => setRestrictions(e.target.value)} placeholder="e.g. No lifting >15kg for 6 weeks" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-ink-700 mb-1">Next Assessment Due</label>
+                    <input className="input w-full" type="date" value={nextDueDate} onChange={(e) => setNextDueDate(e.target.value)} />
+                  </div>
+                </>
+              )}
+
               <div className="sm:col-span-2">
                 <label className="block text-sm font-semibold text-ink-700 mb-1">Clinical Notes</label>
-                <textarea className="input w-full min-h-[60px] resize-y" value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Assessment notes and recommendations" />
+                <textarea className="input w-full min-h-[80px] resize-y" value={formData.notes || ''} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Assessment notes and recommendations" />
               </div>
             </div>
+            {editingId && formData.status === 'Completed' && formData.result && formData.result !== 'Pending' && (
+              <div className="p-3 bg-brand-50 text-brand-700 text-xs rounded-lg flex items-start gap-2">
+                <ShieldCheck size={14} className="mt-0.5 shrink-0" />
+                <span>Saving a Completed assessment with a fitness outcome will update the employee's health status, restrictions, and next assessment due date. This is a clinical decision restricted to authorised providers.</span>
+              </div>
+            )}
             <button type="submit" disabled={submitting} className="btn-primary">
               {submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : saved ? <><Check size={16} /> Saved</> : <><Plus size={16} /> {editingId ? 'Save Changes' : 'Create Assessment'}</>}
             </button>
@@ -236,7 +412,7 @@ export function Medicals() {
       ) : (
         <div className="space-y-3">
           {filtered.map((med) => (
-            <div key={med.id} className="card card-hover p-4">
+            <div key={med.id} className="card card-hover p-4 cursor-pointer" onClick={() => setSelectedMedical(med)}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${typeColors[med.type] || 'bg-ink-100 text-ink-600'}`}>
@@ -266,8 +442,12 @@ export function Medicals() {
                   </div>
                   <Badge color={statusColors[med.status]} dot>{med.status}</Badge>
                   {isProvider && (
-                    <button onClick={() => startEdit(med)} className="btn-ghost p-2 text-xs" title="Edit">
-                      <Stethoscope size={14} />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); startEdit(med); }}
+                      className="btn-ghost p-2 text-xs"
+                      title="Edit"
+                    >
+                      <Edit3 size={14} />
                     </button>
                   )}
                 </div>

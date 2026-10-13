@@ -177,7 +177,26 @@ export function useEmployees() {
     refetch();
   }, [refetch]);
 
-  return { data, loading, error, refetch };
+  const updateEmployeeFitness = useCallback(async (
+    employeeId: string,
+    fitnessOutcome: string,
+    lastAssessmentDate: string,
+    nextAssessmentDue: string | null,
+    restrictions?: string,
+  ) => {
+    const updateData: Record<string, unknown> = {
+      fitness_outcome: fitnessOutcome,
+      last_assessment_date: lastAssessmentDate || null,
+    };
+    if (nextAssessmentDue !== undefined) updateData.next_assessment_due = nextAssessmentDue;
+    if (restrictions !== undefined) updateData.restrictions = restrictions;
+
+    const { error: err } = await supabase.from('employees').update(updateData).eq('id', employeeId);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, updateEmployeeFitness };
 }
 
 // --- Medicals ---
@@ -210,6 +229,7 @@ export function useMedicals() {
       .from('medicals')
       .insert({
         employee_name: medical.employeeName,
+        employee_id: medical.employeeId || null,
         company_name: medical.companyName || '',
         type: medical.type || 'Annual Occupational',
         status: medical.status || 'Scheduled',
@@ -350,6 +370,7 @@ function transformDocument(row: Record<string, unknown>): DocumentRecord {
     uploadedDate: row.uploaded_date ? (row.uploaded_date as string) : '',
     fileSize: (row.file_size as string) || '',
     fileType: (row.file_type as string) || 'PDF',
+    expiryDate: row.expiry_date ? (row.expiry_date as string) : null,
   };
 }
 
@@ -374,6 +395,7 @@ export function useDocuments() {
         uploaded_date: doc.uploadedDate || null,
         file_size: doc.fileSize || '',
         file_type: doc.fileType || 'PDF',
+        expiry_date: doc.expiryDate || null,
       })
       .select()
       .single();
@@ -387,6 +409,7 @@ export function useDocuments() {
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.type !== undefined) updateData.type = updates.type;
+    if (updates.expiryDate !== undefined) updateData.expiry_date = updates.expiryDate || null;
 
     const { error: err } = await supabase.from('documents').update(updateData).eq('id', id);
     if (err) throw new Error(err.message);

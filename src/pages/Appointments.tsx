@@ -60,15 +60,24 @@ export function Appointments() {
     }
   };
 
-  const checkConflict = (date: string, time: string, providerName: string, excludeId?: string) => {
+  const checkConflict = (date: string, time: string, providerName: string, employeeName: string, excludeId?: string) => {
     if (!date || !time) return null;
-    const conflicts = appointments.filter(
+    // Check provider conflict
+    const providerConflict = appointments.find(
       (a) => a.date === date && a.time === time &&
       a.providerName === providerName &&
       a.status !== 'Cancelled' && a.status !== 'Completed' &&
       a.id !== excludeId
     );
-    return conflicts.length > 0 ? conflicts[0] : null;
+    if (providerConflict) return providerConflict;
+    // Check employee conflict
+    const employeeConflict = appointments.find(
+      (a) => a.date === date && a.time === time &&
+      a.employeeName === employeeName &&
+      a.status !== 'Cancelled' && a.status !== 'Completed' &&
+      a.id !== excludeId
+    );
+    return employeeConflict || null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,9 +85,13 @@ export function Appointments() {
     setSubmitError(null);
     setConflict(null);
 
-    const conflictAppt = checkConflict(formData.date || '', formData.time || '', formData.providerName || '', editingId || undefined);
+    const conflictAppt = checkConflict(formData.date || '', formData.time || '', formData.providerName || '', formData.employeeName || '', editingId || undefined);
     if (conflictAppt) {
-      setConflict(`Conflict: ${conflictAppt.providerName} already has an appointment with ${conflictAppt.employeeName} at ${conflictAppt.time} on ${conflictAppt.date}.`);
+      const isProviderConflict = conflictAppt.providerName === formData.providerName;
+      setConflict(isProviderConflict
+        ? `Provider conflict: ${conflictAppt.providerName} already has an appointment with ${conflictAppt.employeeName} at ${conflictAppt.time} on ${conflictAppt.date}.`
+        : `Employee conflict: ${conflictAppt.employeeName} already has an appointment with ${conflictAppt.providerName} at ${conflictAppt.time} on ${conflictAppt.date}.`
+      );
       return;
     }
 

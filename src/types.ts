@@ -134,6 +134,7 @@ export interface DocumentRecord {
   uploadedDate: string;
   fileSize: string;
   fileType: string;
+  expiryDate?: string | null;
 }
 
 export interface ActivityEvent {
