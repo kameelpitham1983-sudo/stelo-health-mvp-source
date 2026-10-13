@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Plane, MapPin, Calendar, ShieldAlert, Syringe, Pill, Package, Search } from 'lucide-react';
-import { travelHealth } from '@/data/mockData';
+import { Plane, MapPin, Calendar, ShieldAlert, Syringe, Pill, Package, Search, AlertCircle } from 'lucide-react';
+import { useTravelHealth } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 
 const riskColors: Record<string, 'success' | 'warning' | 'danger' | 'ink'> = {
@@ -25,6 +25,8 @@ const vaccineStatusColors: Record<string, 'success' | 'warning' | 'danger' | 'in
 };
 
 export function TravelHealth() {
+  const { data: travelHealth, loading, error } = useTravelHealth();
+
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -35,6 +37,14 @@ export function TravelHealth() {
   const actionsRequired = travelHealth.filter((t) => t.status === 'Action Required').length;
   const inProgress = travelHealth.filter((t) => t.status === 'In Progress').length;
   const cleared = travelHealth.filter((t) => t.status === 'Cleared').length;
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><span className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
+  }
+
+  if (error) {
+    return <div className="card p-6 text-center"><AlertCircle size={24} className="text-danger-500 mx-auto mb-2" /><p className="text-sm text-ink-600">Failed to load travel health records: {error}</p></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -72,73 +82,81 @@ export function TravelHealth() {
         <input type="text" placeholder="Search by employee or destination..." value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-10" />
       </div>
 
-      <div className="space-y-3">
-        {filtered.map((record) => (
-          <div key={record.id} className="card overflow-hidden">
-            <button
-              onClick={() => setExpanded(expanded === record.id ? null : record.id)}
-              className="w-full p-4 flex items-center gap-4 hover:bg-ink-50/50 transition-colors text-left"
-            >
-              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white shrink-0">
-                <Plane size={20} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-ink-900">{record.employeeName}</p>
-                  <Badge color={statusColors[record.status]} dot>{record.status}</Badge>
+      {filtered.length === 0 ? (
+        <div className="card p-12 text-center">
+          <Plane size={32} className="text-ink-300 mx-auto mb-3" />
+          <p className="text-sm text-ink-500">No travel health records found.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((record) => (
+            <div key={record.id} className="card overflow-hidden">
+              <button
+                onClick={() => setExpanded(expanded === record.id ? null : record.id)}
+                className="w-full p-4 flex items-center gap-4 hover:bg-ink-50/50 transition-colors text-left"
+              >
+                <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white shrink-0">
+                  <Plane size={20} />
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-xs text-ink-500 flex-wrap">
-                  <span className="flex items-center gap-1"><MapPin size={12} /> {record.destination}</span>
-                  <span className="flex items-center gap-1"><Calendar size={12} /> Departs {record.departureDate}</span>
-                  <Badge color={riskColors[record.riskLevel]}>{record.riskLevel} risk</Badge>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-ink-900">{record.employeeName}</p>
+                    <Badge color={statusColors[record.status]} dot>{record.status}</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-ink-500 flex-wrap">
+                    <span className="flex items-center gap-1"><MapPin size={12} /> {record.destination}</span>
+                    <span className="flex items-center gap-1"><Calendar size={12} /> Departs {record.departureDate}</span>
+                    <Badge color={riskColors[record.riskLevel]}>{record.riskLevel} risk</Badge>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
 
-            {expanded === record.id && (
-              <div className="border-t border-ink-100 p-4 bg-ink-50/30 animate-slide-down">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-xs font-bold text-ink-500 uppercase tracking-wider mb-3">Vaccinations</h4>
-                    <div className="space-y-2">
-                      {record.vaccines.map((v) => (
-                        <div key={v.name} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
-                          <span className="flex items-center gap-2 text-sm text-ink-700">
-                            <Syringe size={14} className="text-ink-400" />
-                            {v.name}
-                          </span>
-                          <Badge color={vaccineStatusColors[v.status]}>{v.status}</Badge>
-                        </div>
-                      ))}
+              {expanded === record.id && (
+                <div className="border-t border-ink-100 p-4 bg-ink-50/30 animate-slide-down">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-ink-500 uppercase tracking-wider mb-3">Vaccinations</h4>
+                      <div className="space-y-2">
+                        {record.vaccines.map((v) => (
+                          <div key={v.name} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
+                            <span className="flex items-center gap-2 text-sm text-ink-700">
+                              <Syringe size={14} className="text-ink-400" />
+                              {v.name}
+                            </span>
+                            <Badge color={vaccineStatusColors[v.status]}>{v.status}</Badge>
+                          </div>
+                        ))}
+                        {record.vaccines.length === 0 && <p className="text-sm text-ink-400">No vaccines recorded.</p>}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-ink-500 uppercase tracking-wider mb-3">Travel preparation</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
-                        <span className="flex items-center gap-2 text-sm text-ink-700"><Pill size={14} className="text-ink-400" /> Malaria prophylaxis</span>
-                        <Badge color={record.malariaProphylaxis ? 'success' : 'ink'}>{record.malariaProphylaxis ? 'Issued' : 'Not required'}</Badge>
-                      </div>
-                      <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
-                        <span className="flex items-center gap-2 text-sm text-ink-700"><Package size={14} className="text-ink-400" /> Travel medical kit</span>
-                        <Badge color={record.travelKitIssued ? 'success' : 'ink'}>{record.travelKitIssued ? 'Issued' : 'Not issued'}</Badge>
-                      </div>
-                      <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
-                        <span className="flex items-center gap-2 text-sm text-ink-700"><Calendar size={14} className="text-ink-400" /> Last consultation</span>
-                        <span className="text-sm font-medium text-ink-700">{record.lastConsultation}</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
-                        <span className="flex items-center gap-2 text-sm text-ink-700"><Calendar size={14} className="text-ink-400" /> Return date</span>
-                        <span className="text-sm font-medium text-ink-700">{record.returnDate}</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-ink-500 uppercase tracking-wider mb-3">Travel preparation</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
+                          <span className="flex items-center gap-2 text-sm text-ink-700"><Pill size={14} className="text-ink-400" /> Malaria prophylaxis</span>
+                          <Badge color={record.malariaProphylaxis ? 'success' : 'ink'}>{record.malariaProphylaxis ? 'Issued' : 'Not required'}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
+                          <span className="flex items-center gap-2 text-sm text-ink-700"><Package size={14} className="text-ink-400" /> Travel medical kit</span>
+                          <Badge color={record.travelKitIssued ? 'success' : 'ink'}>{record.travelKitIssued ? 'Issued' : 'Not issued'}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
+                          <span className="flex items-center gap-2 text-sm text-ink-700"><Calendar size={14} className="text-ink-400" /> Last consultation</span>
+                          <span className="text-sm font-medium text-ink-700">{record.lastConsultation || 'Not recorded'}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
+                          <span className="flex items-center gap-2 text-sm text-ink-700"><Calendar size={14} className="text-ink-400" /> Return date</span>
+                          <span className="text-sm font-medium text-ink-700">{record.returnDate}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
