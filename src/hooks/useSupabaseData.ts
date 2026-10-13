@@ -13,6 +13,7 @@ import type {
   Synopsis,
   SynopsisMeetingNote,
   SynopsisFollowUp,
+  VaccineStatus,
 } from '@/types';
 
 // --- Generic hook helper ---
@@ -317,7 +318,7 @@ function transformTravelHealth(row: Record<string, unknown>): TravelHealthRecord
     departureDate: row.departure_date ? (row.departure_date as string) : '',
     returnDate: row.return_date ? (row.return_date as string) : '',
     riskLevel: (row.risk_level as string) as TravelHealthRecord['riskLevel'],
-    vaccines: (row.vaccines as { name: string; status: string }[]) || [],
+    vaccines: (row.vaccines as { name: string; status: VaccineStatus }[]) || [],
     malariaProphylaxis: (row.malaria_prophylaxis as boolean) || false,
     travelKitIssued: (row.travel_kit_issued as boolean) || false,
     lastConsultation: row.last_consultation ? (row.last_consultation as string) : '',
