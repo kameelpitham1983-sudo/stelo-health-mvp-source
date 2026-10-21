@@ -277,3 +277,101 @@ export interface QuestionnaireInstance {
   reviewedBy: string;
   reviewedAt: string | null;
 }
+
+// --- Visa Medical types ---
+
+export type VisaMedicalStatus =
+  | 'Requested'
+  | 'Awaiting Documents'
+  | 'Questionnaire Pending'
+  | 'Appointment Booked'
+  | 'Tests Pending'
+  | 'Awaiting Clinician Review'
+  | 'Completed'
+  | 'Follow-up Required';
+
+export interface VisaRequirementItem {
+  id: string;
+  name: string;
+  type: 'examination' | 'test' | 'document';
+  required: boolean;
+}
+
+export interface VisaCountryRequirement {
+  id: string;
+  country: string;
+  visaCategory: string;
+  requirements: VisaRequirementItem[];
+  validityDays: number | null;
+  source: string;
+  lastVerified: string;
+  reviewStatus: 'Current' | 'Needs Review' | 'Unverified';
+  responsibleAdmin: string;
+}
+
+export interface VisaMedicalCase {
+  id: string;
+  caseReference: string;
+  employeeName: string;
+  employeeId: string;
+  companyName: string;
+  destinationCountry: string;
+  visaCategory: string;
+  status: VisaMedicalStatus;
+  requirements: VisaRequirementItem[];
+  checklistProgress: Record<string, boolean>;
+  appointmentId: string | null;
+  appointmentDate: string | null;
+  providerName: string;
+  questionnaireStatus: QuestionnaireInstanceStatus;
+  clinicianReviewNotes: string;
+  certificateIssued: boolean;
+  certificateExpiryDate: string | null;
+  followUpDate: string | null;
+  requestedBy: string;
+  requestedAt: string;
+  completedAt: string | null;
+  auditTrail: VisaAuditEntry[];
+}
+
+export interface VisaAuditEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  actor: string;
+}
+
+// --- Travel Health Consultation types ---
+
+export type TravelConsultationStatus =
+  | 'Not Scheduled'
+  | 'Scheduled'
+  | 'Completed'
+  | 'Post-Travel Review Required'
+  | 'Post-Travel Completed';
+
+export interface TravelConsultation {
+  id: string;
+  travelHealthRecordId: string;
+  employeeName: string;
+  employeeId: string;
+  companyName: string;
+  destination: string;
+  departureDate: string;
+  returnDate: string;
+  purposeOfTravel: string;
+  riskLevel: 'Low' | 'Moderate' | 'High' | 'Very High';
+  consultationDate: string | null;
+  providerName: string;
+  status: TravelConsultationStatus;
+  vaccinationPlan: { name: string; status: VaccineStatus }[];
+  malariaProphylaxis: boolean;
+  travelKitIssued: boolean;
+  travelAdvice: string;
+  clinicianNotes: string;
+  postTravelReviewDate: string | null;
+  postTravelNotes: string;
+  appointmentId: string | null;
+  medicalId: string | null;
+  questionnaireStatus: QuestionnaireInstanceStatus;
+}
