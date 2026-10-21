@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
-import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2, Search } from 'lucide-react';
-import { useAppointments, useEmployees, useCompanies, isDemoMode } from '@/hooks/useSupabaseData';
+import { useState, useMemo, useCallback } from 'react';
+import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2, Search, Stethoscope, ArrowRight } from 'lucide-react';
+import { useAppointments, useEmployees, useCompanies, useMedicals, isDemoMode } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import type { Appointment, AppointmentType, AppointmentMode, AppointmentStatus } from '@/types';
 
@@ -36,9 +36,10 @@ const emptyForm: Partial<Appointment> = {
 };
 
 export function Appointments() {
-  const { data: appointments, loading, error, addAppointment, updateAppointment } = useAppointments();
+  const { data: dbAppointments, loading, error, addAppointment, updateAppointment } = useAppointments();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
+  const { data: medicals } = useMedicals();
 
   const [view, setView] = useState<'upcoming' | 'all'>('upcoming');
   const [showForm, setShowForm] = useState(false);
@@ -50,14 +51,39 @@ export function Appointments() {
   const [conflict, setConflict] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+  const [detailAppt, setDetailAppt] = useState<Appointment | null>(null);
 
-  const sorted = [...appointments].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  // Local demo state: when in demo mode, mutations update this local list
+  // instead of hitting the blocked database.
+  const [demoAppointments, setDemoAppointments] = useState<Appointment[]>([]);
+
+  const appointments = useMemo(() => {
+    if (isDemoMode && demoAppointments.length > 0) {
+      // Merge: base demo data + locally added demo records
+      const baseIds = new Set(dbAppointments.map((a) => a.id));
+      const added = demoAppointments.filter((a) => !baseIds.has(a.id));
+      return [...dbAppointments, ...added];
+    }
+    return dbAppointments;
+  }, [dbAppointments, demoAppointments]);
+
+  const sorted = useMemo(() => [...appointments].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)), [appointments]);
   const upcoming = sorted.filter((a) => a.status === 'Confirmed' || a.status === 'Pending');
   const viewFiltered = view === 'upcoming' ? upcoming : sorted;
+
   const display = useMemo(() => {
     let result = viewFiltered;
     if (statusFilter !== 'all') {
       result = result.filter((a) => a.status === statusFilter);
+    }
+    if (dateFrom) {
+      result = result.filter((a) => a.date >= dateFrom);
+    }
+    if (dateTo) {
+      result = result.filter((a) => a.date <= dateTo);
     }
     if (search.trim()) {
       const q = search.toLowerCase().trim();
@@ -70,7 +96,15 @@ export function Appointments() {
       );
     }
     return result;
-  }, [viewFiltered, statusFilter, search]);
+  }, [viewFiltered, statusFilter, dateFrom, dateTo, search]);
+
+  const relatedMedicals = useCallback((appt: Appointment) => {
+    return medicals.filter(
+      (m) =>
+        m.employeeName === appt.employeeName &&
+        m.companyName === appt.companyName
+    );
+  }, [medicals]);
 
   const handleEmployeeSelect = (empId: string) => {
     const emp = employees.find((e) => e.id === empId);
@@ -81,18 +115,18 @@ export function Appointments() {
 
   const checkConflict = (date: string, time: string, providerName: string, employeeName: string, excludeId?: string) => {
     if (!date || !time) return null;
-    // Check provider conflict
     const providerConflict = appointments.find(
       (a) => a.date === date && a.time === time &&
       a.providerName === providerName &&
+      a.providerName &&
       a.status !== 'Cancelled' && a.status !== 'Completed' &&
       a.id !== excludeId
     );
     if (providerConflict) return providerConflict;
-    // Check employee conflict
     const employeeConflict = appointments.find(
       (a) => a.date === date && a.time === time &&
       a.employeeName === employeeName &&
+      a.employeeName &&
       a.status !== 'Cancelled' && a.status !== 'Completed' &&
       a.id !== excludeId
     );
@@ -103,6 +137,15 @@ export function Appointments() {
     e.preventDefault();
     setSubmitError(null);
     setConflict(null);
+
+    if (!formData.employeeName?.trim()) {
+      setSubmitError('Please select an employee.');
+      return;
+    }
+    if (!formData.date) {
+      setSubmitError('Please select a date.');
+      return;
+    }
 
     const conflictAppt = checkConflict(formData.date || '', formData.time || '', formData.providerName || '', formData.employeeName || '', editingId || undefined);
     if (conflictAppt) {
@@ -116,15 +159,52 @@ export function Appointments() {
 
     setSubmitting(true);
     try {
-      if (editingId) {
-        await updateAppointment(editingId, formData);
+      if (isDemoMode) {
+        // Demo mode: update local state only
+        if (editingId) {
+          setDemoAppointments((prev) =>
+            prev.map((a) => a.id === editingId ? { ...a, ...formData } : a)
+          );
+          // Also update base demo data items in local state
+          setDemoAppointments((prev) => {
+            const exists = prev.some((a) => a.id === editingId);
+            if (!exists) {
+              const baseItem = dbAppointments.find((a) => a.id === editingId);
+              if (baseItem) {
+                return [...prev, { ...baseItem, ...formData }];
+              }
+            }
+            return prev;
+          });
+        } else {
+          const newAppt: Appointment = {
+            id: `demo-appt-${Date.now()}`,
+            employeeName: formData.employeeName || '',
+            companyName: formData.companyName || '',
+            type: formData.type || 'Occupational Health',
+            mode: formData.mode || 'In-clinic',
+            status: formData.status || 'Pending',
+            date: formData.date || '',
+            time: formData.time || '09:00',
+            durationMin: formData.durationMin || 30,
+            providerName: formData.providerName || '',
+            location: formData.location || '',
+          };
+          setDemoAppointments((prev) => [...prev, newAppt]);
+        }
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
-        setEditingId(null);
       } else {
-        await addAppointment(formData);
+        if (editingId) {
+          await updateAppointment(editingId, formData);
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000);
+        } else {
+          await addAppointment(formData);
+        }
       }
       setShowForm(false);
+      setEditingId(null);
       setFormData(emptyForm);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to save appointment');
@@ -150,12 +230,24 @@ export function Appointments() {
     setShowForm(true);
   };
 
-  const handleCancel = async (id: string) => {
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
     try {
-      await updateAppointment(id, { status: 'Cancelled' });
+      if (isDemoMode) {
+        setDemoAppointments((prev) => {
+          const exists = prev.some((a) => a.id === cancelTarget.id);
+          if (exists) {
+            return prev.map((a) => a.id === cancelTarget.id ? { ...a, status: 'Cancelled' } : a);
+          }
+          return [...prev, { ...cancelTarget, status: 'Cancelled' }];
+        });
+      } else {
+        await updateAppointment(cancelTarget.id, { status: 'Cancelled' });
+      }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to cancel appointment');
     }
+    setCancelTarget(null);
   };
 
   if (loading) {
@@ -166,12 +258,98 @@ export function Appointments() {
     return <div className="card p-6 text-center"><AlertCircle size={24} className="text-danger-500 mx-auto mb-2" /><p className="text-sm text-ink-600">Failed to load appointments: {error}</p></div>;
   }
 
+  // --- Detail view ---
+  if (detailAppt) {
+    const linkedMedicals = relatedMedicals(detailAppt);
+    const ModeIcon = modeIcons[detailAppt.mode] || Building;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button onClick={() => setDetailAppt(null)} className="btn-secondary">
+            <ArrowRight size={16} className="rotate-180" /> Back to Appointments
+          </button>
+          <Badge color={statusColors[detailAppt.status]} dot>{detailAppt.status}</Badge>
+        </div>
+
+        <div className="card overflow-hidden">
+          <div className="h-20 bg-gradient-to-br from-brand-600 to-brand-900" />
+          <div className="p-5 lg:p-6 -mt-8">
+            <div className="flex items-end gap-4">
+              <div className="h-16 w-16 rounded-2xl bg-white border-4 border-white shadow-lg flex items-center justify-center">
+                <CalendarDays size={28} className="text-brand-600" />
+              </div>
+              <div className="mb-1">
+                <h2 className="text-xl font-display font-bold text-ink-900">{detailAppt.employeeName}</h2>
+                <p className="text-sm text-ink-500">{detailAppt.companyName} · {detailAppt.type}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="card p-5">
+            <h3 className="font-display font-bold text-ink-900 mb-4">Appointment Details</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="flex items-center gap-2 text-sm text-ink-500"><CalendarDays size={15} /> Date</span>
+                <span className="font-semibold text-ink-900">{detailAppt.date || 'Not set'}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="flex items-center gap-2 text-sm text-ink-500"><Clock size={15} /> Time</span>
+                <span className="font-semibold text-ink-900">{detailAppt.time} · {detailAppt.durationMin}min</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="flex items-center gap-2 text-sm text-ink-500"><ModeIcon size={15} /> Mode</span>
+                <span className="font-semibold text-ink-900">{detailAppt.mode}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-ink-100">
+                <span className="flex items-center gap-2 text-sm text-ink-500"><MapPin size={15} /> Location</span>
+                <span className="font-semibold text-ink-900">{detailAppt.location || 'Not set'}</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-ink-500">Provider</span>
+                <span className="font-semibold text-ink-900">{detailAppt.providerName || 'Not assigned'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-5">
+            <h3 className="font-display font-bold text-ink-900 mb-4 flex items-center gap-2"><Stethoscope size={18} className="text-brand-600" /> Linked Medical Assessments</h3>
+            {linkedMedicals.length === 0 ? (
+              <p className="text-sm text-ink-400 py-6 text-center">No medical assessments linked to this employee.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {linkedMedicals.map((m) => (
+                  <div key={m.id} className="p-3 bg-ink-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-ink-900">{m.type}</p>
+                      <Badge color={m.status === 'Completed' ? 'success' : m.status === 'Overdue' ? 'danger' : 'warning'}>{m.status}</Badge>
+                    </div>
+                    <p className="text-xs text-ink-500">{m.date} · {m.providerName} · {m.result}</p>
+                    {m.notes && <p className="text-xs text-ink-400 mt-1">{m.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={() => { setDetailAppt(null); startEdit(detailAppt); }} className="btn-secondary"><Edit3 size={16} /> Edit</button>
+          {detailAppt.status !== 'Cancelled' && detailAppt.status !== 'Completed' && (
+            <button onClick={() => { setDetailAppt(null); setCancelTarget(detailAppt); }} className="btn-secondary text-danger-600 hover:bg-danger-50"><Trash2 size={16} /> Cancel Appointment</button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {isDemoMode && (
         <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
           <AlertCircle size={16} className="shrink-0" />
-          Demo mode — showing sample appointments. New appointments will be saved to the database once the Supabase connection is active.
+          Demo mode — showing sample appointments. Changes are local only and will not be saved as live records. Restart the dev server with valid Supabase credentials to enable live data.
         </div>
       )}
       {showForm && (
@@ -261,6 +439,24 @@ export function Appointments() {
         </div>
       )}
 
+      {/* Cancel confirmation */}
+      {cancelTarget && (
+        <div className="card p-5 space-y-4 border-danger-200">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} className="text-danger-600" />
+            <h3 className="text-lg font-bold text-ink-900">Cancel this appointment?</h3>
+          </div>
+          <p className="text-sm text-ink-600">
+            {cancelTarget.employeeName} — {cancelTarget.type} on {cancelTarget.date} at {cancelTarget.time}.
+            {isDemoMode ? ' This is a demo record — the change will be local only.' : ' This will mark the appointment as cancelled.'}
+          </p>
+          <div className="flex gap-2">
+            <button onClick={confirmCancel} className="btn-primary bg-danger-600 hover:bg-danger-700">Yes, Cancel Appointment</button>
+            <button onClick={() => setCancelTarget(null)} className="btn-secondary">Keep Appointment</button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Appointments</h2>
@@ -296,15 +492,30 @@ export function Appointments() {
         </select>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <label className="block text-xs font-medium text-ink-500 mb-1">From date</label>
+          <input className="input w-full" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-medium text-ink-500 mb-1">To date</label>
+          <input className="input w-full" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+        {(dateFrom || dateTo) && (
+          <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="btn-secondary self-end">Clear dates</button>
+        )}
+      </div>
+
       {display.length === 0 ? (
         <div className="card p-12 text-center">
           <CalendarDays size={32} className="text-ink-300 mx-auto mb-3" />
-          <p className="text-sm text-ink-500">No appointments found. Click "Book Appointment" to create one.</p>
+          <p className="text-sm text-ink-500">No appointments found. {search || statusFilter !== 'all' || dateFrom || dateTo ? 'Try adjusting your filters.' : 'Click "Book Appointment" to create one.'}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {display.map((appt) => {
             const ModeIcon = modeIcons[appt.mode] || Building;
+            const linkedCount = relatedMedicals(appt).length;
             return (
               <div key={appt.id} className="card card-hover p-5">
                 <div className="flex items-start gap-4">
@@ -314,8 +525,8 @@ export function Appointments() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-ink-900">{appt.employeeName}</p>
+                      <div className="min-w-0 cursor-pointer" onClick={() => setDetailAppt(appt)}>
+                        <p className="text-sm font-semibold text-ink-900 hover:text-brand-600 transition-colors">{appt.employeeName}</p>
                         <p className="text-xs text-ink-400 truncate">{appt.companyName}</p>
                       </div>
                       <Badge color={statusColors[appt.status]} dot>{appt.status}</Badge>
@@ -326,12 +537,18 @@ export function Appointments() {
                       <span className="flex items-center gap-1"><ModeIcon size={12} /> {appt.mode}</span>
                       <span className="flex items-center gap-1"><MapPin size={12} /> {appt.location}</span>
                     </div>
+                    {linkedCount > 0 && (
+                      <button onClick={() => setDetailAppt(appt)} className="mt-1.5 inline-flex items-center gap-1 text-xs text-brand-600 font-medium hover:text-brand-700">
+                        <Stethoscope size={12} /> {linkedCount} linked medical{linkedCount !== 1 ? 's' : ''}
+                      </button>
+                    )}
                     <div className="mt-2.5 pt-2.5 border-t border-ink-100 flex items-center justify-between">
-                      <p className="text-xs text-ink-400">Provider: <span className="text-ink-600 font-medium">{appt.providerName}</span></p>
+                      <p className="text-xs text-ink-400">Provider: <span className="text-ink-600 font-medium">{appt.providerName || 'Not assigned'}</span></p>
                       <div className="flex gap-1">
+                        <button onClick={() => setDetailAppt(appt)} className="btn-ghost p-1.5" title="View details"><CalendarDays size={14} /></button>
                         <button onClick={() => startEdit(appt)} className="btn-ghost p-1.5" title="Edit"><Edit3 size={14} /></button>
                         {appt.status !== 'Cancelled' && appt.status !== 'Completed' && (
-                          <button onClick={() => handleCancel(appt.id)} className="btn-ghost p-1.5 text-danger-600 hover:bg-danger-50" title="Cancel"><Trash2 size={14} /></button>
+                          <button onClick={() => setCancelTarget(appt)} className="btn-ghost p-1.5 text-danger-600 hover:bg-danger-50" title="Cancel"><Trash2 size={14} /></button>
                         )}
                       </div>
                     </div>

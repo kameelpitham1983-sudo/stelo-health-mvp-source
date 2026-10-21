@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   HeartPulse,
   Plus,
@@ -14,6 +14,8 @@ import {
   X,
   ChevronDown,
   Search,
+  Clock,
+  ClipboardList,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import {
@@ -24,7 +26,7 @@ import {
   isDemoMode,
 } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
-import type { SicknessAbsenceCase, SicknessCaseStatus } from '@/types';
+import type { SicknessAbsenceCase, SicknessCaseStatus, SicknessRiskAssessment } from '@/types';
 
 const caseStatuses: SicknessCaseStatus[] = [
   'Referral Received',
@@ -85,9 +87,23 @@ const emptyForm: Partial<SicknessAbsenceCase> = {
 
 export function SicknessAbsence() {
   const { user } = useApp();
-  const { data: cases, loading, error, addCase, updateCase } = useSicknessCases();
+  const { data: dbCases, loading, error, addCase, updateCase } = useSicknessCases();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
+
+  // Local demo state: when in demo mode, mutations update local state only
+  const [demoCases, setDemoCases] = useState<SicknessAbsenceCase[]>([]);
+  const [demoRiskAssessments, setDemoRiskAssessments] = useState<Record<string, SicknessRiskAssessment[]>>({});
+
+  const cases = useMemo(() => {
+    if (isDemoMode && demoCases.length > 0) {
+      const baseIds = new Set(dbCases.map((c) => c.id));
+      const added = demoCases.filter((c) => !baseIds.has(c.id));
+      const updated = dbCases.map((c) => demoCases.find((d) => d.id === c.id) || c);
+      return [...updated, ...added];
+    }
+    return dbCases;
+  }, [dbCases, demoCases]);
 
   const [selectedCase, setSelectedCase] = useState<SicknessAbsenceCase | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -117,6 +133,11 @@ export function SicknessAbsence() {
 
   const { data: riskAssessments, addAssessment } = useRiskAssessments(selectedCase?.id ?? null);
 
+  // In demo mode, use local risk assessments instead of the DB-backed hook
+  const currentRiskAssessments = isDemoMode
+    ? (selectedCase ? (demoRiskAssessments[selectedCase.id] || []) : [])
+    : riskAssessments;
+
   const handleEmployeeSelect = (empId: string) => {
     const emp = employees.find((e) => e.id === empId);
     if (emp) {
@@ -136,13 +157,43 @@ export function SicknessAbsence() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
+    if (!formData.employeeName?.trim()) {
+      setSubmitError('Please select or enter an employee name.');
+      return;
+    }
     setSubmitting(true);
     try {
       const caseData = { ...formData };
       if (!caseData.caseReference) {
         caseData.caseReference = generateCaseRef();
       }
-      await addCase(caseData);
+      if (isDemoMode) {
+        const newCase: SicknessAbsenceCase = {
+          id: `demo-case-${Date.now()}`,
+          caseReference: caseData.caseReference || '',
+          employeeName: caseData.employeeName || '',
+          companyName: caseData.companyName || '',
+          referralDate: caseData.referralDate || '',
+          referringPerson: caseData.referringPerson || '',
+          referralTrigger: caseData.referralTrigger || '',
+          injuryOnDuty: caseData.injuryOnDuty || false,
+          incidentDate: caseData.incidentDate || '',
+          absenceStartDate: caseData.absenceStartDate || '',
+          expectedReturnDate: caseData.expectedReturnDate || '',
+          actualReturnDate: caseData.actualReturnDate || null,
+          caseStatus: caseData.caseStatus || 'Referral Received',
+          jobDuties: caseData.jobDuties || '',
+          functionalLimitations: caseData.functionalLimitations || '',
+          workplaceAccommodations: caseData.workplaceAccommodations || '',
+          caseManager: caseData.caseManager || '',
+          reviewDate: null,
+          closureDate: null,
+          closureReason: null,
+        };
+        setDemoCases((prev) => [...prev, newCase]);
+      } else {
+        await addCase(caseData);
+      }
       setShowForm(false);
       setFormData(emptyForm);
     } catch (err) {
@@ -157,14 +208,28 @@ export function SicknessAbsence() {
     setUpdateError(null);
     setSubmitting(true);
     try {
-      await updateCase(selectedCase.id, {
+      const updates = {
         caseStatus: updateStatus,
         workplaceAccommodations: updateAccommodations,
         functionalLimitations: updateLimitations,
         expectedReturnDate: updateExpectedReturn,
         actualReturnDate: updateActualReturn || null,
         caseManager: updateCaseManager,
-      });
+      };
+      if (isDemoMode) {
+        setDemoCases((prev) => {
+          const exists = prev.some((c) => c.id === selectedCase.id);
+          if (exists) {
+            return prev.map((c) => c.id === selectedCase.id ? { ...c, ...updates } : c);
+          }
+          return [...prev, { ...selectedCase, ...updates }];
+        });
+        // Also update selectedCase so the detail view reflects changes
+        setSelectedCase({ ...selectedCase, ...updates });
+      } else {
+        await updateCase(selectedCase.id, updates);
+        setSelectedCase({ ...selectedCase, ...updates });
+      }
       setUpdateSaved(true);
       setTimeout(() => setUpdateSaved(false), 2000);
     } catch (err) {
@@ -177,20 +242,40 @@ export function SicknessAbsence() {
   const handleAddRisk = async () => {
     if (!selectedCase) return;
     setRiskError(null);
-    try {
-      await addAssessment({
-        severity: riskSeverity as 'Low' | 'Medium' | 'High',
-        likelihood: riskLikelihood as 'Low' | 'Medium' | 'High',
-        riskLevel: computeRiskLevel(riskSeverity, riskLikelihood),
-        notes: riskNotes,
-        reviewDate: riskReviewDate,
-        responsiblePerson: riskPerson,
-      });
+    const assessment: SicknessRiskAssessment = {
+      id: `demo-risk-${Date.now()}`,
+      caseId: selectedCase.id,
+      severity: riskSeverity as 'Low' | 'Medium' | 'High',
+      likelihood: riskLikelihood as 'Low' | 'Medium' | 'High',
+      riskLevel: computeRiskLevel(riskSeverity, riskLikelihood),
+      notes: riskNotes,
+      reviewDate: riskReviewDate,
+      responsiblePerson: riskPerson,
+    };
+    if (isDemoMode) {
+      setDemoRiskAssessments((prev) => ({
+        ...prev,
+        [selectedCase.id]: [...(prev[selectedCase.id] || []), assessment],
+      }));
       setRiskNotes('');
       setRiskReviewDate('');
       setRiskPerson('');
-    } catch (err) {
-      setRiskError(err instanceof Error ? err.message : 'Failed to add risk assessment');
+    } else {
+      try {
+        await addAssessment({
+          severity: riskSeverity as 'Low' | 'Medium' | 'High',
+          likelihood: riskLikelihood as 'Low' | 'Medium' | 'High',
+          riskLevel: computeRiskLevel(riskSeverity, riskLikelihood),
+          notes: riskNotes,
+          reviewDate: riskReviewDate,
+          responsiblePerson: riskPerson,
+        });
+        setRiskNotes('');
+        setRiskReviewDate('');
+        setRiskPerson('');
+      } catch (err) {
+        setRiskError(err instanceof Error ? err.message : 'Failed to add risk assessment');
+      }
     }
   };
 
@@ -392,10 +477,46 @@ export function SicknessAbsence() {
           </button>
         </div>
 
+        {/* Outstanding actions */}
+        <div className="card p-5">
+          <h3 className="font-display font-bold text-ink-900 mb-4 flex items-center gap-2"><ClipboardList size={18} className="text-brand-600" /> Outstanding Actions</h3>
+          {(() => {
+            const actions: { label: string; done: boolean }[] = [];
+            if (!selectedCase.caseManager) actions.push({ label: 'Assign a case manager', done: false });
+            else actions.push({ label: `Case manager assigned: ${selectedCase.caseManager}`, done: true });
+            if (!selectedCase.functionalLimitations) actions.push({ label: 'Document functional limitations', done: false });
+            else actions.push({ label: 'Functional limitations documented', done: true });
+            if (!selectedCase.workplaceAccommodations) actions.push({ label: 'Define workplace accommodations', done: false });
+            else actions.push({ label: 'Workplace accommodations defined', done: true });
+            if (!selectedCase.actualReturnDate && selectedCase.caseStatus !== 'Closed') actions.push({ label: 'Record actual return date when employee returns', done: false });
+            if (selectedCase.reviewDate && selectedCase.caseStatus !== 'Closed') {
+              const isOverdue = new Date(selectedCase.reviewDate) < new Date();
+              actions.push({ label: `Review due ${selectedCase.reviewDate}${isOverdue ? ' (overdue)' : ''}`, done: false });
+            }
+            if (selectedCase.caseStatus === 'Closed' && selectedCase.closureDate) {
+              actions.push({ label: `Case closed on ${selectedCase.closureDate}`, done: true });
+            }
+            const outstanding = actions.filter((a) => !a.done);
+            if (outstanding.length === 0) {
+              return <p className="text-sm text-success-700 flex items-center gap-2"><Check size={16} /> All required actions completed.</p>;
+            }
+            return (
+              <div className="space-y-2">
+                {outstanding.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm text-ink-700">
+                    <Clock size={14} className="text-warning-500 shrink-0" />
+                    {a.label}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+
         {/* Risk assessment */}
         <div className="card p-5">
           <h3 className="font-display font-bold text-ink-900 mb-4 flex items-center gap-2"><ShieldAlert size={18} className="text-danger-600" /> Risk Assessment Matrix</h3>
-          <p className="text-xs text-ink-500 mb-4">This assesses workplace / case-management risk, not a clinical diagnosis. The risk level is computed from severity and likelihood.</p>
+          <p className="text-xs text-ink-500 mb-4">This assesses workplace / case-management risk, not a clinical diagnosis. The risk level is computed from severity and likelihood. {isDemoMode && 'Demo mode — risk assessments are stored locally only.'}</p>
 
           {riskError && <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg mb-4">{riskError}</div>}
 
@@ -434,10 +555,10 @@ export function SicknessAbsence() {
           <button onClick={handleAddRisk} className="btn-secondary"><Plus size={16} /> Add Risk Assessment</button>
 
           {/* Existing risk assessments */}
-          {riskAssessments.length > 0 && (
+          {currentRiskAssessments.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-xs font-semibold text-ink-400 uppercase tracking-wider">Assessment History</p>
-              {riskAssessments.map((ra) => (
+              {currentRiskAssessments.map((ra) => (
                 <div key={ra.id} className="p-3 bg-ink-50 rounded-lg">
                   <div className="flex items-center gap-3 mb-1">
                     <Badge color={severityColors[ra.riskLevel] || 'ink'} dot>Risk: {ra.riskLevel}</Badge>
@@ -461,7 +582,7 @@ export function SicknessAbsence() {
       {isDemoMode && (
         <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
           <AlertCircle size={16} className="shrink-0" />
-          Demo mode — showing sample sickness absence cases. New cases will be saved to the database once the Supabase connection is active.
+          Demo mode — showing sample sickness absence cases. Changes are local only and will not be saved as live records. Restart the dev server with valid Supabase credentials to enable live data.
         </div>
       )}
       {showForm && (
