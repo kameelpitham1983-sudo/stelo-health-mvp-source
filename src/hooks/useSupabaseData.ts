@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseConfigured } from '@/lib/supabase';
 import type {
   Company,
   Employee,
@@ -31,6 +31,11 @@ function useSupabaseQuery<T>(
   const refetch = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (!supabaseConfigured) {
+      setError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file and restart the dev server.');
+      setLoading(false);
+      return;
+    }
     let query = supabase.from(table).select('*');
     if (orderBy) query = query.order(orderBy, { ascending });
     const { data: rows, error: err } = await query;
@@ -154,6 +159,11 @@ export function useEmployees() {
   const refetch = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (!supabaseConfigured) {
+      setError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file and restart the dev server.');
+      setLoading(false);
+      return;
+    }
     const { data: rows, error: err } = await supabase
       .from('employees')
       .select('*, companies!company_id(name)')
