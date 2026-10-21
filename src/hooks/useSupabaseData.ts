@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import * as mockData from '@/data/mockData';
 import type {
@@ -18,11 +18,15 @@ import type {
 } from '@/types';
 
 // Demo data fallback: when the database is empty or unreachable, pages show
-// clearly-labelled sample data instead of blank screens. Mutations still go to
-// the real database — demo data is read-only and never written to Supabase.
+// clearly-labelled sample data instead of blank screens. Demo data is read-only
+// and never written to Supabase. Write operations are blocked in demo mode.
 export const isDemoMode = !supabaseConfigured;
 
+const demoWriteError = 'Demo mode is active — the Supabase connection is not configured. Start the dev server with valid VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to save changes.';
+
 // --- Generic hook helper ---
+// transform and demoFallback are module-scope functions (stable references),
+// so they are safe to use in useCallback deps without causing re-render loops.
 
 function useSupabaseQuery<T>(
   table: string,
@@ -34,6 +38,9 @@ function useSupabaseQuery<T>(
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Track whether the first load has completed to avoid flickering on
+  // subsequent renders (e.g. when switching pages and back).
+  const loadedRef = useRef(false);
 
   const refetch = useCallback(async () => {
     setLoading(true);
@@ -41,6 +48,7 @@ function useSupabaseQuery<T>(
     if (!supabaseConfigured) {
       setData(demoFallback ? demoFallback() : []);
       setLoading(false);
+      loadedRef.current = true;
       return;
     }
     let query = supabase.from(table).select('*');
@@ -57,7 +65,9 @@ function useSupabaseQuery<T>(
       }
     }
     setLoading(false);
-  }, [table, orderBy, ascending, transform, demoFallback]);
+    loadedRef.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table, orderBy, ascending]);
 
   useEffect(() => {
     refetch();
@@ -97,6 +107,7 @@ export function useCompanies() {
   );
 
   const addCompany = useCallback(async (company: Partial<Company>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { data: row, error: err } = await supabase
       .from('companies')
       .insert({
@@ -120,6 +131,7 @@ export function useCompanies() {
   }, [refetch]);
 
   const updateCompany = useCallback(async (id: string, updates: Partial<Company>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { error: err } = await supabase
       .from('companies')
       .update({
@@ -214,6 +226,7 @@ export function useEmployees() {
     if (nextAssessmentDue !== undefined) updateData.next_assessment_due = nextAssessmentDue;
     if (restrictions !== undefined) updateData.restrictions = restrictions;
 
+    if (isDemoMode) throw new Error(demoWriteError);
     const { error: err } = await supabase.from('employees').update(updateData).eq('id', employeeId);
     if (err) throw new Error(err.message);
     await refetch();
@@ -249,6 +262,7 @@ export function useMedicals() {
   );
 
   const addMedical = useCallback(async (medical: Partial<Medical>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { data: row, error: err } = await supabase
       .from('medicals')
       .insert({
@@ -270,6 +284,7 @@ export function useMedicals() {
   }, [refetch]);
 
   const updateMedical = useCallback(async (id: string, updates: Partial<Medical>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.result !== undefined) updateData.result = updates.result;
@@ -314,6 +329,7 @@ export function useAppointments() {
   );
 
   const addAppointment = useCallback(async (appt: Partial<Appointment>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { data: row, error: err } = await supabase
       .from('appointments')
       .insert({
@@ -336,6 +352,7 @@ export function useAppointments() {
   }, [refetch]);
 
   const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.date !== undefined) updateData.appointment_date = updates.date;
@@ -410,6 +427,7 @@ export function useDocuments() {
   );
 
   const addDocument = useCallback(async (doc: Partial<DocumentRecord>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { data: row, error: err } = await supabase
       .from('documents')
       .insert({
@@ -432,6 +450,7 @@ export function useDocuments() {
   }, [refetch]);
 
   const updateDocument = useCallback(async (id: string, updates: Partial<DocumentRecord>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.name !== undefined) updateData.name = updates.name;
@@ -585,6 +604,7 @@ export function useSicknessCases() {
   );
 
   const addCase = useCallback(async (caseData: Partial<SicknessAbsenceCase>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { data: row, error: err } = await supabase
       .from('sickness_absence_cases')
       .insert({
@@ -612,6 +632,7 @@ export function useSicknessCases() {
   }, [refetch]);
 
   const updateCase = useCallback(async (id: string, updates: Partial<SicknessAbsenceCase>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const updateData: Record<string, unknown> = {};
     if (updates.caseStatus !== undefined) updateData.case_status = updates.caseStatus;
     if (updates.expectedReturnDate !== undefined) updateData.expected_return_date = updates.expectedReturnDate;
@@ -672,6 +693,7 @@ export function useRiskAssessments(caseId: string | null) {
   }, [refetch]);
 
   const addAssessment = useCallback(async (assessment: Partial<SicknessRiskAssessment>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { error: err } = await supabase
       .from('sickness_risk_assessments')
       .insert({
@@ -714,6 +736,7 @@ export function useSynopses() {
   );
 
   const addSynopsis = useCallback(async (syn: Partial<Synopsis>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { data: row, error: err } = await supabase
       .from('synopses')
       .insert({
@@ -732,6 +755,7 @@ export function useSynopses() {
   }, [refetch]);
 
   const updateSynopsis = useCallback(async (id: string, updates: Partial<Synopsis>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const updateData: Record<string, unknown> = {};
     if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -777,6 +801,7 @@ export function useSynopsisNotes(synopsisId: string | null) {
   }, [refetch]);
 
   const addNote = useCallback(async (note: string, createdBy: string) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { error: err } = await supabase
       .from('synopsis_meeting_notes')
       .insert({ synopsis_id: synopsisId, note, created_by: createdBy });
@@ -821,6 +846,7 @@ export function useSynopsisFollowUps(synopsisId: string | null) {
   }, [refetch]);
 
   const addFollowUp = useCallback(async (action: string, responsiblePerson: string, dueDate: string | null) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { error: err } = await supabase
       .from('synopsis_follow_ups')
       .insert({ synopsis_id: synopsisId, action, responsible_person: responsiblePerson, due_date: dueDate });
@@ -829,6 +855,7 @@ export function useSynopsisFollowUps(synopsisId: string | null) {
   }, [synopsisId, refetch]);
 
   const toggleFollowUp = useCallback(async (id: string, completed: boolean) => {
+    if (isDemoMode) throw new Error(demoWriteError);
     const { error: err } = await supabase
       .from('synopsis_follow_ups')
       .update({ completed: !completed })

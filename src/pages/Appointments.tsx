@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2, Search } from 'lucide-react';
 import { useAppointments, useEmployees, useCompanies, isDemoMode } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import type { Appointment, AppointmentType, AppointmentMode, AppointmentStatus } from '@/types';
@@ -48,10 +48,29 @@ export function Appointments() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const sorted = [...appointments].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
   const upcoming = sorted.filter((a) => a.status === 'Confirmed' || a.status === 'Pending');
-  const display = view === 'upcoming' ? upcoming : sorted;
+  const viewFiltered = view === 'upcoming' ? upcoming : sorted;
+  const display = useMemo(() => {
+    let result = viewFiltered;
+    if (statusFilter !== 'all') {
+      result = result.filter((a) => a.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      result = result.filter((a) =>
+        a.employeeName.toLowerCase().includes(q) ||
+        a.companyName.toLowerCase().includes(q) ||
+        a.providerName.toLowerCase().includes(q) ||
+        a.type.toLowerCase().includes(q) ||
+        a.location.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [viewFiltered, statusFilter, search]);
 
   const handleEmployeeSelect = (empId: string) => {
     const emp = employees.find((e) => e.id === empId);
@@ -259,6 +278,22 @@ export function Appointments() {
         <button onClick={() => setView('all')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === 'all' ? 'bg-brand-600 text-white' : 'bg-white text-ink-600 border border-ink-200 hover:bg-ink-50'}`}>
           All Appointments
         </button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+          <input
+            className="input w-full pl-9"
+            placeholder="Search by employee, company, provider, type or location..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select className="input sm:w-44" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">All statuses</option>
+          {appointmentStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
       </div>
 
       {display.length === 0 ? (

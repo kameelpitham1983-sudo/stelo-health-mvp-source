@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   HeartPulse,
   Plus,
@@ -13,6 +13,7 @@ import {
   Building2,
   X,
   ChevronDown,
+  Search,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import {
@@ -93,6 +94,8 @@ export function SicknessAbsence() {
   const [formData, setFormData] = useState<Partial<SicknessAbsenceCase>>(emptyForm);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Risk assessment form state
   const [riskSeverity, setRiskSeverity] = useState('Low');
@@ -201,6 +204,24 @@ export function SicknessAbsence() {
     setUpdateCaseManager(c.caseManager);
     setUpdateError(null);
   };
+
+  const filteredCases = useMemo(() => {
+    let result = cases;
+    if (statusFilter !== 'all') {
+      result = result.filter((c) => c.caseStatus === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      result = result.filter((c) =>
+        c.caseReference.toLowerCase().includes(q) ||
+        c.employeeName.toLowerCase().includes(q) ||
+        c.companyName.toLowerCase().includes(q) ||
+        c.referralTrigger.toLowerCase().includes(q) ||
+        c.caseManager.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [cases, statusFilter, search]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><span className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
@@ -554,14 +575,30 @@ export function SicknessAbsence() {
         })}
       </div>
 
-      {cases.length === 0 ? (
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+          <input
+            className="input w-full pl-9"
+            placeholder="Search by case ref, employee, company or trigger..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select className="input sm:w-48" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">All statuses</option>
+          {caseStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {filteredCases.length === 0 ? (
         <div className="card p-12 text-center">
           <HeartPulse size={32} className="text-ink-300 mx-auto mb-3" />
-          <p className="text-sm text-ink-500">No sickness absence cases yet. Click "New Case" to create one.</p>
+          <p className="text-sm text-ink-500">No sickness absence cases found. Adjust your search or click "New Case" to create one.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {cases.map((c) => (
+          {filteredCases.map((c) => (
             <div key={c.id} onClick={() => openCase(c)} className="card card-hover p-4 cursor-pointer">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
