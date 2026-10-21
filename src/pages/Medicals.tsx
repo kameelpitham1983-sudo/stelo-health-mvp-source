@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck } from 'lucide-react';
+import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck, ClipboardList } from 'lucide-react';
 import { useMedicals, useEmployees, useCompanies } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
+import { QuestionnaireWorkflow } from '@/components/QuestionnaireWorkflow';
 import { useApp } from '@/context/AppContext';
+import { questionnaireInstances } from '@/data/mockData';
 import type { Medical, MedicalType, MedicalStatus, HealthStatus } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'brand' | 'ink'> = {
@@ -70,6 +72,7 @@ export function Medicals() {
   const [restrictions, setRestrictions] = useState('');
   const [nextDueDate, setNextDueDate] = useState('');
   const [fitnessNotice, setFitnessNotice] = useState<string | null>(null);
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
 
   const isProvider = user?.role === 'admin' || user?.role === 'provider';
 
@@ -162,6 +165,11 @@ export function Medicals() {
     return <div className="card p-6 text-center"><AlertCircle size={24} className="text-danger-500 mx-auto mb-2" /><p className="text-sm text-ink-600">Failed to load medicals: {error}</p></div>;
   }
 
+  // --- Questionnaire workflow view ---
+  if (showQuestionnaire && selectedMedical) {
+    return <QuestionnaireWorkflow medical={selectedMedical} onBack={() => setShowQuestionnaire(false)} />;
+  }
+
   // --- Detail view ---
   if (selectedMedical) {
     const med = selectedMedical;
@@ -173,12 +181,17 @@ export function Medicals() {
             <ArrowLeft size={16} />
             Back to Medicals
           </button>
-          {isProvider && (
-            <button onClick={() => startEdit(med)} className="btn-primary">
-              <Edit3 size={16} />
-              Edit Assessment
+          <div className="flex gap-2">
+            <button onClick={() => setShowQuestionnaire(true)} className="btn-secondary">
+              <ClipboardList size={16} /> Questionnaire
             </button>
-          )}
+            {isProvider && (
+              <button onClick={() => startEdit(med)} className="btn-primary">
+                <Edit3 size={16} />
+                Edit Assessment
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="card overflow-hidden">
@@ -260,6 +273,17 @@ export function Medicals() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Questionnaire status card */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-ink-900 flex items-center gap-2"><ClipboardList size={18} className="text-brand-600" /> Medical Questionnaire</h3>
+            <button onClick={() => setShowQuestionnaire(true)} className="btn-secondary text-sm">
+              <ClipboardList size={14} /> Open Questionnaire
+            </button>
+          </div>
+          <QuestionnaireStatusBadge medicalId={med.id} />
         </div>
       </div>
     );
@@ -441,6 +465,11 @@ export function Medicals() {
                     <p className="text-sm font-medium text-ink-700 truncate">{med.result}</p>
                   </div>
                   <Badge color={statusColors[med.status]} dot>{med.status}</Badge>
+                  {questionnaireInstances.find((qi) => qi.medicalId === med.id) && (
+                    <span className="hidden sm:flex items-center gap-1 text-xs text-ink-400">
+                      <ClipboardList size={12} /> Questionnaire
+                    </span>
+                  )}
                   {isProvider && (
                     <button
                       onClick={(e) => { e.stopPropagation(); startEdit(med); }}
@@ -456,6 +485,41 @@ export function Medicals() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function QuestionnaireStatusBadge({ medicalId }: { medicalId: string }) {
+  const instance = questionnaireInstances.find((qi) => qi.medicalId === medicalId);
+  if (!instance) {
+    return (
+      <div className="flex items-center gap-3 text-sm text-ink-500">
+        <ClipboardList size={16} className="text-ink-400" />
+        No questionnaire assigned yet. Click "Open Questionnaire" to select a template and begin.
+      </div>
+    );
+  }
+  const statusColorMap: Record<string, 'success' | 'warning' | 'danger' | 'brand' | 'ink'> = {
+    'Not Started': 'ink',
+    Draft: 'warning',
+    Submitted: 'brand',
+    'Under Review': 'brand',
+    Completed: 'success',
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <Badge color={statusColorMap[instance.status]} dot>{instance.status}</Badge>
+        <span className="text-sm text-ink-600">{instance.templateName}</span>
+      </div>
+      <div className="text-xs text-ink-500 space-y-1">
+        {instance.completedBy && <p>Completed by: {instance.completedBy}</p>}
+        {instance.submittedAt && <p>Submitted: {new Date(instance.submittedAt).toLocaleString()}</p>}
+        {instance.reviewedBy && <p>Reviewed by: {instance.reviewedBy}</p>}
+        {instance.flaggedForReview.length > 0 && (
+          <p className="text-warning-600">{instance.flaggedForReview.length} item(s) flagged for clinician review</p>
+        )}
+      </div>
     </div>
   );
 }

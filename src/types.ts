@@ -229,3 +229,51 @@ export interface SynopsisFollowUp {
   dueDate: string | null;
   completed: boolean;
 }
+
+// --- Medical Questionnaire types ---
+
+export type QuestionnaireFieldType = 'yesno' | 'text' | 'textarea' | 'date' | 'select' | 'number';
+
+export interface QuestionnaireField {
+  id: string;
+  label: string;
+  type: QuestionnaireFieldType;
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
+  followUpLabel?: string;
+  section: string;
+}
+
+export interface QuestionnaireTemplate {
+  id: string;
+  name: string;
+  description: string;
+  medicalTypes: MedicalType[];
+  fields: QuestionnaireField[];
+}
+
+export type QuestionnaireInstanceStatus = 'Not Started' | 'Draft' | 'Submitted' | 'Under Review' | 'Completed';
+
+export interface QuestionnaireInstance {
+  id: string;
+  medicalId: string;
+  templateId: string;
+  templateName: string;
+  employeeName: string;
+  employeeId: string;
+  medicalType: MedicalType;
+  status: QuestionnaireInstanceStatus;
+  answers: Record<string, string>;
+  flaggedForReview: string[];
+  clinicianComments: string;
+  additionalTests: string;
+  recommendations: string;
+  followUpDate: string | null;
+  completedBy: string;
+  completedAt: string | null;
+  submittedBy: string;
+  submittedAt: string | null;
+  reviewedBy: string;
+  reviewedAt: string | null;
+}
