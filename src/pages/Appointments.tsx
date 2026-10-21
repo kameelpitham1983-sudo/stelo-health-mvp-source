@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2 } from 'lucide-react';
-import { useAppointments, useEmployees, useCompanies } from '@/hooks/useSupabaseData';
+import { useAppointments, useEmployees, useCompanies, isDemoMode } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import type { Appointment, AppointmentType, AppointmentMode, AppointmentStatus } from '@/types';
 
@@ -149,6 +149,12 @@ export function Appointments() {
 
   return (
     <div className="space-y-6">
+      {isDemoMode && (
+        <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
+          <AlertCircle size={16} className="shrink-0" />
+          Demo mode — showing sample appointments. New appointments will be saved to the database once the Supabase connection is active.
+        </div>
+      )}
       {showForm && (
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">

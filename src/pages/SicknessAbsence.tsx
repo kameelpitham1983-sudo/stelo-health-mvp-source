@@ -20,6 +20,7 @@ import {
   useRiskAssessments,
   useEmployees,
   useCompanies,
+  isDemoMode,
 } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import type { SicknessAbsenceCase, SicknessCaseStatus } from '@/types';
@@ -436,6 +437,12 @@ export function SicknessAbsence() {
   // --- Case list view ---
   return (
     <div className="space-y-6">
+      {isDemoMode && (
+        <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
+          <AlertCircle size={16} className="shrink-0" />
+          Demo mode — showing sample sickness absence cases. New cases will be saved to the database once the Supabase connection is active.
+        </div>
+      )}
       {showForm && (
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">

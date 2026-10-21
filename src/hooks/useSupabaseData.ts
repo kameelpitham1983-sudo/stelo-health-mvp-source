@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
+import * as mockData from '@/data/mockData';
 import type {
   Company,
   Employee,
@@ -16,6 +17,11 @@ import type {
   VaccineStatus,
 } from '@/types';
 
+// Demo data fallback: when the database is empty or unreachable, pages show
+// clearly-labelled sample data instead of blank screens. Mutations still go to
+// the real database — demo data is read-only and never written to Supabase.
+export const isDemoMode = !supabaseConfigured;
+
 // --- Generic hook helper ---
 
 function useSupabaseQuery<T>(
@@ -23,6 +29,7 @@ function useSupabaseQuery<T>(
   transform: (row: Record<string, unknown>) => T,
   orderBy?: string,
   ascending = true,
+  demoFallback?: () => T[],
 ) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +39,7 @@ function useSupabaseQuery<T>(
     setLoading(true);
     setError(null);
     if (!supabaseConfigured) {
-      setError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file and restart the dev server.');
+      setData(demoFallback ? demoFallback() : []);
       setLoading(false);
       return;
     }
@@ -42,10 +49,15 @@ function useSupabaseQuery<T>(
     if (err) {
       setError(err.message);
     } else {
-      setData((rows as Record<string, unknown>[]).map(transform));
+      const transformed = (rows as Record<string, unknown>[]).map(transform);
+      if (transformed.length === 0 && demoFallback) {
+        setData(demoFallback());
+      } else {
+        setData(transformed);
+      }
     }
     setLoading(false);
-  }, [table, orderBy, ascending, transform]);
+  }, [table, orderBy, ascending, transform, demoFallback]);
 
   useEffect(() => {
     refetch();
@@ -80,6 +92,8 @@ export function useCompanies() {
     'companies',
     transformCompany,
     'name',
+    true,
+    () => mockData.companies,
   );
 
   const addCompany = useCallback(async (company: Partial<Company>) => {
@@ -160,7 +174,7 @@ export function useEmployees() {
     setLoading(true);
     setError(null);
     if (!supabaseConfigured) {
-      setError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file and restart the dev server.');
+      setData(mockData.employees);
       setLoading(false);
       return;
     }
@@ -171,14 +185,13 @@ export function useEmployees() {
     if (err) {
       setError(err.message);
     } else {
-      setData(
-        (rows as Record<string, unknown>[]).map((row) => {
-          const emp = transformEmployee(row);
-          const companyData = row.companies as Record<string, unknown> | null;
-          emp.companyName = companyData?.name as string;
-          return emp;
-        }),
-      );
+      const transformed = (rows as Record<string, unknown>[]).map((row) => {
+        const emp = transformEmployee(row);
+        const companyData = row.companies as Record<string, unknown> | null;
+        emp.companyName = companyData?.name as string;
+        return emp;
+      });
+      setData(transformed.length > 0 ? transformed : mockData.employees);
     }
     setLoading(false);
   }, []);
@@ -232,6 +245,7 @@ export function useMedicals() {
     transformMedical,
     'assessment_date',
     false,
+    () => mockData.medicals,
   );
 
   const addMedical = useCallback(async (medical: Partial<Medical>) => {
@@ -296,6 +310,7 @@ export function useAppointments() {
     transformAppointment,
     'appointment_date',
     true,
+    () => mockData.appointments,
   );
 
   const addAppointment = useCallback(async (appt: Partial<Appointment>) => {
@@ -362,6 +377,7 @@ export function useTravelHealth() {
     transformTravelHealth,
     'departure_date',
     true,
+    () => mockData.travelHealth,
   );
   return { data, loading, error, refetch };
 }
@@ -390,6 +406,7 @@ export function useDocuments() {
     transformDocument,
     'uploaded_date',
     false,
+    () => mockData.documents,
   );
 
   const addDocument = useCallback(async (doc: Partial<DocumentRecord>) => {
@@ -457,11 +474,81 @@ export function useActivityEvents() {
     transformActivity,
     'created_at',
     false,
+    () => mockData.activityFeed,
   );
   return { data, loading, error };
 }
 
 // --- Sickness Absence Cases ---
+
+const mockSicknessCases: SicknessAbsenceCase[] = [
+  {
+    id: 'sa-demo-1',
+    caseReference: 'SA-20251001-0001',
+    employeeName: 'Emma Larsson',
+    companyName: 'Meridian Global Logistics',
+    referralDate: '2025-09-15',
+    referringPerson: 'James Whitfield',
+    referralTrigger: 'Manager referral — back injury reported',
+    injuryOnDuty: true,
+    incidentDate: '2025-09-10',
+    absenceStartDate: '2025-09-12',
+    expectedReturnDate: '2025-10-20',
+    actualReturnDate: null,
+    caseStatus: 'Case Management',
+    jobDuties: 'Warehouse supervisor — lifting, bending, prolonged standing',
+    functionalLimitations: 'No lifting >15kg for 6 weeks. Avoid repetitive bending.',
+    workplaceAccommodations: 'Reassigned to light duties — desk-based inventory management',
+    caseManager: 'Dr. Sarah Chen',
+    reviewDate: '2025-10-15',
+    closureDate: null,
+    closureReason: null,
+  },
+  {
+    id: 'sa-demo-2',
+    caseReference: 'SA-20250920-0002',
+    employeeName: 'Sophie Dubois',
+    companyName: 'Meridian Global Logistics',
+    referralDate: '2025-08-25',
+    referringPerson: 'Self-referral',
+    referralTrigger: 'Extended sickness absence — stress-related illness',
+    injuryOnDuty: false,
+    incidentDate: '2025-08-01',
+    absenceStartDate: '2025-08-05',
+    expectedReturnDate: '2025-10-01',
+    actualReturnDate: null,
+    caseStatus: 'Accommodation Planning',
+    jobDuties: 'Operations coordinator — desk-based, high-pressure scheduling',
+    functionalLimitations: 'Reduced hours recommended. Phased return 3 days/week.',
+    workplaceAccommodations: 'Phased return: 3 days/week, flexible start times',
+    caseManager: 'Dr. Sarah Chen',
+    reviewDate: '2025-09-30',
+    closureDate: null,
+    closureReason: null,
+  },
+  {
+    id: 'sa-demo-3',
+    caseReference: 'SA-20250905-0003',
+    employeeName: 'Nina Volkov',
+    companyName: 'Helix Pharma Research',
+    referralDate: '2025-07-10',
+    referringPerson: 'Lena Fischer',
+    referralTrigger: 'Occupational health referral — chemical exposure concern',
+    injuryOnDuty: true,
+    incidentDate: '2025-06-28',
+    absenceStartDate: '2025-07-01',
+    expectedReturnDate: '2025-09-15',
+    actualReturnDate: '2025-09-18',
+    caseStatus: 'Closed',
+    jobDuties: 'QA lead — lab-based chemical handling and testing',
+    functionalLimitations: 'Temporary reassignment from chemical handling duties',
+    workplaceAccommodations: 'Reassigned to documentation QA during recovery',
+    caseManager: 'Dr. James Holt',
+    reviewDate: null,
+    closureDate: '2025-09-18',
+    closureReason: 'Full recovery confirmed. Returned to full duties.',
+  },
+];
 
 function transformSicknessCase(row: Record<string, unknown>): SicknessAbsenceCase {
   return {
@@ -494,6 +581,7 @@ export function useSicknessCases() {
     transformSicknessCase,
     'created_at',
     false,
+    () => mockSicknessCases,
   );
 
   const addCase = useCallback(async (caseData: Partial<SicknessAbsenceCase>) => {
