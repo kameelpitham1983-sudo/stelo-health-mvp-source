@@ -1,0 +1,889 @@
+STelo Health — Deployment Readiness Triage Questionnaire
+SOURCE-FAITHFUL TEXT TRANSCRIPTION FOR BOLT
+====================================================================
+
+PURPOSE
+This document transcribes the question definitions embedded in the supplied HTML file.
+Use it to reconstruct the questionnaire faithfully in STelo Health. Do not replace, paraphrase, invent, or clinically reinterpret source questions.
+The original HTML remains the source of truth if any transcription differs.
+
+IMPLEMENTATION INSTRUCTIONS
+- Preserve all section names and order.
+- Preserve every question ID, question text, input type, option, conditional follow-up prompt, and clinician note exactly.
+- Preserve section-level notices as notices, not as answerable questions.
+- A dependency such as dep=C7 means show the dependent field only when C7 is answered Yes, as defined in the source.
+- Multi-select fields must support selecting multiple options and any source-defined Other follow-up.
+- Clinician notes are for authorised clinical/admin review only; never display them to employers.
+- Preserve the five fitness outcomes exactly: Fit; Fit with restrictions; Temporarily unfit; Permanently unfit; Requires specialist review.
+- Keep pregnancy/reproductive health answers confidential clinical data. Employers must receive only the permitted functional fitness outcome, not these answers.
+- The embedded destination CDC alert selector is a separate operational feature, not a questionnaire question. Verify current official alerts before operational reliance.
+
+SOURCE FILE: Deployment Readiness Triage Dashboard (3).html
+Sections extracted: 23
+Source-defined entries: 167 (question items: 164; non-question notices: 3)
+
+====================================================================
+SECTION A — Deployment & Demographic Details
+Question items: 15; all entries including notices: 15
+--------------------------------------------------------------------
+A1 [text]
+Question: Full name of employee/traveller
+
+A2 [date]
+Question: Date of birth
+
+A3 [select]
+Question: Sex
+Options:
+  - Male
+  - Female
+  - Transgender
+  - Intersex / prefer not to say
+
+A4 [text]
+Question: Nationality / passport country
+
+A5 [text]
+Question: Employer / contracting company
+
+A6 [text]
+Question: Job title / role on assignment
+
+A7 [text]
+Question: Country/region of deployment
+
+A8 [yesno]
+Question: Is this a remote, austere, or hardship location (limited medical infrastructure)?
+Conditional follow-up prompt: Specify nearest Role 1/2/3 medical facility and evacuation time
+Clinician note (restricted): Determines medevac planning and pre-deployment threshold for risk tolerance
+
+A9 [number]
+Question: Planned duration of deployment (weeks/months)
+
+A10 [text]
+Question: Rotation pattern (e.g. continuous, 6-on/3-off)
+
+A11 [text]
+Question: Nature of work (e.g. office-based, field/manual, offshore, remote site, high-altitude, maritime)
+
+A12 [yesno]
+Question: Is the role classified as safety-critical (e.g. driving, crane operation, working at heights, confined space)?
+Conditional follow-up prompt: Specify safety-critical task(s) - relevant for fitness-to-work certification
+Clinician note (restricted): Safety-critical roles need stricter medical/functional clearance
+
+A13 [text]
+Question: Home language
+
+A14 [multi]
+Question: What activities will you be doing during your assignment? (select all that apply)
+Options:
+  - Business meetings / office-based work
+  - Field or site work (outdoor / manual)
+  - Attending a mass gathering event (conference, festival, sports event, pilgrimage)
+  - Safari / wildlife viewing
+  - Skiing
+  - Snowboarding
+  - Scuba diving
+  - Rock climbing
+  - Hiking / trekking
+  - High-altitude travel (above 2,500 m)
+  - Cycling / mountain biking
+  - Motorcycle / quad-bike riding
+  - Water sports (surfing, kayaking, rafting, open-water swimming)
+  - Paragliding / skydiving / bungee jumping
+  - Caving
+  - Visiting rural or remote communities
+  - Contact with animals (markets, farms, caves, bats)
+  - Boat, offshore or maritime work
+  - Working in or near conflict or civil-unrest areas
+  - Long-distance road travel or self-driving
+  - Contact or combat sports
+  - Healthcare or humanitarian work (exposure to patients or body fluids)
+  - Travelling for medical treatment
+  - Other
+Conditional follow-up prompt: For each activity other than office work: specify frequency, your experience or certification level (e.g. dive certification) and, for medical treatment, the condition or procedure and treating facility; confirm your medical and evacuation insurance covers it
+Clinician note (restricted): Diving, climbing, altitude and extreme sports may need specific medical clearance (e.g. fitness-to-dive) and are often excluded from standard travel insurance. Mass gatherings raise vaccine-preventable disease risk; safari, rural and animal contact raise malaria, rabies and vector-borne disease risk.
+
+A15 [text]
+Question: Employee number
+
+====================================================================
+SECTION B — Travel History
+Question items: 3; all entries including notices: 3
+--------------------------------------------------------------------
+B1 [yesno]
+Question: Have you travelled anywhere outside of your home country in the last 30 days?
+Conditional follow-up prompt: Specify the countries, dates of travel, and the purpose of the trip
+Clinician note (restricted): Recent travel history guides infection screening and any testing or quarantine needs.
+
+B2 [yesno]
+Question: Have you travelled to any countries affected by an outbreak or epidemic in the last 60 days?
+Conditional follow-up prompt: Specify the country, dates, the outbreak (if known), and any symptoms since returning
+Clinician note (restricted): Recent travel to an outbreak area may need symptom screening, testing or a delay before deployment, depending on the incubation period.
+
+B3 [yesno]
+Question: Have you travelled on a cruise liner in the last 60 days?
+Conditional follow-up prompt: Specify the cruise line or ship, dates, ports visited, and whether you had any illness on board or since
+Clinician note (restricted): Cruise ships can carry gastrointestinal and respiratory outbreaks; ask about illness on board.
+
+====================================================================
+SECTION C — Allergies
+Question items: 8; all entries including notices: 8
+--------------------------------------------------------------------
+C1 [yesno]
+Question: Do you have any allergy to food?
+Conditional follow-up prompt: Specify the food(s), type of reaction, severity, and the date of your last reaction
+Clinician note (restricted): Confirm catering at remote sites can accommodate the allergy; relevant to anaphylaxis planning.
+
+C2 [yesno]
+Question: Do you have any allergy to pollen or other airborne allergens (e.g. grass, trees, dust mite, mould, animals)?
+Conditional follow-up prompt: Specify the allergen, your symptoms, and current treatment
+Clinician note (restricted): Seasonal or airborne allergy can worsen asthma and affects antihistamine needs at the destination.
+
+C3 [yesno]
+Question: Do you have an allergy to bee, wasp or other insect stings?
+Conditional follow-up prompt: Specify the insect, the severity of your reaction (local swelling or whole-body), and the date of your last reaction
+Clinician note (restricted): Sting anaphylaxis is a risk on safari, field and outdoor work; confirm an auto-injector and sting-avoidance plan.
+
+C4 [yesno]
+Question: Do you have an allergy to any medication (e.g. penicillin, sulfonamides, NSAIDs, anaesthetics)?
+Conditional follow-up prompt: Specify each medication, the reaction you had, and when it occurred
+Clinician note (restricted): Check for conflicts with antimalarial, antibiotic and vaccine choices.
+
+C5 [yesno]
+Question: Do you have any other allergy (e.g. latex, contrast dye, adhesives, metals, chemicals)?
+Conditional follow-up prompt: Specify the allergen and the reaction
+Clinician note (restricted): Latex and other allergens matter for wound care and procedures at local facilities.
+
+C6 [yesno]
+Question: Have you ever had a severe allergic reaction (anaphylaxis) needing emergency treatment?
+Conditional follow-up prompt: Specify the date, the trigger, the treatment received, and whether you were hospitalised
+Clinician note (restricted): Previous anaphylaxis calls for an auto-injector, a written emergency plan and a briefing to the medevac provider.
+
+C7 [yesno]
+Question: Do you carry an adrenaline auto-injector (e.g. EpiPen)?
+Conditional follow-up prompt: Specify how many devices you carry, and how you will keep enough in-date supply for the whole assignment and store them away from heat
+Clinician note (restricted): Carrying two devices is usually advised; keep them away from heat and tell colleagues where they are.
+
+C8 [date]
+Question: What is the expiry date of your EpiPen / adrenaline auto-injector? (answer only if C7 is Yes)
+Display dependency: C7 (source-defined dependency)
+Clinician note (restricted): The device must stay in date for the whole assignment. Replace it if it will expire during deployment, and protect it from extreme heat.
+
+====================================================================
+SECTION D — Pre-Existing Medical Conditions
+Question items: 15; all entries including notices: 15
+--------------------------------------------------------------------
+D1 [yesno]
+Question: Do you have any diagnosed cardiovascular condition (e.g. hypertension, ischaemic heart disease, arrhythmia, heart failure, valve disease)?
+Conditional follow-up prompt: Specify diagnosis, date of diagnosis, current control/treatment, and last cardiology review
+Clinician note (restricted): May require ECG, cardiology clearance, or exercise tolerance test before deployment
+
+D2 [yesno]
+Question: Do you have a diagnosed respiratory condition (e.g. asthma, COPD, sleep apnoea, TB history)?
+Conditional follow-up prompt: Specify diagnosis, severity, triggers, last exacerbation/hospitalisation, and current inhaler/therapy
+Clinician note (restricted): Assess altitude/heat/air-quality tolerance and need for spirometry
+
+D3 [yesno]
+Question: Do you have diabetes mellitus (Type 1 or Type 2)?
+Conditional follow-up prompt: Specify type, current HbA1c, treatment (insulin/oral), history of hypo/hyperglycaemic episodes, and cold-chain needs for insulin
+Clinician note (restricted): Critical for heat risk, remote-site glucose monitoring and insulin storage planning
+
+D4 [yesno]
+Question: Do you have any other endocrine disorder (e.g. thyroid disease, adrenal insufficiency)?
+Conditional follow-up prompt: Specify condition, treatment and last review
+
+D5 [yesno]
+Question: Do you have a diagnosed renal condition (e.g. chronic kidney disease, kidney stones)?
+Conditional follow-up prompt: Specify stage/severity, dialysis requirement, and last nephrology review
+Clinician note (restricted): Relevant to dehydration/heat risk and medication dosing
+
+D6 [yesno]
+Question: Do you have a diagnosed gastrointestinal or liver condition (e.g. IBD, hepatitis, cirrhosis, peptic ulcer disease)?
+Conditional follow-up prompt: Specify diagnosis, current control, and dietary/medication requirements
+
+D7 [yesno]
+Question: Do you have a diagnosed neurological condition (e.g. epilepsy/seizures, migraine, stroke/TIA history)?
+Conditional follow-up prompt: Specify diagnosis, date of last event/seizure, and current treatment
+Clinician note (restricted): Seizure history may restrict driving, working at heights or remote solo postings
+
+D8 [yesno]
+Question: Do you have any musculoskeletal condition (e.g. chronic back pain, joint disease, previous fractures affecting function)?
+Conditional follow-up prompt: Specify condition, affected region, and functional impact on manual/field duties
+
+D9 [yesno]
+Question: Do you have a diagnosed autoimmune or immunosuppressive condition (e.g. rheumatoid arthritis, lupus, HIV, on immunosuppressants)?
+Conditional follow-up prompt: Specify condition, current immune status/CD4 count if applicable, and treatment
+Clinician note (restricted): Affects vaccination strategy (live vaccines), infection risk and malaria prophylaxis choice
+
+D10 [yesno]
+Question: Do you have any diagnosed skin condition relevant to hot/humid or sun-exposed environments (e.g. eczema, psoriasis, photosensitivity)?
+Conditional follow-up prompt: Specify condition and typical flare triggers
+
+D11 [yesno]
+Question: Do you have any known drug, food, or environmental allergies (e.g. penicillin, bee stings, latex)?
+Conditional follow-up prompt: Specify allergen(s) and severity of reaction (rash / anaphylaxis) and whether an adrenaline auto-injector is carried
+Clinician note (restricted): Anaphylaxis history requires carrying emergency kit and site briefing
+
+D12 [yesno]
+Question: Do you have any known blood disorder (e.g. anaemia, sickle cell disease/trait, clotting/bleeding disorder, G6PD deficiency)?
+Conditional follow-up prompt: Specify diagnosis - G6PD deficiency is important as it restricts use of some antimalarials
+Clinician note (restricted): G6PD status affects primaquine/tafenoquine and dapsone eligibility
+
+D13 [yesno]
+Question: Do you have any diagnosed cancer (current or in remission)?
+Conditional follow-up prompt: Specify type, stage, treatment status, and date of last oncology review
+
+D14 [yesno]
+Question: Are you currently under active investigation for any undiagnosed symptom or condition?
+Conditional follow-up prompt: Specify symptom, investigating specialist, and expected outcome date
+Clinician note (restricted): Consider deferring deployment pending diagnosis where appropriate
+
+D15 [yesno]
+Question: Do you have any condition not listed above that you consider relevant to this deployment?
+Conditional follow-up prompt: Please describe
+
+====================================================================
+SECTION E — Phobias, Motion Sickness & Jet Lag
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+E1 [yesno]
+Question: Do you suffer from claustrophobia (fear of enclosed spaces)?
+Conditional follow-up prompt: Specify triggers (e.g. lifts, aircraft, MRI scanners, confined spaces), severity, and whether it limits any work task or travel
+Clinician note (restricted): Relevant to confined-space work, MRI/CT availability, small aircraft and helicopter transfers, and stretcher transport during medevac.
+
+E2 [yesno]
+Question: Do you suffer from a fear of heights?
+Conditional follow-up prompt: Specify how severe it is and whether it limits working at heights, climbing or travelling in small aircraft
+Clinician note (restricted): Relevant to work at heights, towers, climbing and small-aircraft travel.
+
+E3 [yesno]
+Question: Do you have a fear of flying?
+Conditional follow-up prompt: Specify how severe it is, whether you have avoided flying, and what helps you cope (including any medication)
+Clinician note (restricted): Severe fear of flying may need planning before long-haul or medevac flights; sedatives carry risks and may interact with other medication.
+
+E4 [yesno]
+Question: Do you have a fear of needles, injections or blood?
+Conditional follow-up prompt: Specify whether you have fainted or avoided injections or blood tests, and what helps
+Clinician note (restricted): May affect vaccination and blood-test arrangements; fainting is a risk.
+
+E5 [yesno]
+Question: Do you have any other phobia that could affect your work or travel?
+Conditional follow-up prompt: Specify the phobia (e.g. water, animals or insects, crowds, open spaces) and how it affects you
+Clinician note (restricted): Capture any other phobia that could affect work tasks or safety.
+
+E6 [yesno]
+Question: Do you get motion sickness (car, boat or air)?
+Conditional follow-up prompt: Specify the type (car, sea, air), how severe it is, and what you take or do to manage it
+Clinician note (restricted): Affects boat, offshore, helicopter and road transfers; consider non-drowsy options for safety-critical roles.
+
+E7 [yesno]
+Question: Do you get jet lag that significantly affects you?
+Conditional follow-up prompt: Specify how long you usually take to recover and what you use to manage it (e.g. melatonin, sleep medication)
+Clinician note (restricted): Jet lag affects alertness, especially across several time zones; relevant to safety-critical roles and driving after arrival.
+
+====================================================================
+SECTION F — Medical Alert Bracelet, Blood Group & Organ Donor Status
+Question items: 6; all entries including notices: 6
+--------------------------------------------------------------------
+F1 [select]
+Question: What is your blood group?
+Options:
+  - A+
+  - A-
+  - B+
+  - B-
+  - AB+
+  - AB-
+  - O+
+  - O-
+  - Unknown
+Clinician note (restricted): Needed for emergency and medevac planning. Choose Unknown if you have not been tested.
+
+F2 [yesno]
+Question: Do you wear a medical alert bracelet or chain?
+Conditional follow-up prompt: Specify what it states (e.g. condition, allergy, medication, implanted device)
+Clinician note (restricted): Confirm the details on it match this questionnaire and your medical records.
+
+F3 [yesno]
+Question: Are you an organ donor?
+Conditional follow-up prompt: Specify whether you are registered as a donor and whether your next of kin know your wishes
+
+F4 [yesno]
+Question: Are you a bone marrow donor?
+Conditional follow-up prompt: Specify the registry you are on and whether you have ever donated
+
+F5 [yesno]
+Question: Do you have a living will?
+Conditional follow-up prompt: Specify where the document is kept and who holds a copy (e.g. next of kin, doctor)
+Clinician note (restricted): Recognition of living wills varies by country; flag it to the medical assistance provider before departure.
+
+F6 [yesno]
+Question: Do you have any do-not-resuscitate (DNR) orders?
+Conditional follow-up prompt: Specify who issued the order, the date, and where the signed copy is kept; confirm the medevac provider has been told
+Clinician note (restricted): Recognition of DNR orders varies by country; the medical assistance and evacuation provider must be told before departure.
+
+====================================================================
+SECTION G — Fit to Fly
+Question items: 1; all entries including notices: 1
+--------------------------------------------------------------------
+G1 [yesno]
+Question: Do you currently suffer from a medical condition for which your doctor has issued a letter stating that you are not fit to fly?
+Conditional follow-up prompt: Please elaborate: the condition, the date of the letter, who issued it, and when you expect to be cleared to fly
+Clinician note (restricted): A current not-fit-to-fly letter means air travel should be deferred until the treating doctor clears it.
+
+====================================================================
+SECTION H — Surgical History
+Question items: 6; all entries including notices: 6
+--------------------------------------------------------------------
+H1 [yesno]
+Question: Have you had any previous surgery?
+Conditional follow-up prompt: List procedure(s), approximate date(s), and any ongoing complications
+
+H2 [yesno]
+Question: Have you had surgery or been hospitalised within the last 3 months?
+Conditional follow-up prompt: Specify procedure/reason and surgeon's clearance-to-travel date
+Clinician note (restricted): Recent surgery/immobilisation is a major VTE and fitness-to-fly risk factor
+
+H3 [yesno]
+Question: Do you have any implanted medical device (e.g. pacemaker, joint replacement, mesh, stent, shunt)?
+Conditional follow-up prompt: Specify device type and date implanted - relevant for security screening and MRI availability on site
+
+H4 [yesno]
+Question: Have you had any surgical complications requiring further intervention?
+Conditional follow-up prompt: Specify complication and current status
+
+H5 [yesno]
+Question: Do you have any planned/pending surgery before or during the deployment period?
+Conditional follow-up prompt: Specify procedure and planned date
+
+H6 [yesno]
+Question: Has an anaesthetist ever struggled to intubate you during surgery?
+Conditional follow-up prompt: Specify when and where it happened, what was found (e.g. difficult airway, awake intubation), and whether you were given a written record or alert card
+Clinician note (restricted): A difficult-airway history matters for emergency surgery or evacuation abroad; consider an airway alert card and flag it to the medical assistance provider.
+
+====================================================================
+SECTION I — Current Medication & Adherence
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+I1 [yesno]
+Question: Are you currently taking any prescribed medication?
+Conditional follow-up prompt: List all medications, doses, and frequency (attach full list if extensive)
+
+I2 [yesno]
+Question: Do you take any over-the-counter medication, supplements, or herbal remedies regularly?
+Conditional follow-up prompt: List item(s) and frequency
+
+I3 [yesno]
+Question: Do you ever miss doses of your regular medication?
+Conditional follow-up prompt: Specify how often (occasionally/frequently) and the usual reason (cost, forgetfulness, side effects, access)
+Clinician note (restricted): Poor adherence to essential medication is a major deployment risk in remote settings
+
+I4 [yesno]
+Question: Will you have reliable access to resupply of your regular medication during deployment?
+Conditional follow-up prompt: If no, specify plan for extended supply / courier arrangement
+
+I5 [yesno]
+Question: Does any of your medication require refrigeration or cold-chain storage?
+Conditional follow-up prompt: Specify medication and describe planned storage solution on site
+
+I6 [yesno]
+Question: Does any of your medication require special import permits or is it a controlled substance in the destination country?
+Conditional follow-up prompt: Specify medication - verify legality/import permit requirement with destination embassy
+Clinician note (restricted): Some common medications (e.g. codeine, ADHD medication) are illegal or controlled in certain countries
+
+I7 [yesno]
+Question: Have you experienced any adverse drug reactions or significant side effects in the past?
+Conditional follow-up prompt: Specify medication and reaction
+
+====================================================================
+SECTION J — Disability, Functional Limitation & Work Restrictions
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+J1 [yesno]
+Question: Do you have any physical, sensory, or cognitive disability?
+Conditional follow-up prompt: Describe nature of disability and current functional impact
+
+J2 [yesno]
+Question: Do you currently have, or have you previously had, a formal work restriction, accommodation, or modified-duty certificate from an occupational health provider?
+Conditional follow-up prompt: Specify restriction, issuing physician, and date of expiry/review
+
+J3 [yesno]
+Question: Do you have any limitation affecting your ability to perform manual tasks, lifting, climbing, or working at heights?
+Conditional follow-up prompt: Describe limitation and specify any weight/height restriction
+
+J4 [yesno]
+Question: Do you require any assistive device or aid (e.g. hearing aid, mobility aid, corrective lenses) to perform your role safely?
+Conditional follow-up prompt: Specify device and confirm availability of spares/repair on site
+
+J5 [yesno]
+Question: Have you been off work (sick leave/disability) for more than 2 continuous weeks in the last 12 months?
+Conditional follow-up prompt: Specify reason, duration, and whether fully resolved/cleared to return to work
+
+J6 [yesno]
+Question: Are you currently receiving, or have you applied for, any disability or workers' compensation benefit?
+Conditional follow-up prompt: Specify nature of claim and status
+
+J7 [yesno]
+Question: Is there any task in your job description you currently feel unable to perform safely?
+Conditional follow-up prompt: Specify task and reason
+
+====================================================================
+SECTION K — Mental Health
+Question items: 6; all entries including notices: 6
+--------------------------------------------------------------------
+K1 [yesno]
+Question: Have you ever been diagnosed with a mental health condition (e.g. depression, anxiety, PTSD, bipolar disorder)?
+Conditional follow-up prompt: Specify diagnosis, date, treating clinician, and current status (active/remission)
+
+K2 [yesno]
+Question: Are you currently taking psychiatric medication or receiving psychological/psychiatric treatment?
+Conditional follow-up prompt: Specify medication/therapy and treating clinician
+Clinician note (restricted): Consider interaction with antimalarials (e.g. mefloquine contraindicated in psychiatric history)
+
+K3 [yesno]
+Question: Have you ever been hospitalised for a mental health crisis, or had thoughts of self-harm or suicide?
+Conditional follow-up prompt: Specify approximate date and current risk status - to be discussed sensitively and confidentially with the assessing clinician
+Clinician note (restricted): Requires individualised psychiatric fitness-for-deployment opinion; handle with strict confidentiality
+
+K4 [yesno]
+Question: Have you previously deployed to a high-risk, remote, hardship, or conflict-affected location?
+Conditional follow-up prompt: Specify location(s) and how you coped psychologically during/after deployment
+
+K5 [yesno]
+Question: Do you currently feel well-supported (family/social) to cope with prolonged separation, isolation, or high-stress conditions?
+Conditional follow-up prompt: If no, describe your main concern
+
+K6 [yesno]
+Question: Are you currently experiencing significant stress, sleep disturbance, or difficulty coping in your personal or work life?
+Conditional follow-up prompt: Please describe briefly
+
+====================================================================
+SECTION L — Alcohol Use
+Question items: 5; all entries including notices: 5
+--------------------------------------------------------------------
+L1 [yesno]
+Question: Do you currently drink alcohol?
+Conditional follow-up prompt: Estimate average units/drinks per week and frequency of drinking days
+
+L2 [yesno]
+Question: In the past year, have you felt you should cut down on your drinking, or has anyone expressed concern about your drinking?
+Conditional follow-up prompt: Please elaborate
+Clinician note (restricted): Positive CAGE-type response - consider further screening (AUDIT-C)
+
+L3 [yesno]
+Question: Have you ever experienced withdrawal symptoms (e.g. shakes, sweating, anxiety) when stopping or reducing alcohol?
+Conditional follow-up prompt: Specify frequency/severity
+Clinician note (restricted): Risk of withdrawal in a dry/restricted deployment location requires medical planning
+
+L4 [yesno]
+Question: Is the destination country's alcohol policy fully restricted/prohibited (dry site or dry country)?
+Conditional follow-up prompt: Confirm employee is aware of and has planned for abstinence, particularly if regular/heavy drinker
+
+L5 [yesno]
+Question: Have you previously received treatment or counselling for alcohol use?
+Conditional follow-up prompt: Specify when and outcome
+
+====================================================================
+SECTION M — Smoking & Tobacco/Nicotine Use
+Question items: 4; all entries including notices: 4
+--------------------------------------------------------------------
+M1 [yesno]
+Question: Do you currently smoke cigarettes, cigars, shisha, or use vaping/e-cigarette products?
+Conditional follow-up prompt: Specify product type and amount per day (e.g. cigarettes/day, vaping ml/day)
+
+M2 [yesno]
+Question: Are you a former smoker?
+Conditional follow-up prompt: Specify quit date and approximate pack-year history
+Clinician note (restricted): Relevant cumulative cardiovascular/respiratory risk
+
+M3 [yesno]
+Question: Do you use any other tobacco or nicotine product (e.g. chewing tobacco, snuff, nicotine pouches)?
+Conditional follow-up prompt: Specify product and frequency
+
+M4 [yesno]
+Question: Would you be interested in smoking cessation support prior to or during deployment?
+Conditional follow-up prompt: Note referral for cessation programme/nicotine replacement therapy
+
+====================================================================
+SECTION N — Recreational / Illicit Drug Use
+Question items: 5; all entries including notices: 5
+--------------------------------------------------------------------
+N1 [yesno]
+Question: Do you currently use any recreational or non-prescribed drugs (including cannabis)?
+Conditional follow-up prompt: Specify substance(s), frequency, and route of use
+Clinician note (restricted): Confirm legal status at destination - some jurisdictions impose severe penalties, including for cannabis
+
+N2 [yesno]
+Question: Have you used recreational or non-prescribed drugs in the past, even if not currently?
+Conditional follow-up prompt: Specify substance(s), approximate period of use, and date last used
+
+N3 [yesno]
+Question: Have you ever required medical treatment, hospitalisation, or rehabilitation related to drug use?
+Conditional follow-up prompt: Specify substance, treatment received, and current status
+
+N4 [yesno]
+Question: Are you currently on, or have you previously required, opioid substitution or other addiction therapy (e.g. methadone, buprenorphine)?
+Conditional follow-up prompt: Specify programme, current dose if applicable, and continuity-of-care plan for deployment
+
+N5 [yesno]
+Question: Do you use anabolic steroids or performance-enhancing substances?
+Conditional follow-up prompt: Specify substance and frequency
+
+====================================================================
+SECTION O — Cardiovascular Risk Assessment
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+O1 [yesno]
+Question: Do you experience chest pain, palpitations, unexplained breathlessness, or blackouts on exertion?
+Conditional follow-up prompt: Describe symptom, frequency, and triggers - requires cardiology work-up before clearance
+
+O2 [yesno]
+Question: Has your blood pressure ever been recorded as high, or have you been told you have hypertension?
+Conditional follow-up prompt: Specify most recent reading and current treatment
+
+O3 [yesno]
+Question: Has your cholesterol ever been recorded as high, or have you been told you have dyslipidaemia?
+Conditional follow-up prompt: Specify most recent lipid results and current treatment
+
+O4 [select]
+Question: What is your approximate Body Mass Index (BMI) or waist circumference category?
+Options:
+  - Underweight
+  - Normal
+  - Overweight
+  - Obese
+Clinician note (restricted): BMI >30 raises cardiovascular, heat and VTE risk collectively
+
+O5 [yesno]
+Question: Do you engage in regular physical activity/exercise (150+ minutes/week)?
+
+O6 [yesno]
+Question: Have you ever had a heart attack, angina, coronary stent/bypass, or been diagnosed with heart failure?
+Conditional follow-up prompt: Specify diagnosis, date, and most recent cardiology follow-up/ejection fraction if known
+
+O7 [yesno]
+Question: Are you currently prescribed any cardiovascular medication (e.g. antihypertensives, statins, anticoagulants, antiplatelets)?
+Conditional follow-up prompt: List medication(s) and dose
+
+====================================================================
+SECTION P — Deep Vein Thrombosis (DVT) / Venous Thromboembolism (VTE) Risk
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+P1 [yesno]
+Question: Have you ever been diagnosed with a DVT (blood clot in the leg/arm) or pulmonary embolism (PE)?
+Conditional follow-up prompt: Specify date, provoked/unprovoked, treatment given, and current anticoagulation status
+Clinician note (restricted): Prior VTE is the single strongest predictor of recurrence, especially with long-haul travel
+
+P2 [yesno]
+Question: Do you have a known inherited or acquired clotting disorder (e.g. Factor V Leiden, antiphospholipid syndrome)?
+Conditional follow-up prompt: Specify condition and haematology follow-up
+
+P3 [yesno]
+Question: Do you have a family history (first-degree relative) of DVT or PE?
+Conditional follow-up prompt: Specify relative and age at event
+
+P4 [yesno]
+Question: Are you currently taking oestrogen-containing contraception or hormone replacement therapy?
+Conditional follow-up prompt: Specify preparation - additive VTE risk with prolonged immobility
+
+P5 [yesno]
+Question: Do you have active cancer, or have you had cancer treatment within the last 6 months?
+Conditional follow-up prompt: Specify type and treatment status
+Clinician note (restricted): Active malignancy substantially raises VTE risk
+
+P6 [yesno]
+Question: Will your itinerary involve a single flight or journey segment longer than 4 hours?
+Conditional follow-up prompt: Confirm compression stockings, in-flight mobilisation and hydration plan advised
+
+P7 [yesno]
+Question: Do you have varicose veins, obesity (BMI>30), or reduced mobility that may increase clotting risk?
+Conditional follow-up prompt: Specify which factor(s) apply
+
+====================================================================
+SECTION Q — Heat-Related Illness Risk
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+Q1 [yesno]
+Question: Have you ever experienced heat exhaustion or heat stroke?
+Conditional follow-up prompt: Specify date, severity, and whether hospitalised
+Clinician note (restricted): Previous heat illness significantly increases recurrence risk - requires occupational medicine review
+
+Q2 [yesno]
+Question: Do you have any condition affecting your body's ability to regulate temperature (e.g. anhidrosis, extensive skin scarring/burns, spinal cord injury)?
+Conditional follow-up prompt: Specify condition
+
+Q3 [yesno]
+Question: Are you currently taking any medication known to impair heat tolerance (e.g. diuretics, anticholinergics, beta-blockers, antipsychotics, stimulants)?
+Conditional follow-up prompt: Specify medication(s)
+
+Q4 [yesno]
+Question: Do you have a cardiovascular, respiratory, renal, diabetic, or thyroid condition that could worsen in extreme heat?
+Conditional follow-up prompt: Specify condition (cross-reference Section D/O)
+
+Q5 [yesno]
+Question: Are you currently unacclimatised to hot/humid climates (e.g. travelling directly from a temperate climate)?
+Conditional follow-up prompt: Confirm a graduated acclimatisation schedule will be followed on arrival (typically 10-14 days)
+
+Q6 [yesno]
+Question: Will your role involve heavy physical exertion, wearing PPE, or working outdoors in direct sun for extended periods?
+Conditional follow-up prompt: Specify task and confirm work/rest cycle and hydration plan in place
+
+Q7 [yesno]
+Question: Do you have a history of poor fluid intake, low salt intake, or a medically prescribed fluid/salt restriction?
+Conditional follow-up prompt: Specify reason for restriction (e.g. renal/cardiac) - requires individualised hydration plan
+
+====================================================================
+SECTION R — Family History
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+R1 [yesno]
+Question: Does anyone in your immediate family (parents/siblings) have a history of premature cardiovascular disease (heart attack/stroke before age 55 in men, 65 in women)?
+Conditional follow-up prompt: Specify relative, condition, and age at diagnosis/event
+
+R2 [yesno]
+Question: Is there a family history of sudden cardiac death at a young age?
+Conditional follow-up prompt: Specify relative and age - consider inherited arrhythmia/cardiomyopathy screening
+
+R3 [yesno]
+Question: Is there a family history of diabetes?
+Conditional follow-up prompt: Specify relative(s)
+
+R4 [yesno]
+Question: Is there a family history of clotting disorders or unexplained blood clots (DVT/PE) at a young age?
+Conditional follow-up prompt: Specify relative and age
+
+R5 [yesno]
+Question: Is there a family history of mental illness, including suicide?
+Conditional follow-up prompt: Specify relative and condition (handle sensitively/confidentially)
+
+R6 [yesno]
+Question: Is there a family history of cancer (particularly at a young age or in multiple relatives)?
+Conditional follow-up prompt: Specify relative(s) and type of cancer
+
+R7 [yesno]
+Question: Is there a family history of any hereditary condition relevant to this deployment (e.g. sickle cell disease, G6PD deficiency, malignant hyperthermia)?
+Conditional follow-up prompt: Specify condition and relative
+
+====================================================================
+SECTION S — Reproductive Health, Pregnancy & Miscarriage Risk
+Question items: 8; all entries including notices: 9
+--------------------------------------------------------------------
+[SECTION NOTICE]
+CONFIDENTIAL CLINICAL USE ONLY: The pregnancy-related questions below are asked solely to guide safe vaccine selection, malaria prophylaxis choice, and medication/travel advice. They are NOT used to determine employment status, and answers are not disclosed to the employer/HR - only a functional fitness outcome is shared, in line with Section 7 of the Employment Equity Act. Answering is voluntary; declining will not affect your employment, but may limit the clinician's ability to give complete travel-health advice.
+
+S1 [yesno]
+Question: Are you currently pregnant, or is there a possibility you may be pregnant? (Asked only to guide safe vaccine, antimalarial and medication choices - not shared with your employer)
+Conditional follow-up prompt: Specify estimated gestation and confirm obstetric clearance for travel to this destination
+Clinician note (restricted): Many high-risk destinations are contraindicated in pregnancy due to malaria/Zika/yellow-fever vaccine and limited obstetric care. For clinical use only - do not record on any form seen by the employer.
+
+S2 [yesno]
+Question: Are you planning to become pregnant during the deployment period? (Asked only for medication/vaccine timing advice)
+Conditional follow-up prompt: Discuss timing, malaria prophylaxis choice, and vaccination planning (some vaccines contraindicated in pregnancy)
+
+S3 [yesno]
+Question: Have you previously had a miscarriage, stillbirth, or ectopic pregnancy? (Clinical history only - not shared with employer)
+Conditional follow-up prompt: Specify number of episodes, approximate gestation, and any underlying cause identified
+Clinician note (restricted): Recurrent loss may warrant specialist review before high-risk/remote deployment while planning pregnancy
+
+S4 [yesno]
+Question: Have you had any high-risk or complicated pregnancy in the past (e.g. pre-eclampsia, gestational diabetes, preterm birth)?
+Conditional follow-up prompt: Specify complication and outcome
+
+S5 [yesno]
+Question: Do you have any known gynaecological condition (e.g. endometriosis, fibroids, PCOS) requiring ongoing management?
+Conditional follow-up prompt: Specify condition and current treatment
+
+S6 [text]
+Question: What form of contraception, if any, are you currently using?
+Clinician note (restricted): Cross-reference Section P (VTE risk) if oestrogen-containing method
+
+S7 [yesno]
+Question: Will you have reliable access to your required reproductive/menstrual health products and gynaecological care at the destination?
+Conditional follow-up prompt: If no, describe mitigation plan (e.g. pre-supply, cycle suppression)
+
+S8 [yesno]
+Question: Are you aware that some destinations restrict access to emergency contraception, abortion, or specific reproductive healthcare?
+Conditional follow-up prompt: Confirm employee has been briefed on local law and evacuation plan for reproductive health emergencies
+
+====================================================================
+SECTION T — Visa, Legal & Occupational Restrictions
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+T1 [yesno]
+Question: Do you hold a valid visa/work permit for the destination country, and is a medical examination/certificate a requirement of that visa?
+Conditional follow-up prompt: Specify visa type and any mandatory medical panel physician requirement
+
+T2 [yesno]
+Question: Has a visa or entry permit ever been refused, revoked, or delayed on medical grounds?
+Conditional follow-up prompt: Specify country, reason given, and date
+
+T3 [yesno]
+Question: Does the destination country require disclosure or restrict entry for any specific medical condition (e.g. HIV status, mental illness, communicable disease)?
+Conditional follow-up prompt: Specify condition and requirement identified - verify with destination embassy/consulate
+Clinician note (restricted): A small number of countries still have HIV or other health-based entry restrictions
+
+T4 [yesno]
+Question: Do you have any criminal record, prior deportation, or immigration violation in the destination country or elsewhere?
+Conditional follow-up prompt: Specify nature (only as relevant to visa eligibility) - refer to employer's legal/immigration team
+
+T5 [yesno]
+Question: Does your occupational role require a specific licence, medical certificate of fitness, or professional registration recognised in the destination country (e.g. offshore medical certificate, aviation medical, driving permit)?
+Conditional follow-up prompt: Specify licence/certificate type and current validity/expiry date
+
+T6 [yesno]
+Question: Are you currently subject to any employer-imposed work restriction, suspension, or disciplinary process that could affect deployment?
+Conditional follow-up prompt: Specify nature and status - refer to HR
+
+T7 [yesno]
+Question: Do you hold adequate international medical and medical evacuation insurance covering the full deployment period and destination?
+Conditional follow-up prompt: If no, confirm arrangement being put in place before departure
+
+====================================================================
+SECTION U — Immunisation & Travel Medicine History
+Question items: 5; all entries including notices: 5
+--------------------------------------------------------------------
+U1 [yesno]
+Question: Are your routine immunisations (e.g. tetanus, MMR, influenza) up to date?
+Conditional follow-up prompt: List any outstanding vaccines required
+
+U2 [yesno]
+Question: Have you received the destination-specific travel vaccines required or recommended (e.g. yellow fever, typhoid, hepatitis A/B, rabies, Japanese encephalitis, meningococcal)?
+Conditional follow-up prompt: List vaccine(s) still outstanding and plan/date for administration
+Clinician note (restricted): Yellow fever certificate may be a mandatory legal entry requirement for certain countries
+
+U3 [yesno]
+Question: Have you ever had a significant adverse reaction to a vaccine?
+Conditional follow-up prompt: Specify vaccine and reaction
+
+U4 [yesno]
+Question: Is malaria prophylaxis indicated for this destination, and if so, have you tolerated antimalarials previously?
+Conditional follow-up prompt: Specify antimalarial used previously and any side effects (e.g. neuropsychiatric symptoms with mefloquine)
+
+U5 [yesno]
+Question: Do you have any contraindication to live vaccines (e.g. pregnancy, immunosuppression)?
+Conditional follow-up prompt: Specify contraindication (cross-reference Sections D9 and S1)
+
+====================================================================
+SECTION V — Blood Products, Wounds, TB & Infectious Disease Screening
+Question items: 14; all entries including notices: 16
+--------------------------------------------------------------------
+V1 [yesno]
+Question: Do you have any religious, cultural, or personal objection to receiving a blood transfusion or blood products (e.g. Jehovah's Witness directive)?
+Conditional follow-up prompt: Specify the nature of the objection (e.g. whole blood, specific fractions), whether you carry a medical alert card/advance directive, and confirm this should be flagged to the medical evacuation/assistance provider for emergency care planning
+Clinician note (restricted): Critical to flag to the medevac provider in advance - remote/trauma care may otherwise assume transfusion consent by default
+
+V2 [yesno]
+Question: Do you currently have any open wound, ulcer, skin break, or unhealed surgical incision?
+Conditional follow-up prompt: Specify location, size, cause, current dressing/treatment, and whether it is healing as expected
+Clinician note (restricted): Open wounds raise infection risk in hot/humid or austere environments and may need a wound-care/dressing supply plan
+
+[SECTION NOTICE]
+TB SYMPTOM SCREEN (WHO four-symptom screen) - answer for the past 2-4 weeks
+
+V3 [yesno]
+Question: Do you have a current cough lasting more than 2 weeks?
+Conditional follow-up prompt: Specify duration, whether productive, and any blood in sputum (haemoptysis)
+
+V4 [yesno]
+Question: Have you had unexplained fever in the past 2-4 weeks?
+Conditional follow-up prompt: Specify duration and pattern
+
+V5 [yesno]
+Question: Have you had drenching night sweats in the past 2-4 weeks?
+Conditional follow-up prompt: Specify frequency
+
+V6 [yesno]
+Question: Have you had unexplained/unintentional weight loss recently?
+Conditional follow-up prompt: Specify approximate amount and time period
+
+V7 [yesno]
+Question: Have you had known close contact with a person diagnosed with active tuberculosis in the past 12 months?
+Conditional follow-up prompt: Specify relationship, duration of exposure, and whether you were screened/treated afterwards
+
+V8 [yesno]
+Question: Have you ever been diagnosed with or treated for TB (active or latent/LTBI)?
+Conditional follow-up prompt: Specify diagnosis date, treatment regimen completed, and outcome (cured/completed/defaulted)
+Clinician note (restricted): Incomplete previous TB treatment raises drug-resistance and reactivation risk in high-burden destinations
+
+V9 [yesno]
+Question: Do you have a BCG vaccination scar or documented BCG vaccination record?
+
+[SECTION NOTICE]
+GENERAL INFECTIOUS DISEASE SCREENING
+
+V10 [yesno]
+Question: Are you currently experiencing any symptoms of an infectious illness (e.g. fever, diarrhoea, rash, jaundice, vomiting)?
+Conditional follow-up prompt: Specify symptom(s), onset date, and whether you have sought medical assessment
+Clinician note (restricted): Consider deferring travel/deployment until resolved or cleared by a physician
+
+V11 [yesno]
+Question: Have you ever been diagnosed with HIV, Hepatitis B, or Hepatitis C?
+Conditional follow-up prompt: Specify diagnosis, current viral load/treatment status, and treating clinician (strictly confidential - clinical use only, not disclosed to employer)
+Clinician note (restricted): Relevant to immunosuppression-related vaccine contraindications and antiretroviral supply/cold-chain planning at destination
+
+V12 [yesno]
+Question: Have you had close contact with a person with a confirmed communicable/notifiable disease (e.g. measles, meningitis, viral haemorrhagic fever) in the past 30 days?
+Conditional follow-up prompt: Specify disease, date of contact, and whether post-exposure prophylaxis or quarantine advice was given
+
+V13 [yesno]
+Question: Have you travelled to, or lived in, an area with an active disease outbreak (e.g. cholera, Ebola, measles, yellow fever) in the past 30 days?
+Conditional follow-up prompt: Specify location, dates, and any post-exposure screening/prophylaxis received
+
+V14 [yesno]
+Question: Are you a known carrier of, or have you been diagnosed with, any other notifiable communicable disease (e.g. multidrug-resistant organism, MRSA)?
+Conditional follow-up prompt: Specify condition and any current isolation/treatment precautions required
+
+====================================================================
+SECTION W — Declaration & Consent
+Question items: 7; all entries including notices: 7
+--------------------------------------------------------------------
+W1 [yesno]
+Question: I confirm that the information provided in this questionnaire is complete and accurate to the best of my knowledge.
+
+W2 [yesno]
+Question: I understand that providing false or incomplete information may affect my medical fitness determination and could invalidate insurance/medevac cover.
+
+W3 [yesno]
+Question: I consent to this information being shared, in confidence, with the occupational health physician, medical assistance/evacuation provider, and relevant employer occupational health team for the purpose of assessing deployment fitness.
+
+W4 [text]
+Question: Employee signature
+
+W5 [date]
+Question: Date completed
+
+W6 [text]
+Question: Assessing clinician name & designation
+
+W7 [select]
+Question: Overall deployment fitness outcome
+Options:
+  - Fit
+  - Fit with restrictions
+  - Temporarily unfit
+  - Permanently unfit
+  - Requires specialist review
+
+====================================================================
+SOURCE-DEFINED FITNESS OUTCOMES
+The source HTML defines these deployment fitness outcomes:
+- Fit
+- Fit with restrictions
+- Temporarily unfit
+- Permanently unfit
+- Requires specialist review
+
+DESTINATION / CDC ALERT FEATURE
+The source HTML includes a separate destination selector and embedded destination/CDC travel-health alert data.
+Embedded country/region entries: 244
+Implement this feature separately from questionnaire fields. Treat embedded alert content as source content and verify current official CDC notices before operational use.
+
+PRIVACY / CONSENT REQUIREMENTS
+Section S includes a confidentiality notice for pregnancy-related questions: they are for safe vaccine selection, malaria prophylaxis, and medication/travel advice; they are not for determining employment status and should not be disclosed to employer/HR; only a functional fitness outcome is shared. The source also says answering is voluntary and declining may limit complete travel-health advice.
+Section V includes the source's TB symptom-screen and general infectious-disease-screening notices.
+The original page-level notice says answers stay in the browser tab and are not saved or sent anywhere. That describes the standalone HTML, not the required STelo app behaviour. STelo must persist answers securely with role-restricted access.
+Section W contains declaration/consent fields; preserve their exact source wording as transcribed above.
+
+IMPORTANT COUNT NOTE
+Counts may differ depending on whether notices are counted as entries. Compare the final generated questionnaire against every source question ID and entry. Do not rely on a hard-coded total as a substitute for source comparison.
