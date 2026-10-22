@@ -8,13 +8,14 @@ export type PageId =
   | 'employees'
   | 'medicals'
   | 'appointments'
+  | 'sickness'
   | 'travel'
+  | 'visa'
   | 'documents'
   | 'reports'
   | 'ai'
   | 'settings'
-  | 'synopsis'
-  | 'sickness';
+  | 'synopsis';
 
 interface AppContextValue {
   user: User | null;

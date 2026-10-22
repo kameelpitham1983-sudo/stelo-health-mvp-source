@@ -11,6 +11,8 @@ import {
   ArrowRight,
   Activity as ActivityIcon,
   AlertCircle,
+  Globe,
+  ClipboardCheck,
 } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/Badge';
@@ -24,6 +26,7 @@ import {
   useDocuments,
   useActivityEvents,
 } from '@/hooks/useSupabaseData';
+import { visaMedicalCases, travelConsultations } from '@/data/mockData';
 
 const activityIcons: Record<string, typeof ActivityIcon> = {
   medical: Stethoscope,
@@ -66,6 +69,21 @@ export function Dashboard() {
   const overdueMedicals = medicals.filter((m) => m.status === 'Overdue').length;
   const travelActionsRequired = travelHealth.filter((t) => t.status === 'Action Required').length;
   const documentsPending = documents.filter((d) => d.status === 'Pending Review').length;
+
+  // Visa medicals & travel consultation stats (demo data)
+  const visaAwaitingDocs = visaMedicalCases.filter((v) => v.status === 'Awaiting Documents').length;
+  const visaQuestionnairePending = visaMedicalCases.filter(
+    (v) => v.status === 'Questionnaire Pending' || v.questionnaireStatus === 'Not Started' || v.questionnaireStatus === 'Draft',
+  ).length;
+  const visaAwaitingReview = visaMedicalCases.filter((v) => v.status === 'Awaiting Clinician Review').length;
+  const visaCompleted = visaMedicalCases.filter((v) => v.status === 'Completed').length;
+  const visaFollowUps = visaMedicalCases.filter((v) => v.status === 'Follow-up Required').length;
+  const upcomingTravelConsultations = travelConsultations.filter(
+    (c) => c.status === 'Not Scheduled' || c.status === 'Scheduled',
+  ).length;
+  const postTravelReviewsDue = travelConsultations.filter(
+    (c) => c.status === 'Post-Travel Review Required',
+  ).length;
 
   const fitCount = employees.filter((e) => e.healthStatus === 'Fit').length;
   const restrictedCount = employees.filter((e) => e.healthStatus === 'Fit with Restrictions').length;
@@ -326,6 +344,71 @@ export function Dashboard() {
             </div>
           );
         })}
+      </div>
+
+      {/* Visa Medicals & Travel Health overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Visa Medicals summary */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-ink-900 flex items-center gap-2">
+              <Globe size={18} className="text-brand-600" /> Visa Medicals
+            </h3>
+            <button onClick={() => setPage('visa')} className="text-xs text-brand-600 font-medium hover:text-brand-700">
+              View all
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <VisaStatCard icon={FileText} label="Awaiting Documents" value={visaAwaitingDocs} color="warning" />
+            <VisaStatCard icon={ClipboardCheck} label="Questionnaires Outstanding" value={visaQuestionnairePending} color="warning" />
+            <VisaStatCard icon={Stethoscope} label="Awaiting Review" value={visaAwaitingReview} color="brand" />
+            <VisaStatCard icon={ShieldCheck} label="Completed" value={visaCompleted} color="success" />
+            <VisaStatCard icon={AlertCircle} label="Follow-ups Due" value={visaFollowUps} color="danger" />
+            <VisaStatCard icon={CalendarDays} label="Upcoming Appts" value={visaMedicalCases.filter((v) => v.appointmentDate).length} color="brand" />
+          </div>
+          <p className="text-xs text-ink-400 mt-3">Demo data — visa medical cases are fictional sample records.</p>
+        </div>
+
+        {/* Travel Health consultations summary */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-ink-900 flex items-center gap-2">
+              <Plane size={18} className="text-brand-600" /> Travel Consultations
+            </h3>
+            <button onClick={() => setPage('travel')} className="text-xs text-brand-600 font-medium hover:text-brand-700">
+              View all
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <VisaStatCard icon={CalendarDays} label="Upcoming Consultations" value={upcomingTravelConsultations} color="brand" />
+            <VisaStatCard icon={ShieldCheck} label="Completed" value={travelConsultations.filter((c) => c.status === 'Completed' || c.status === 'Post-Travel Completed').length} color="success" />
+            <VisaStatCard icon={AlertCircle} label="Post-Travel Reviews Due" value={postTravelReviewsDue} color="warning" />
+            <VisaStatCard icon={Plane} label="Travel Actions Required" value={travelActionsRequired} color="danger" />
+            <VisaStatCard icon={Stethoscope} label="In Progress" value={travelHealth.filter((t) => t.status === 'In Progress').length} color="brand" />
+            <VisaStatCard icon={ShieldCheck} label="Cleared" value={travelHealth.filter((t) => t.status === 'Cleared').length} color="success" />
+          </div>
+          <p className="text-xs text-ink-400 mt-3">Demo data — travel consultations are fictional sample records.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VisaStatCard({ icon: Icon, label, value, color }: { icon: typeof Globe; label: string; value: number; color: 'success' | 'warning' | 'danger' | 'brand' }) {
+  const colorMap = {
+    success: 'bg-success-50 text-success-600',
+    warning: 'bg-warning-50 text-warning-600',
+    danger: 'bg-danger-50 text-danger-600',
+    brand: 'bg-brand-50 text-brand-600',
+  };
+  return (
+    <div className="flex items-center gap-2.5 p-2.5 rounded-lg border border-ink-100">
+      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${colorMap[color]}`}>
+        <Icon size={15} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-lg font-bold font-display text-ink-900 leading-tight">{value}</p>
+        <p className="text-xs text-ink-400 leading-tight truncate">{label}</p>
       </div>
     </div>
   );

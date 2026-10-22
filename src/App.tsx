@@ -13,6 +13,7 @@ import { SteloAI } from '@/pages/SteloAI';
 import { Settings } from '@/pages/Settings';
 import { Synopsis } from '@/pages/Synopsis';
 import { SicknessAbsence } from '@/pages/SicknessAbsence';
+import { VisaMedicals } from '@/pages/VisaMedicals';
 
 function AppContent() {
   const { user, currentPage } = useApp();
@@ -28,6 +29,7 @@ function AppContent() {
     appointments: <Appointments />,
     sickness: <SicknessAbsence />,
     travel: <TravelHealth />,
+    visa: <VisaMedicals />,
     documents: <Documents />,
     reports: <Reports />,
     ai: <SteloAI />,
