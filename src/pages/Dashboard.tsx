@@ -13,6 +13,9 @@ import {
   AlertCircle,
   Globe,
   ClipboardCheck,
+  Network,
+  Star,
+  Truck,
 } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/Badge';
@@ -26,7 +29,7 @@ import {
   useDocuments,
   useActivityEvents,
 } from '@/hooks/useSupabaseData';
-import { visaMedicalCases, travelConsultations } from '@/data/mockData';
+import { visaMedicalCases, travelConsultations, providers as demoProviders } from '@/data/mockData';
 
 const activityIcons: Record<string, typeof ActivityIcon> = {
   medical: Stethoscope,
@@ -84,6 +87,14 @@ export function Dashboard() {
   const postTravelReviewsDue = travelConsultations.filter(
     (c) => c.status === 'Post-Travel Review Required',
   ).length;
+
+  // Provider Network stats (demo data)
+  const providerTotal = demoProviders.length;
+  const providerVerified = demoProviders.filter((p) => p.status === 'Verified').length;
+  const providerPreferred = demoProviders.filter((p) => p.tier === 'Preferred').length;
+  const providerOnboarding = demoProviders.filter((p) => p.status === 'Onboarding' || p.status === 'Pending Verification').length;
+  const providerUnverified = demoProviders.filter((p) => p.status === 'Unverified').length;
+  const providerMobile = demoProviders.filter((p) => p.mobileServiceAvailable).length;
 
   const fitCount = employees.filter((e) => e.healthStatus === 'Fit').length;
   const restrictedCount = employees.filter((e) => e.healthStatus === 'Fit with Restrictions').length;
@@ -389,6 +400,27 @@ export function Dashboard() {
           </div>
           <p className="text-xs text-ink-400 mt-3">Demo data — travel consultations are fictional sample records.</p>
         </div>
+      </div>
+
+      {/* Provider Network overview */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-bold text-ink-900 flex items-center gap-2">
+            <Network size={18} className="text-brand-600" /> Provider Network
+          </h3>
+          <button onClick={() => setPage('providers')} className="text-xs text-brand-600 font-medium hover:text-brand-700">
+            View all
+          </button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <VisaStatCard icon={Network} label="Total Providers" value={providerTotal} color="brand" />
+          <VisaStatCard icon={ShieldCheck} label="Verified" value={providerVerified} color="success" />
+          <VisaStatCard icon={Star} label="Preferred" value={providerPreferred} color="success" />
+          <VisaStatCard icon={ClipboardCheck} label="Onboarding" value={providerOnboarding} color="warning" />
+          <VisaStatCard icon={AlertCircle} label="Unverified" value={providerUnverified} color="danger" />
+          <VisaStatCard icon={Truck} label="Mobile Units" value={providerMobile} color="brand" />
+        </div>
+        <p className="text-xs text-ink-400 mt-3">Demo data — provider records are fictional with unverified placeholder fields.</p>
       </div>
     </div>
   );

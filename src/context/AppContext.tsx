@@ -11,6 +11,7 @@ export type PageId =
   | 'sickness'
   | 'travel'
   | 'visa'
+  | 'providers'
   | 'documents'
   | 'reports'
   | 'ai'

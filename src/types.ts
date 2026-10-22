@@ -375,3 +375,96 @@ export interface TravelConsultation {
   medicalId: string | null;
   questionnaireStatus: QuestionnaireInstanceStatus;
 }
+
+// --- Provider Network types ---
+
+export type ProviderCategory =
+  | 'Occupational Health Clinic'
+  | 'Mobile Occupational Health Unit'
+  | 'Medical Laboratory'
+  | 'General Practitioner / Specialist'
+  | 'Audiometry / Spirometry / Radiology'
+  | 'Vaccination / Travel Health'
+  | 'Other';
+
+export type ProviderStatus =
+  | 'Unverified'
+  | 'Onboarding'
+  | 'Pending Verification'
+  | 'Verified'
+  | 'Suspended'
+  | 'Inactive';
+
+export type ProviderTier = 'Standard' | 'Preferred' | 'Not Rated';
+
+export interface ProviderService {
+  id: string;
+  name: string;
+  category: ProviderCategory;
+}
+
+export interface ProviderDocument {
+  id: string;
+  name: string;
+  type: string;
+  uploadedDate: string;
+  expiryDate: string | null;
+  verified: boolean;
+}
+
+export interface ProviderPerformanceMetric {
+  id: string;
+  period: string;
+  appointmentsCompleted: number;
+  noShowRate: number;
+  averageTurnaroundDays: number;
+  qualityScore: number;
+  clientSatisfactionScore: number | null;
+}
+
+export interface ProviderSiteVisit {
+  id: string;
+  visitDate: string;
+  visitedBy: string;
+  findings: string;
+  recommendations: string;
+  outcome: 'Satisfactory' | 'Minor Issues' | 'Major Issues' | 'Failed';
+  followUpRequired: boolean;
+  followUpDate: string | null;
+}
+
+export interface Provider {
+  id: string;
+  name: string;
+  providerCode: string;
+  category: ProviderCategory;
+  services: string[];
+  status: ProviderStatus;
+  tier: ProviderTier;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  physicalAddress: string;
+  gpsCoordinates: string | null;
+  provincesServed: string[];
+  townsServed: string[];
+  operatingHours: string;
+  bookingProcess: string;
+  appointmentAvailability: string;
+  indicativePricing: string;
+  commercialTerms: string;
+  serviceCapacity: number | null;
+  mobileServiceAvailable: boolean;
+  travelCharges: string;
+  registrationNumber: string;
+  licenceNumber: string;
+  accreditationDetails: string;
+  accreditationExpiryDate: string | null;
+  lastVerificationDate: string | null;
+  internalNotes: string;
+  documents: ProviderDocument[];
+  performanceMetrics: ProviderPerformanceMetric[];
+  siteVisits: ProviderSiteVisit[];
+  createdAt: string;
+  updatedAt: string;
+}
