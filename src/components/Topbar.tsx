@@ -17,6 +17,10 @@ const pageTitles: Record<string, string> = {
   reports: 'Reports',
   ai: 'Stelo AI',
   settings: 'Settings',
+  providers: 'Provider Network',
+  visa: 'Visa Medicals',
+  gops: 'Guarantees of Payment',
+  accommodation: 'Accommodation',
 };
 
 interface SearchResult {

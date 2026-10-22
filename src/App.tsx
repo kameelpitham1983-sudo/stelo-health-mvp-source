@@ -15,6 +15,8 @@ import { Synopsis } from '@/pages/Synopsis';
 import { SicknessAbsence } from '@/pages/SicknessAbsence';
 import { VisaMedicals } from '@/pages/VisaMedicals';
 import { Providers } from '@/pages/Providers';
+import { GOPs } from '@/pages/GOPs';
+import { Accommodation } from '@/pages/Accommodation';
 
 function AppContent() {
   const { user, currentPage } = useApp();
@@ -32,6 +34,8 @@ function AppContent() {
     travel: <TravelHealth />,
     visa: <VisaMedicals />,
     providers: <Providers />,
+    gops: <GOPs />,
+    accommodation: <Accommodation />,
     documents: <Documents />,
     reports: <Reports />,
     ai: <SteloAI />,

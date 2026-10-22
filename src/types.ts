@@ -376,6 +376,118 @@ export interface TravelConsultation {
   questionnaireStatus: QuestionnaireInstanceStatus;
 }
 
+// --- Guarantee of Payment (GOP) types ---
+
+export type GOPStatus =
+  | 'Draft'
+  | 'Pending Approval'
+  | 'Approved'
+  | 'Issued'
+  | 'Utilised'
+  | 'Invoiced'
+  | 'Paid'
+  | 'Cancelled'
+  | 'Expired';
+
+export type GOPRecipientType = 'provider' | 'accommodation' | 'laboratory' | 'other';
+export type GOPCurrency = 'ZAR' | 'USD' | 'EUR' | 'GBP' | 'AED' | 'KES' | 'SGD';
+
+export interface GOPInvoice {
+  id: string;
+  gopId: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  invoicedAmount: number;
+  currency: GOPCurrency;
+  matched: boolean;
+  paymentStatus: 'Unpaid' | 'Partially Paid' | 'Paid';
+  paymentDate: string | null;
+  notes: string;
+}
+
+export interface GOPAuditEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  actor: string;
+}
+
+export interface GOP {
+  id: string;
+  gopReference: string;
+  status: GOPStatus;
+  recipientType: GOPRecipientType;
+  recipientName: string;
+  recipientId: string | null;
+  recipientVerified: boolean;
+  companyName: string;
+  employeeName: string;
+  appointmentId: string | null;
+  tripId: string | null;
+  serviceDescription: string;
+  authorisedAmount: number;
+  currency: GOPCurrency;
+  validityStartDate: string;
+  validityEndDate: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  approverRole: string | null;
+  issuedBy: string;
+  issuedAt: string;
+  notes: string;
+  exceptionApproved: boolean;
+  exceptionReason: string;
+  invoices: GOPInvoice[];
+  auditTrail: GOPAuditEntry[];
+}
+
+// --- Hotel / Accommodation types ---
+
+export type AccommodationCategory = 'Preferred' | 'Non-Verified' | 'Core Providers';
+export type AccommodationStatus = 'Verified' | 'Unverified' | 'Suspended' | 'Inactive';
+
+export interface HotelBooking {
+  id: string;
+  hotelId: string;
+  hotelName: string;
+  travellerName: string;
+  companyName: string;
+  linkedTripId: string | null;
+  linkedAppointmentId: string | null;
+  checkInDate: string;
+  checkOutDate: string;
+  guestDetails: string;
+  bookingConfirmation: string;
+  roomType: string;
+  agreedRate: number;
+  currency: GOPCurrency;
+  paymentResponsibility: 'Company' | 'Employee' | 'GOP';
+  linkedGOPId: string | null;
+  bookingNotes: string;
+  status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Checked Out';
+}
+
+export interface Hotel {
+  id: string;
+  name: string;
+  category: AccommodationCategory;
+  status: AccommodationStatus;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  physicalAddress: string;
+  gpsCoordinates: string | null;
+  area: string;
+  roomTypes: string[];
+  indicativeRate: number;
+  currency: GOPCurrency;
+  operatingDetails: string;
+  bookingContact: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- Provider Network types ---
 
 export type ProviderCategory =

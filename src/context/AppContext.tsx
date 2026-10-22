@@ -12,6 +12,8 @@ export type PageId =
   | 'travel'
   | 'visa'
   | 'providers'
+  | 'gops'
+  | 'accommodation'
   | 'documents'
   | 'reports'
   | 'ai'

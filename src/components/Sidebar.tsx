@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   ClipboardList,
   HeartPulse,
+  BedDouble,
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
@@ -39,6 +40,8 @@ const navItems: NavItem[] = [
   { id: 'travel', label: 'Travel Health', icon: Plane, roles: ['admin', 'employer', 'provider'] },
   { id: 'visa', label: 'Visa Medicals', icon: Globe, roles: ['admin', 'employer', 'provider'] },
   { id: 'providers', label: 'Provider Network', icon: Network, roles: ['admin', 'provider'] },
+  { id: 'gops', label: 'Guarantees of Payment', icon: ShieldCheck, roles: ['admin', 'provider'] },
+  { id: 'accommodation', label: 'Accommodation', icon: BedDouble, roles: ['admin', 'provider'] },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employer'] },
   { id: 'ai', label: 'Stelo AI', icon: Sparkles },
