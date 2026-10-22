@@ -10,6 +10,15 @@ export interface RoleInfo {
   description: string;
 }
 
+export interface Profile {
+  id: string;
+  role: UserRole;
+  companyId: string | null;
+  linkedEmployeeId: string | null;
+  displayName: string;
+  avatarInitials: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -18,6 +27,8 @@ export interface User {
   avatarInitials: string;
   company?: string;
   jobTitle?: string;
+  companyId?: string | null;
+  linkedEmployeeId?: string | null;
 }
 
 export type CompanyTier = 'Enterprise' | 'Mid-Market' | 'SMB';
@@ -232,7 +243,7 @@ export interface SynopsisFollowUp {
 
 // --- Medical Questionnaire types ---
 
-export type QuestionnaireFieldType = 'yesno' | 'text' | 'textarea' | 'date' | 'select' | 'number';
+export type QuestionnaireFieldType = 'yesno' | 'text' | 'textarea' | 'date' | 'select' | 'number' | 'multi' | 'notice';
 
 export interface QuestionnaireField {
   id: string;
@@ -243,6 +254,8 @@ export interface QuestionnaireField {
   placeholder?: string;
   followUpLabel?: string;
   section: string;
+  dependsOn?: { field: string; value: string };
+  clinicianNote?: string;
 }
 
 export interface QuestionnaireTemplate {

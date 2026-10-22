@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   ClipboardList,
   Check,
@@ -8,14 +8,15 @@ import {
   AlertCircle,
   Flag,
   ArrowLeft,
-  FileText,
-  Clock,
   User,
   ChevronDown,
+  Info,
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { isDemoMode } from '@/hooks/useSupabaseData';
 import { questionnaireTemplates, questionnaireInstances } from '@/data/mockData';
+import { supabase } from '@/lib/supabase';
+import { useApp } from '@/context/AppContext';
 import type {
   Medical,
   QuestionnaireTemplate,
@@ -40,15 +41,18 @@ interface QuestionnaireWorkflowProps {
 }
 
 export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflowProps) {
-  // Find or create a questionnaire instance for this medical
+  const { user } = useApp();
+
   const existingInstance = useMemo(
     () => questionnaireInstances.find((qi) => qi.medicalId === medical.id),
     [medical.id],
   );
 
+  const [persistedTemplates, setPersistedTemplates] = useState<QuestionnaireTemplate[]>([]);
+
   const availableTemplates = useMemo(
-    () => questionnaireTemplates.filter((t) => t.medicalTypes.includes(medical.type)),
-    [medical.type],
+    () => (persistedTemplates.length > 0 ? persistedTemplates : questionnaireTemplates).filter((t) => t.medicalTypes.includes(medical.type)),
+    [medical.type, persistedTemplates],
   );
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
@@ -83,9 +87,100 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const template = useMemo(
-    () => questionnaireTemplates.find((t) => t.id === (instance.templateId || selectedTemplateId)),
-    [instance.templateId, selectedTemplateId],
+    () => availableTemplates.find((t) => t.id === (instance.templateId || selectedTemplateId)),
+    [availableTemplates, instance.templateId, selectedTemplateId],
   );
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    (async () => {
+      const { data: rows } = await supabase.from('questionnaire_templates').select('*').eq('is_active', true).order('name');
+      if (rows && rows.length > 0) {
+        const loaded = rows.map((row: Record<string, unknown>) => ({
+          id: row.id as string,
+          name: row.name as string,
+          description: row.description as string,
+          medicalTypes: row.medical_types as QuestionnaireTemplate['medicalTypes'],
+          fields: row.fields as QuestionnaireTemplate['fields'],
+        }));
+        setPersistedTemplates(loaded);
+        const matching = loaded.find((item) => item.medicalTypes.includes(medical.type));
+        if (matching && !existingInstance) {
+          setSelectedTemplateId(matching.id);
+          setInstance((current) => ({ ...current, templateId: matching.id, templateName: matching.name }));
+        }
+      }
+      const { data: saved } = await supabase.from('questionnaire_instances').select('*').eq('medical_id', medical.id).maybeSingle();
+      if (saved) {
+        setInstance({
+          id: saved.id as string,
+          medicalId: saved.medical_id as string,
+          templateId: saved.template_id as string,
+          templateName: saved.template_name as string,
+          employeeName: saved.employee_name as string,
+          employeeId: saved.employee_id as string,
+          medicalType: saved.medical_type as Medical['type'],
+          status: saved.status as QuestionnaireInstanceStatus,
+          answers: (saved.answers || {}) as Record<string, string>,
+          flaggedForReview: (saved.flagged_for_review || []) as string[],
+          clinicianComments: saved.clinician_comments as string,
+          additionalTests: saved.additional_tests as string,
+          recommendations: saved.recommendations as string,
+          followUpDate: saved.follow_up_date as string | null,
+          completedBy: saved.completed_by as string,
+          completedAt: saved.completed_at as string | null,
+          submittedBy: saved.submitted_by as string,
+          submittedAt: saved.submitted_at as string | null,
+          reviewedBy: saved.reviewed_by as string,
+          reviewedAt: saved.reviewed_at as string | null,
+        });
+      }
+    })();
+  }, [medical.id, medical.type, existingInstance]);
+
+  const persistInstance = useCallback(async (next: QuestionnaireInstance, action: string, fromStatus: string | null = null) => {
+    if (isDemoMode || !user) return;
+    const payload = {
+      medical_id: next.medicalId,
+      template_id: next.templateId,
+      template_name: next.templateName,
+      employee_name: next.employeeName,
+      employee_id: next.employeeId || null,
+      medical_type: next.medicalType,
+      status: next.status,
+      answers: next.answers,
+      flagged_for_review: next.flaggedForReview,
+      clinician_comments: next.clinicianComments,
+      additional_tests: next.additionalTests,
+      recommendations: next.recommendations,
+      follow_up_date: next.followUpDate || null,
+      completed_by: next.completedBy,
+      completed_at: next.completedAt,
+      submitted_by: next.submittedBy,
+      submitted_at: next.submittedAt,
+      reviewed_by: next.reviewedBy,
+      reviewed_at: next.reviewedAt,
+    };
+    let instanceId = next.id;
+    if (next.id.startsWith('qi-')) {
+      const { data: inserted, error } = await supabase.from('questionnaire_instances').insert(payload).select().maybeSingle();
+      if (error) throw error;
+      if (inserted) {
+        instanceId = inserted.id as string;
+        setInstance((current) => ({ ...current, id: instanceId }));
+      }
+    } else {
+      const { error } = await supabase.from('questionnaire_instances').update(payload).eq('id', next.id);
+      if (error) throw error;
+    }
+    await supabase.from('questionnaire_audit_entries').insert({
+      instance_id: instanceId,
+      action,
+      from_status: fromStatus,
+      to_status: next.status,
+      actor: user.name,
+    });
+  }, [user]);
 
   const sections = useMemo(() => {
     if (!template) return [];
@@ -119,49 +214,62 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
     }));
   };
 
-  const handleSaveDraft = () => {
-    setInstance((prev) => ({ ...prev, status: 'Draft', completedBy: prev.completedBy || 'Current user' }));
-    setSaveNotice('Draft saved locally. ' + (isDemoMode ? 'Demo mode — not saved to the live database.' : ''));
-    setSubmitError(null);
+  const handleSaveDraft = async () => {
+    const next = { ...instance, status: 'Draft' as QuestionnaireInstanceStatus, completedBy: instance.completedBy || user?.name || 'Current user' };
+    setInstance(next);
+    try {
+      await persistInstance(next, 'draft_saved', instance.status);
+      setSaveNotice(isDemoMode ? 'Draft saved locally. Demo mode — not saved to the live database.' : 'Draft saved.');
+      setSubmitError(null);
+    } catch {
+      setSubmitError('Could not save this questionnaire. Please try again.');
+    }
     setTimeout(() => setSaveNotice(null), 3000);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const missingRequired = requiredFields.filter((f) => !instance.answers[f.id]?.trim());
     if (missingRequired.length > 0) {
       setSubmitError(`Please complete all required fields: ${missingRequired.map((f) => f.label).join(', ')}`);
       return;
     }
-    const now = new Date().toISOString();
-    setInstance((prev) => ({
-      ...prev,
-      status: 'Submitted',
-      submittedBy: prev.completedBy || 'Current user',
-      submittedAt: now,
-    }));
-    setSaveNotice('Questionnaire submitted for clinician review. ' + (isDemoMode ? 'Demo mode — not saved to the live database.' : ''));
-    setSubmitError(null);
+    const next = { ...instance, status: 'Submitted' as QuestionnaireInstanceStatus, submittedBy: instance.completedBy || user?.name || 'Current user', submittedAt: new Date().toISOString() };
+    setInstance(next);
+    try {
+      await persistInstance(next, 'submitted', instance.status);
+      setSaveNotice(isDemoMode ? 'Questionnaire submitted locally. Demo mode — not saved to the live database.' : 'Questionnaire submitted for clinician review.');
+      setSubmitError(null);
+    } catch {
+      setSubmitError('Could not submit this questionnaire. Please try again.');
+    }
     setTimeout(() => setSaveNotice(null), 3000);
   };
 
-  const handleStartReview = () => {
-    setInstance((prev) => ({ ...prev, status: 'Under Review', reviewedBy: 'Current clinician' }));
-    setSaveNotice('Review started.');
+  const handleStartReview = async () => {
+    const next = { ...instance, status: 'Under Review' as QuestionnaireInstanceStatus, reviewedBy: user?.name || 'Current clinician' };
+    setInstance(next);
+    try {
+      await persistInstance(next, 'review_started', instance.status);
+      setSaveNotice('Review started.');
+    } catch {
+      setSubmitError('Could not start the review. Please try again.');
+    }
     setTimeout(() => setSaveNotice(null), 2000);
   };
 
-  const handleCompleteReview = () => {
-    const now = new Date().toISOString();
-    setInstance((prev) => ({
-      ...prev,
-      status: 'Completed',
-      reviewedAt: now,
-    }));
-    setSaveNotice('Review completed. ' + (isDemoMode ? 'Demo mode — not saved to the live database.' : ''));
+  const handleCompleteReview = async () => {
+    const next = { ...instance, status: 'Completed' as QuestionnaireInstanceStatus, reviewedAt: new Date().toISOString() };
+    setInstance(next);
+    try {
+      await persistInstance(next, 'review_completed', instance.status);
+      setSaveNotice(isDemoMode ? 'Review completed locally. Demo mode — not saved to the live database.' : 'Review completed.');
+    } catch {
+      setSubmitError('Could not complete the review. Please try again.');
+    }
     setTimeout(() => setSaveNotice(null), 3000);
   };
 
-  const isClinician = true; // In the full app, this would check user role
+  const isClinician = user?.role === 'admin' || user?.role === 'provider';
 
   const canEditAnswers = instance.status === 'Not Started' || instance.status === 'Draft';
   const canSubmit = canEditAnswers && completionPct === 100;
@@ -268,18 +376,24 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
             <div key={section.name} className="card p-5">
               <h3 className="font-display font-bold text-ink-900 mb-4">{section.name}</h3>
               <div className="space-y-4">
-                {section.fields.map((field) => (
-                  <FieldRenderer
-                    key={field.id}
-                    field={field}
-                    value={instance.answers[field.id] || ''}
-                    onChange={(val) => setAnswer(field.id, val)}
-                    disabled={!canEditAnswers}
-                    flagged={instance.flaggedForReview.includes(field.id)}
-                    onToggleFlag={() => toggleFlag(field.id)}
-                    canFlag={isClinician && !canEditAnswers}
-                  />
-                ))}
+                {section.fields.map((field) => {
+                  if (field.dependsOn) {
+                    const depValue = instance.answers[field.dependsOn.field];
+                    if (depValue !== field.dependsOn.value) return null;
+                  }
+                  return (
+                    <FieldRenderer
+                      key={field.id}
+                      field={field}
+                      value={instance.answers[field.id] || ''}
+                      onChange={(val) => setAnswer(field.id, val)}
+                      disabled={!canEditAnswers}
+                      flagged={instance.flaggedForReview.includes(field.id)}
+                      onToggleFlag={() => toggleFlag(field.id)}
+                      canFlag={isClinician && !canEditAnswers}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -429,6 +543,18 @@ function FieldRenderer({
 }) {
   const showFollowUp = field.followUpLabel && value === 'Yes';
 
+  if (field.type === 'notice') {
+    return (
+      <div className="p-3 bg-brand-50 border border-brand-100 rounded-lg flex items-start gap-2">
+        <Info size={16} className="text-brand-600 shrink-0 mt-0.5" />
+        <p className="text-sm text-brand-700">{field.label}</p>
+        {field.clinicianNote && (
+          <p className="text-xs text-brand-500 ml-2 italic">{field.clinicianNote}</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-start justify-between gap-2">
@@ -446,80 +572,61 @@ function FieldRenderer({
           </button>
         )}
       </div>
+      {field.clinicianNote && (
+        <p className="text-xs text-ink-400 italic mb-1">{field.clinicianNote}</p>
+      )}
       <div className="mt-1">
         {field.type === 'yesno' && (
           <div className="flex gap-4 mt-1">
             <label className={`flex items-center gap-2 text-sm cursor-pointer ${disabled ? 'opacity-60' : ''}`}>
-              <input
-                type="radio"
-                name={field.id}
-                checked={value === 'Yes'}
-                onChange={() => onChange('Yes')}
-                disabled={disabled}
-                className="text-brand-600 focus:ring-brand-500"
-              />
+              <input type="radio" name={field.id} checked={value === 'Yes'} onChange={() => onChange('Yes')} disabled={disabled} className="text-brand-600 focus:ring-brand-500" />
               Yes
             </label>
             <label className={`flex items-center gap-2 text-sm cursor-pointer ${disabled ? 'opacity-60' : ''}`}>
-              <input
-                type="radio"
-                name={field.id}
-                checked={value === 'No'}
-                onChange={() => onChange('No')}
-                disabled={disabled}
-                className="text-brand-600 focus:ring-brand-500"
-              />
+              <input type="radio" name={field.id} checked={value === 'No'} onChange={() => onChange('No')} disabled={disabled} className="text-brand-600 focus:ring-brand-500" />
               No
             </label>
           </div>
         )}
         {field.type === 'text' && (
-          <input
-            className="input w-full"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            placeholder={field.placeholder}
-          />
+          <input className="input w-full" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={field.placeholder} />
         )}
         {field.type === 'textarea' && (
-          <textarea
-            className="input w-full min-h-[60px] resize-y"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            placeholder={field.placeholder}
-          />
+          <textarea className="input w-full min-h-[60px] resize-y" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={field.placeholder} />
         )}
         {field.type === 'date' && (
-          <input
-            className="input w-full"
-            type="date"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-          />
+          <input className="input w-full" type="date" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} />
         )}
         {field.type === 'number' && (
-          <input
-            className="input w-full"
-            type="number"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            placeholder={field.placeholder}
-          />
+          <input className="input w-full" type="number" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={field.placeholder} />
         )}
         {field.type === 'select' && (
-          <select
-            className="input w-full"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-          >
+          <select className="input w-full" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
             <option value="">Select...</option>
             {field.options?.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
+        )}
+        {field.type === 'multi' && (
+          <div className="flex flex-wrap gap-2 mt-1">
+            {field.options?.map((opt) => {
+              const selected = value === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onChange(selected ? '' : opt)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                    selected
+                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                      : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
+                  } ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
       {showFollowUp && (

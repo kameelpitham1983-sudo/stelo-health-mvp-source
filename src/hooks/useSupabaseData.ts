@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
+import { useApp } from '@/context/AppContext';
 import * as mockData from '@/data/mockData';
 import type {
   Company,
@@ -253,8 +254,10 @@ function transformMedical(row: Record<string, unknown>): Medical {
 }
 
 export function useMedicals() {
+  const { user } = useApp();
+  const isEmployer = user?.role === 'employer';
   const { data, loading, error, refetch } = useSupabaseQuery<Medical>(
-    'medicals',
+    isEmployer ? 'medicals_employer_view' : 'medicals',
     transformMedical,
     'assessment_date',
     false,
@@ -389,8 +392,10 @@ function transformTravelHealth(row: Record<string, unknown>): TravelHealthRecord
 }
 
 export function useTravelHealth() {
+  const { user } = useApp();
+  const isEmployer = user?.role === 'employer';
   const { data, loading, error, refetch } = useSupabaseQuery<TravelHealthRecord>(
-    'travel_health',
+    isEmployer ? 'travel_health_employer_view' : 'travel_health',
     transformTravelHealth,
     'departure_date',
     true,
@@ -595,8 +600,10 @@ function transformSicknessCase(row: Record<string, unknown>): SicknessAbsenceCas
 }
 
 export function useSicknessCases() {
+  const { user } = useApp();
+  const isEmployer = user?.role === 'employer';
   const { data, loading, error, refetch } = useSupabaseQuery<SicknessAbsenceCase>(
-    'sickness_absence_cases',
+    isEmployer ? 'sickness_cases_employer_view' : 'sickness_absence_cases',
     transformSicknessCase,
     'created_at',
     false,
