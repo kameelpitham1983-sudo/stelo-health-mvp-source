@@ -1,9 +1,16 @@
 import { useState } from 'react';
-import { ShieldCheck, Lock, Mail, ArrowRight, HeartPulse, CheckCircle2, Globe, AlertCircle, UserPlus } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowRight, HeartPulse, CheckCircle2, Globe, AlertCircle, UserPlus, Crown, Stethoscope, Building2, User } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useApp } from '@/context/AppContext';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import type { UserRole } from '@/types';
+
+const roleOptions: { value: UserRole; label: string; icon: typeof Crown; description: string }[] = [
+  { value: 'admin', label: 'Admin', icon: Crown, description: 'Full platform access' },
+  { value: 'provider', label: 'Provider', icon: Stethoscope, description: 'Clinical access' },
+  { value: 'employer', label: 'Employer', icon: Building2, description: 'Company-scoped access' },
+  { value: 'employee', label: 'Employee', icon: User, description: 'Personal records only' },
+];
 
 export function Login() {
   const { login } = useApp();
@@ -12,6 +19,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [signUpRole, setSignUpRole] = useState<UserRole>('employee');
 
   const inferDemoRole = (address: string): UserRole => {
     if (address.includes('admin')) return 'admin';
@@ -39,9 +47,13 @@ export function Login() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
-      const { data, error: authError } = await supabase.auth.signUp({ email, password });
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { role: signUpRole, display_name: email.split('@')[0] } },
+      });
       if (authError) throw authError;
-      if (data.user) { setError('Account created. Please check your email for confirmation, then sign in.'); setIsSignUp(false); }
+      if (data.user) { setError('Account created. You can now sign in with your email and password.'); setIsSignUp(false); }
     } catch (cause) {
       setError(cause instanceof Error && cause.message === 'User already registered' ? 'An account with this email already exists.' : 'Could not create account. Please try again.');
     } finally { setLoading(false); }
@@ -55,6 +67,29 @@ export function Login() {
     <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-20 py-8"><div className="w-full max-w-md mx-auto"><div className="lg:hidden mb-8"><Logo size="md" /></div><div className="mb-8"><h2 className="text-2xl font-display font-bold text-ink-900 mb-1.5">{isSignUp ? 'Create your account' : 'Welcome back'}</h2><p className="text-ink-500 text-sm">{supabaseConfigured ? (isSignUp ? 'Sign up to access the Stelo Health platform.' : 'Sign in to the Stelo Health platform.') : 'Enter any email and password, then click sign in — demo mode uses mock data.'}</p></div>
       {error && <div className="mb-5 flex items-start gap-2.5 p-3.5 bg-danger-50 border border-danger-200 rounded-lg"><AlertCircle size={16} className="text-danger-600 shrink-0 mt-0.5" /><p className="text-sm text-danger-700">{error}</p></div>}
       <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-5"><div><label className="block text-sm font-semibold text-ink-700 mb-1.5">Email address</label><div className="relative"><Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="input pl-10" required /></div></div><div><label className="block text-sm font-semibold text-ink-700 mb-1.5">Password</label><div className="relative"><Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="input pl-10" required minLength={6} /></div></div>{!isSignUp && supabaseConfigured && <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-ink-600 cursor-pointer"><input type="checkbox" className="w-4 h-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" defaultChecked /><span>Remember me</span></label><button type="button" className="text-brand-600 font-medium hover:text-brand-700">Forgot password?</button></div>}<button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">{loading ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{isSignUp ? 'Creating account...' : 'Signing in...'}</span> : isSignUp ? <><UserPlus size={18} />Create Account</> : <>Sign In to Stelo Health<ArrowRight size={18} /></>}</button></form>
+      {supabaseConfigured && isSignUp && (
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-ink-700 mb-1">Account Type</label>
+          <div className="grid grid-cols-2 gap-2">
+            {roleOptions.map((opt) => {
+              const Icon = opt.icon;
+              const active = signUpRole === opt.value;
+              return (
+                <button key={opt.value} type="button" onClick={() => setSignUpRole(opt.value)} className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${active ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'}`}>
+                  <Icon size={18} className={active ? 'text-brand-600' : 'text-ink-400'} />
+                  <div>
+                    <p className="text-sm font-semibold">{opt.label}</p>
+                    <p className="text-xs text-ink-400">{opt.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {signUpRole !== 'employee' && (
+            <p className="text-xs text-ink-400">The first account created with a non-employee role gets that role. After an admin exists, all new sign-ups default to Employee.</p>
+          )}
+        </div>
+      )}
       {supabaseConfigured && <div className="mt-6 text-center"><button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(''); }} className="text-sm text-brand-600 font-medium hover:text-brand-700">{isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}</button></div>}
       {!supabaseConfigured && <div className="mt-6 p-3.5 bg-ink-50 rounded-lg border border-ink-100"><p className="text-xs text-ink-500 text-center"><strong className="text-ink-700">Demo mode:</strong> enter any email and password, then click sign in.</p></div>}<p className="text-center text-xs text-ink-400 mt-6">© 2025 Stelo Health. All rights reserved.</p></div></div>
   </div>;
