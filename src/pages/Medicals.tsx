@@ -20,6 +20,7 @@ const typeColors: Record<string, string> = {
   'Annual Occupational': 'bg-teal-50 text-teal-600',
   'Return to Work': 'bg-warning-50 text-warning-600',
   'Travel Health': 'bg-accent-50 text-accent-600',
+  'Deployment Readiness': 'bg-brand-50 text-brand-700',
   'Drug & Alcohol Screen': 'bg-danger-50 text-danger-600',
   Audiometry: 'bg-ink-100 text-ink-600',
   Spirometry: 'bg-success-50 text-success-600',
@@ -27,7 +28,7 @@ const typeColors: Record<string, string> = {
 };
 
 const medicalTypes: MedicalType[] = [
-  'Pre-Employment', 'Annual Occupational', 'Return to Work', 'Travel Health',
+  'Pre-Employment', 'Annual Occupational', 'Return to Work', 'Travel Health', 'Deployment Readiness',
   'Drug & Alcohol Screen', 'Audiometry', 'Spirometry', 'Vision Test',
 ];
 

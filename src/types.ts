@@ -76,6 +76,7 @@ export type MedicalType =
   | 'Annual Occupational'
   | 'Return to Work'
   | 'Travel Health'
+  | 'Deployment Readiness'
   | 'Drug & Alcohol Screen'
   | 'Audiometry'
   | 'Spirometry'
