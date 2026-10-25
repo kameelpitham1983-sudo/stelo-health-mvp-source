@@ -270,6 +270,11 @@ export function Medicals() {
                     } dot>{emp.healthStatus}</Badge>
                     <span className="text-xs text-ink-400">Next due: {emp.nextMedicalDue || 'Not scheduled'}</span>
                   </div>
+                  {(med.status === 'In Progress' || med.status === 'Scheduled') && med.result === 'Pending' && (
+                    <p className="text-xs text-ink-400 mt-2 italic">
+                      This status reflects the employee's most recent completed assessment. The current assessment is not yet concluded — no fitness decision has been recorded for it.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

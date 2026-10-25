@@ -35,6 +35,10 @@ const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'brand' | 
 
 const statusOrder: QuestionnaireInstanceStatus[] = ['Not Started', 'Draft', 'Submitted', 'Under Review', 'Completed'];
 
+const FITNESS_OPTIONS = ['Fit', 'Fit with restrictions', 'Temporarily unfit', 'Permanently unfit', 'Requires specialist review'];
+
+const STORAGE_KEY = (medicalId: string) => `stelo-q-${medicalId}`;
+
 interface QuestionnaireWorkflowProps {
   medical: Medical;
   onBack: () => void;
@@ -58,29 +62,33 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
     existingInstance?.templateId || availableTemplates[0]?.id || '',
   );
+
+  const buildFreshInstance = useCallback((): QuestionnaireInstance => ({
+    id: `qi-new-${medical.id}`,
+    medicalId: medical.id,
+    templateId: selectedTemplateId,
+    templateName: availableTemplates[0]?.name || '',
+    employeeName: medical.employeeName,
+    employeeId: medical.employeeId,
+    medicalType: medical.type,
+    status: 'Not Started',
+    answers: {},
+    flaggedForReview: [],
+    clinicianComments: '',
+    additionalTests: '',
+    recommendations: '',
+    fitnessOutcome: '',
+    followUpDate: null,
+    completedBy: '',
+    completedAt: null,
+    submittedBy: '',
+    submittedAt: null,
+    reviewedBy: '',
+    reviewedAt: null,
+  }), [medical, selectedTemplateId, availableTemplates]);
+
   const [instance, setInstance] = useState<QuestionnaireInstance>(
-    existingInstance || {
-      id: `qi-new-${medical.id}`,
-      medicalId: medical.id,
-      templateId: selectedTemplateId,
-      templateName: availableTemplates[0]?.name || '',
-      employeeName: medical.employeeName,
-      employeeId: medical.employeeId,
-      medicalType: medical.type,
-      status: 'Not Started',
-      answers: {},
-      flaggedForReview: [],
-      clinicianComments: '',
-      additionalTests: '',
-      recommendations: '',
-      followUpDate: null,
-      completedBy: '',
-      completedAt: null,
-      submittedBy: '',
-      submittedAt: null,
-      reviewedBy: '',
-      reviewedAt: null,
-    },
+    existingInstance || buildFreshInstance(),
   );
 
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
@@ -91,8 +99,23 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
     [availableTemplates, instance.templateId, selectedTemplateId],
   );
 
+  // Load: Supabase (live mode) or localStorage (demo mode)
   useEffect(() => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY(medical.id));
+        if (raw) {
+          const saved = JSON.parse(raw) as QuestionnaireInstance;
+          setInstance({ ...saved, fitnessOutcome: saved.fitnessOutcome || '' });
+        } else if (existingInstance) {
+          setInstance(existingInstance);
+        }
+      } catch {
+        // corrupted storage — fall back to existing or fresh
+      }
+      return;
+    }
+
     (async () => {
       const { data: rows } = await supabase.from('questionnaire_templates').select('*').eq('is_active', true).order('name');
       if (rows && rows.length > 0) {
@@ -126,6 +149,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
           clinicianComments: saved.clinician_comments as string,
           additionalTests: saved.additional_tests as string,
           recommendations: saved.recommendations as string,
+          fitnessOutcome: (saved.fitness_outcome as string) || '',
           followUpDate: saved.follow_up_date as string | null,
           completedBy: saved.completed_by as string,
           completedAt: saved.completed_at as string | null,
@@ -139,7 +163,15 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
   }, [medical.id, medical.type, existingInstance]);
 
   const persistInstance = useCallback(async (next: QuestionnaireInstance, action: string, fromStatus: string | null = null) => {
-    if (isDemoMode || !user) return;
+    if (isDemoMode) {
+      try {
+        localStorage.setItem(STORAGE_KEY(medical.id), JSON.stringify(next));
+      } catch {
+        // storage full or unavailable — non-fatal in demo
+      }
+      return;
+    }
+    if (!user) return;
     const payload = {
       medical_id: next.medicalId,
       template_id: next.templateId,
@@ -153,6 +185,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
       clinician_comments: next.clinicianComments,
       additional_tests: next.additionalTests,
       recommendations: next.recommendations,
+      fitness_outcome: next.fitnessOutcome,
       follow_up_date: next.followUpDate || null,
       completed_by: next.completedBy,
       completed_at: next.completedAt,
@@ -180,18 +213,18 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
       to_status: next.status,
       actor: user.name,
     });
-  }, [user]);
+  }, [user, medical.id]);
 
   const sections = useMemo(() => {
     if (!template) return [];
     const sectionNames = [...new Set(template.fields.map((f) => f.section))];
     return sectionNames.map((name) => ({
       name,
-      fields: template.fields.filter((f) => f.section === name),
+      fields: template.fields.filter((f) => f.section === name && !f.clinicianOnly),
     }));
   }, [template]);
 
-  const requiredFields = template?.fields.filter((f) => f.required) || [];
+  const requiredFields = template?.fields.filter((f) => f.required && !f.clinicianOnly) || [];
   const answeredRequired = requiredFields.filter((f) => instance.answers[f.id]?.trim());
   const completionPct = requiredFields.length > 0
     ? Math.round((answeredRequired.length / requiredFields.length) * 100)
@@ -250,7 +283,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
     setInstance(next);
     try {
       await persistInstance(next, 'review_started', instance.status);
-      setSaveNotice('Review started.');
+      setSaveNotice('Review started. Questionnaire is now under clinician review.');
     } catch {
       setSubmitError('Could not start the review. Please try again.');
     }
@@ -258,13 +291,35 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
   };
 
   const handleCompleteReview = async () => {
-    const next = { ...instance, status: 'Completed' as QuestionnaireInstanceStatus, reviewedAt: new Date().toISOString() };
+    if (!instance.fitnessOutcome) {
+      setSubmitError('A fitness outcome must be recorded before completing the review.');
+      return;
+    }
+    if (!instance.clinicianComments.trim()) {
+      setSubmitError('Clinician comments are required before completing the review.');
+      return;
+    }
+    const next = { ...instance, status: 'Completed' as QuestionnaireInstanceStatus, reviewedAt: new Date().toISOString(), reviewedBy: instance.reviewedBy || user?.name || 'Current clinician' };
     setInstance(next);
     try {
       await persistInstance(next, 'review_completed', instance.status);
-      setSaveNotice(isDemoMode ? 'Review completed locally. Demo mode — not saved to the live database.' : 'Review completed.');
+      setSaveNotice(isDemoMode ? 'Review completed locally. Demo mode — not saved to the live database.' : 'Review completed and fitness outcome recorded.');
+      setSubmitError(null);
     } catch {
       setSubmitError('Could not complete the review. Please try again.');
+    }
+    setTimeout(() => setSaveNotice(null), 3000);
+  };
+
+  const handleReopenAnswers = async () => {
+    const next = { ...instance, status: 'Draft' as QuestionnaireInstanceStatus, submittedBy: '', submittedAt: null };
+    setInstance(next);
+    try {
+      await persistInstance(next, 'reopened_for_editing', instance.status);
+      setSaveNotice('Questionnaire reopened for editing. Employee answers preserved.');
+      setSubmitError(null);
+    } catch {
+      setSubmitError('Could not reopen the questionnaire. Please try again.');
     }
     setTimeout(() => setSaveNotice(null), 3000);
   };
@@ -304,7 +359,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
       {isDemoMode && (
         <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
           <AlertCircle size={16} className="shrink-0" />
-          Demo mode — questionnaire answers are stored locally only and will not be saved as live records.
+          Demo mode — questionnaire answers are stored in your browser only and will not be saved as live records.
         </div>
       )}
 
@@ -369,7 +424,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
       {saveNotice && <div className="p-3 bg-success-50 text-success-700 text-sm rounded-lg flex items-center gap-2"><Check size={16} /> {saveNotice}</div>}
       {submitError && <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg flex items-start gap-2"><AlertCircle size={16} className="mt-0.5 shrink-0" /> {submitError}</div>}
 
-      {/* Questionnaire sections */}
+      {/* Questionnaire sections (employee-facing — excludes clinicianOnly fields) */}
       {template && (
         <div className="space-y-4">
           {sections.map((section) => (
@@ -400,7 +455,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
         </div>
       )}
 
-      {/* Clinician review section (visible when submitted or under review) */}
+      {/* Clinician review section (visible when submitted, under review, or completed) */}
       {(instance.status === 'Submitted' || instance.status === 'Under Review' || instance.status === 'Completed') && (
         <div className="card p-5 space-y-4">
           <h3 className="font-display font-bold text-ink-900 flex items-center gap-2">
@@ -425,8 +480,35 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
             </div>
           )}
 
+          {/* Fitness outcome — the clinical decision */}
           <div>
-            <label className="block text-sm font-semibold text-ink-700 mb-1">Clinician Comments</label>
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Overall Deployment Fitness Outcome</label>
+            <div className="relative">
+              <select
+                className="input w-full pr-9 appearance-none cursor-pointer"
+                value={instance.fitnessOutcome}
+                onChange={(e) => setInstance((prev) => ({ ...prev, fitnessOutcome: e.target.value }))}
+                disabled={instance.status === 'Completed'}
+              >
+                <option value="">Select fitness outcome...</option>
+                {FITNESS_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+            </div>
+            <p className="text-xs text-ink-400 mt-1">Must be set by the reviewing clinician. Not assigned automatically.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Assessing Clinician Name &amp; Designation</label>
+            <input
+              className="input w-full"
+              value={instance.reviewedBy || ''}
+              disabled
+              placeholder="Clinician name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Clinician Comments <span className="text-danger-500">*</span></label>
             <textarea
               className="input w-full min-h-[60px] resize-y"
               value={instance.clinicianComments}
@@ -446,13 +528,13 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-ink-700 mb-1">Recommendations & Fitness Outcome</label>
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Recommendations &amp; Restrictions</label>
             <textarea
               className="input w-full min-h-[60px] resize-y"
               value={instance.recommendations}
               onChange={(e) => setInstance((prev) => ({ ...prev, recommendations: e.target.value }))}
               disabled={instance.status === 'Completed'}
-              placeholder="Fitness outcome, restrictions, and follow-up recommendations"
+              placeholder="Restrictions and follow-up recommendations"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -510,9 +592,14 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
           </button>
         )}
         {canReview && instance.status === 'Under Review' && (
-          <button onClick={handleCompleteReview} className="btn-primary">
-            <Check size={16} /> Complete Review
-          </button>
+          <>
+            <button onClick={handleCompleteReview} className="btn-primary">
+              <Check size={16} /> Complete Review
+            </button>
+            <button onClick={handleReopenAnswers} className="btn-secondary">
+              <ArrowLeft size={16} /> Reopen for Employee Editing
+            </button>
+          </>
         )}
         {instance.status === 'Completed' && (
           <div className="p-3 bg-success-50 text-success-700 text-sm rounded-lg flex items-center gap-2">
@@ -547,10 +634,12 @@ function FieldRenderer({
     return (
       <div className="p-3 bg-brand-50 border border-brand-100 rounded-lg flex items-start gap-2">
         <Info size={16} className="text-brand-600 shrink-0 mt-0.5" />
-        <p className="text-sm text-brand-700">{field.label}</p>
-        {field.clinicianNote && (
-          <p className="text-xs text-brand-500 ml-2 italic">{field.clinicianNote}</p>
-        )}
+        <div>
+          <p className="text-sm text-brand-700">{field.label}</p>
+          {field.clinicianNote && (
+            <p className="text-xs text-brand-500 mt-1 italic">{field.clinicianNote}</p>
+          )}
+        </div>
       </div>
     );
   }

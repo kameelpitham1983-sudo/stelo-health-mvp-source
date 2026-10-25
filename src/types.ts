@@ -257,6 +257,7 @@ export interface QuestionnaireField {
   section: string;
   dependsOn?: { field: string; value: string };
   clinicianNote?: string;
+  clinicianOnly?: boolean;
 }
 
 export interface QuestionnaireTemplate {
@@ -283,6 +284,7 @@ export interface QuestionnaireInstance {
   clinicianComments: string;
   additionalTests: string;
   recommendations: string;
+  fitnessOutcome: string;
   followUpDate: string | null;
   completedBy: string;
   completedAt: string | null;
