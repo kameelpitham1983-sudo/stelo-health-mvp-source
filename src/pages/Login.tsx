@@ -20,12 +20,13 @@ export function Login() {
   const [error, setError] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [signUpRole, setSignUpRole] = useState<UserRole>('employee');
+  const [demoRole, setDemoRole] = useState<UserRole>('admin');
 
   const inferDemoRole = (address: string): UserRole => {
     if (address.includes('admin')) return 'admin';
     if (address.includes('employer') || address.includes('hr') || address.includes('whitfield')) return 'employer';
     if (address.includes('provider') || address.includes('doctor') || address.includes('chen') || address.includes('holt') || address.includes('bello')) return 'provider';
-    return 'employee';
+    return demoRole;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -91,6 +92,25 @@ export function Login() {
         </div>
       )}
       {supabaseConfigured && <div className="mt-6 text-center"><button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(''); }} className="text-sm text-brand-600 font-medium hover:text-brand-700">{isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}</button></div>}
-      {!supabaseConfigured && <div className="mt-6 p-3.5 bg-ink-50 rounded-lg border border-ink-100"><p className="text-xs text-ink-500 text-center"><strong className="text-ink-700">Demo mode:</strong> enter any email and password, then click sign in.</p></div>}<p className="text-center text-xs text-ink-400 mt-6">© 2025 Stelo Health. All rights reserved.</p></div></div>
+      {!supabaseConfigured && <div className="mt-6 p-3.5 bg-ink-50 rounded-lg border border-ink-100"><p className="text-xs text-ink-500 text-center"><strong className="text-ink-700">Demo mode:</strong> enter any email and password, then click sign in.</p>
+        <div className="mt-3">
+          <label className="block text-sm font-semibold text-ink-700 mb-1.5">Sign in as</label>
+          <div className="grid grid-cols-2 gap-2">
+            {roleOptions.map((opt) => {
+              const Icon = opt.icon;
+              const active = demoRole === opt.value;
+              return (
+                <button key={opt.value} type="button" onClick={() => setDemoRole(opt.value)} className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all ${active ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'}`}>
+                  <Icon size={16} className={active ? 'text-brand-600' : 'text-ink-400'} />
+                  <div>
+                    <p className="text-sm font-semibold">{opt.label}</p>
+                    <p className="text-xs text-ink-400">{opt.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>}<p className="text-center text-xs text-ink-400 mt-6">© 2025 Stelo Health. All rights reserved.</p></div></div>
   </div>;
 }
