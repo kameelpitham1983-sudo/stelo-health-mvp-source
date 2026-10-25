@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck, ClipboardList } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck, ClipboardList, Lock } from 'lucide-react';
 import { useMedicals, useEmployees, useCompanies } from '@/hooks/useSupabaseData';
+import { isDemoMode } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import { QuestionnaireWorkflow } from '@/components/QuestionnaireWorkflow';
 import { useApp } from '@/context/AppContext';
@@ -74,6 +75,7 @@ export function Medicals() {
   const [nextDueDate, setNextDueDate] = useState('');
   const [fitnessNotice, setFitnessNotice] = useState<string | null>(null);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [questionnaireVersion, setQuestionnaireVersion] = useState(0);
 
   const isProvider = user?.role === 'admin' || user?.role === 'provider';
 
@@ -152,11 +154,12 @@ export function Medicals() {
     setEditingId(med.id);
     setSelectedMedical(null);
     setShowForm(true);
-    // Pre-fill restrictions from existing employee data
     const emp = employees.find((e) => e.id === med.employeeId);
     setRestrictions(emp ? '' : '');
     setNextDueDate('');
   };
+
+  const isCompletedMedical = editingId && medicals.find((m) => m.id === editingId)?.status === 'Completed';
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><span className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
@@ -168,7 +171,7 @@ export function Medicals() {
 
   // --- Questionnaire workflow view ---
   if (showQuestionnaire && selectedMedical) {
-    return <QuestionnaireWorkflow medical={selectedMedical} onBack={() => setShowQuestionnaire(false)} />;
+    return <QuestionnaireWorkflow medical={selectedMedical} onBack={() => { setShowQuestionnaire(false); setQuestionnaireVersion((v) => v + 1); }} />;
   }
 
   // --- Detail view ---
@@ -289,7 +292,7 @@ export function Medicals() {
               <ClipboardList size={14} /> Open Questionnaire
             </button>
           </div>
-          <QuestionnaireStatusBadge medicalId={med.id} />
+          <QuestionnaireStatusBadge medicalId={med.id} version={questionnaireVersion} />
         </div>
       </div>
     );
@@ -358,12 +361,15 @@ export function Medicals() {
               <div>
                 <label className="block text-sm font-semibold text-ink-700 mb-1">Fitness Outcome</label>
                 <div className="relative">
-                  <select className="input w-full pr-9 appearance-none cursor-pointer" value={formData.result || 'Pending'} onChange={(e) => setFormData({ ...formData, result: e.target.value })}>
+                  <select className="input w-full pr-9 appearance-none cursor-pointer" value={formData.result || 'Pending'} onChange={(e) => setFormData({ ...formData, result: e.target.value })} disabled={!!isCompletedMedical}>
                     <option value="Pending">Pending</option>
                     {fitnessOutcomes.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                   <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
                 </div>
+                {isCompletedMedical && (
+                  <p className="text-xs text-ink-400 mt-1 flex items-center gap-1"><Lock size={11} /> Fitness outcome is locked. Use the questionnaire clinician review to change a completed assessment's outcome.</p>
+                )}
               </div>
 
               {/* Conditional fields when completing with fitness outcome */}
@@ -495,8 +501,40 @@ export function Medicals() {
   );
 }
 
-function QuestionnaireStatusBadge({ medicalId }: { medicalId: string }) {
-  const instance = questionnaireInstances.find((qi) => qi.medicalId === medicalId);
+function QuestionnaireStatusBadge({ medicalId, version = 0 }: { medicalId: string; version?: number }) {
+  const mockInstance = questionnaireInstances.find((qi) => qi.medicalId === medicalId);
+
+  const [liveInstance, setLiveInstance] = useState<typeof mockInstance | null>(mockInstance || null);
+
+  useEffect(() => {
+    if (isDemoMode && mockInstance) {
+      try {
+        const raw = localStorage.getItem(`stelo-q-${medicalId}`);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          setLiveInstance({
+            ...mockInstance,
+            status: saved.status || mockInstance.status,
+            clinicianComments: saved.clinicianComments ?? mockInstance.clinicianComments,
+            fitnessOutcome: saved.fitnessOutcome ?? mockInstance.fitnessOutcome,
+            reviewedBy: saved.reviewedBy ?? mockInstance.reviewedBy,
+            reviewedAt: saved.reviewedAt ?? mockInstance.reviewedAt,
+            flaggedForReview: saved.flaggedForReview ?? mockInstance.flaggedForReview,
+            submittedBy: saved.submittedBy ?? mockInstance.submittedBy,
+            submittedAt: saved.submittedAt ?? mockInstance.submittedAt,
+          });
+          return;
+        }
+      } catch {
+        // corrupted storage — fall back to mock
+      }
+      setLiveInstance(mockInstance);
+    } else {
+      setLiveInstance(mockInstance);
+    }
+  }, [medicalId, version, mockInstance]);
+
+  const instance = liveInstance;
   if (!instance) {
     return (
       <div className="flex items-center gap-3 text-sm text-ink-500">
