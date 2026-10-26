@@ -321,7 +321,7 @@ export const questionnaireTemplates: QuestionnaireTemplate[] = [
     id: 'qt-annual-occupational',
     name: 'Annual Occupational Health Review',
     description: 'Periodic health surveillance for existing employees.',
-    medicalTypes: ['Annual Occupational'],
+    medicalTypes: ['Annual Occupational', 'Audiometry', 'Spirometry', 'Vision Test'],
     fields: [
       { id: 'ao-emp-confirm', label: 'Employee identity confirmed', type: 'yesno', required: true, section: 'Identity & Consent' },
       { id: 'ao-consent', label: 'Consent obtained for periodic review', type: 'yesno', required: true, section: 'Identity & Consent' },
