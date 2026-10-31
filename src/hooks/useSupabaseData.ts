@@ -16,6 +16,10 @@ import type {
   SynopsisMeetingNote,
   SynopsisFollowUp,
   VaccineStatus,
+  WorkflowDefinition,
+  WorkflowInstance,
+  DigitalCertificate,
+  RecordNote,
 } from '@/types';
 
 // Demo data fallback: when the database is empty or unreachable, pages show
@@ -213,6 +217,32 @@ export function useEmployees() {
     refetch();
   }, [refetch]);
 
+  const addEmployee = useCallback(async (employee: Partial<Employee>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const nameParts = (employee.name || '').split(' ');    
+    const firstName = nameParts[0] || '';
+    const surname = nameParts.slice(1).join(' ') || '';
+    const { data: row, error: err } = await supabase
+      .from('employees')
+      .insert({
+        first_name: firstName,
+        surname,
+        email: employee.email || '',
+        phone: employee.phone || '',
+        job_title: employee.jobTitle || '',
+        company_id: employee.companyId || null,
+        department: employee.department || '',
+        employment_status: employee.status || 'Active',
+        fitness_outcome: employee.healthStatus || 'Pending Assessment',
+        international_travel_required: employee.travelReady || false,
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    await refetch();
+    return transformEmployee(row as Record<string, unknown>);
+  }, [refetch]);
+
   const updateEmployeeFitness = useCallback(async (
     employeeId: string,
     fitnessOutcome: string,
@@ -233,7 +263,7 @@ export function useEmployees() {
     await refetch();
   }, [refetch]);
 
-  return { data, loading, error, refetch, updateEmployeeFitness };
+  return { data, loading, error, refetch, addEmployee, updateEmployeeFitness };
 }
 
 // --- Medicals ---
@@ -872,4 +902,188 @@ export function useSynopsisFollowUps(synopsisId: string | null) {
   }, [refetch]);
 
   return { data, loading, refetch, addFollowUp, toggleFollowUp };
+}
+
+// --- Workflow Definitions ---
+
+function transformWorkflowDefinition(row: Record<string, unknown>): WorkflowDefinition {
+  return {
+    id: row.id as string,
+    name: (row.name as string) || '',
+    category: (row.category as string) as WorkflowDefinition['category'],
+    description: (row.description as string) || '',
+    version: (row.version as number) || 1,
+    active: (row.active as boolean) ?? true,
+    steps: ((row.steps as Record<string, unknown>[]) || []).map((s) => ({
+      id: s.id as string,
+      stepNumber: s.stepNumber as number,
+      stepName: s.stepName as string,
+      purpose: s.purpose as string,
+      instructions: s.instructions as string,
+      responsibleRole: s.responsibleRole as WorkflowDefinition['steps'][number]['responsibleRole'],
+      requiredInfo: (s.requiredInfo as string[]) || [],
+      requiredDocuments: (s.requiredDocuments as string[]) || [],
+      requiredApprovals: (s.requiredApprovals as string[]) || [],
+      systemActions: (s.systemActions as string[]) || [],
+      completionCriteria: s.completionCriteria as string,
+      escalationRules: s.escalationRules as string,
+      exceptionHandling: s.exceptionHandling as string,
+    })),
+    createdAt: (row.created_at as string) || '',
+    updatedAt: (row.updated_at as string) || '',
+  };
+}
+
+export function useWorkflowDefinitions() {
+  return useSupabaseQuery<WorkflowDefinition>(
+    'workflow_definitions',
+    transformWorkflowDefinition,
+    'name',
+    true,
+    () => mockData.workflowDefinitions,
+  );
+}
+
+// --- Workflow Instances ---
+
+function transformWorkflowInstance(row: Record<string, unknown>): WorkflowInstance {
+  return {
+    id: row.id as string,
+    workflowDefinitionId: (row.workflow_definition_id as string) || '',
+    workflowName: (row.workflow_name as string) || '',
+    instanceReference: (row.instance_reference as string) || '',
+    employeeName: (row.employee_name as string) || '',
+    employeeId: (row.employee_id as string) || null,
+    companyName: (row.company_name as string) || '',
+    companyId: (row.company_id as string) || null,
+    linkedMedicalId: (row.linked_medical_id as string) || null,
+    linkedAppointmentId: (row.linked_appointment_id as string) || null,
+    status: (row.status as string) as WorkflowInstance['status'],
+    currentStep: (row.current_step as number) || 0,
+    totalSteps: (row.total_steps as number) || 0,
+    assignedTo: (row.assigned_to as string) || '',
+    notes: (row.notes as string) || '',
+    stepInstances: ((row.step_instances as Record<string, unknown>[]) || []).map((s) => ({
+      id: s.id as string,
+      workflowInstanceId: (s.workflow_instance_id as string) || '',
+      stepNumber: s.stepNumber as number,
+      stepName: s.stepName as string,
+      status: s.status as WorkflowInstance['stepInstances'][number]['status'],
+      responsibleRole: s.responsibleRole as WorkflowInstance['stepInstances'][number]['responsibleRole'],
+      assignedPerson: (s.assignedPerson as string) || '',
+      startedAt: (s.startedAt as string) || null,
+      completedAt: (s.completedAt as string) || null,
+      notes: (s.notes as string) || '',
+      exceptionFlagged: (s.exceptionFlagged as boolean) || false,
+      exceptionReason: (s.exceptionReason as string) || '',
+    })),
+    createdAt: (row.created_at as string) || '',
+    updatedAt: (row.updated_at as string) || '',
+  };
+}
+
+export function useWorkflowInstances() {
+  return useSupabaseQuery<WorkflowInstance>(
+    'workflow_instances',
+    transformWorkflowInstance,
+    'created_at',
+    false,
+    () => mockData.workflowInstances,
+  );
+}
+
+// --- Digital Certificates ---
+
+function transformCertificate(row: Record<string, unknown>): DigitalCertificate {
+  return {
+    id: row.id as string,
+    certificateType: (row.certificate_type as string) as DigitalCertificate['certificateType'],
+    certificateNumber: (row.certificate_number as string) || '',
+    employeeId: (row.employee_id as string) || null,
+    employeeName: (row.employee_name as string) || '',
+    companyName: (row.company_name as string) || '',
+    linkedMedicalId: (row.linked_medical_id as string) || null,
+    title: (row.title as string) || '',
+    description: (row.description as string) || '',
+    status: (row.status as string) as DigitalCertificate['status'],
+    issueDate: (row.issue_date as string) || '',
+    expiryDate: (row.expiry_date as string) || null,
+    issuedBy: (row.issued_by as string) || '',
+    verificationCode: (row.verification_code as string) || '',
+    qrPayload: (row.qr_payload as string) || '',
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    revokedReason: (row.revoked_reason as string) || '',
+    revokedAt: (row.revoked_at as string) || null,
+    replacedBy: (row.replaced_by as string) || null,
+    createdAt: (row.created_at as string) || '',
+  };
+}
+
+export function useDigitalCertificates() {
+  return useSupabaseQuery<DigitalCertificate>(
+    'digital_certificates',
+    transformCertificate,
+    'created_at',
+    false,
+    () => mockData.digitalCertificates,
+  );
+}
+
+// --- Record Notes ---
+
+function transformRecordNote(row: Record<string, unknown>): RecordNote {
+  return {
+    id: row.id as string,
+    recordType: (row.record_type as string) || '',
+    recordId: (row.record_id as string) || '',
+    note: (row.note as string) || '',
+    noteType: (row.note_type as string) || 'general',
+    authorName: (row.author_name as string) || '',
+    isConfidential: (row.is_confidential as boolean) || false,
+    createdAt: (row.created_at as string) || '',
+  };
+}
+
+export function useRecordNotes(recordType: string | null, recordId: string | null) {
+  const [data, setData] = useState<RecordNote[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const refetch = useCallback(async () => {
+    if (!recordType || !recordId) return;
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.recordNotes.filter((n) => n.recordType === recordType && n.recordId === recordId));
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('record_notes')
+      .select('*')
+      .eq('record_type', recordType)
+      .eq('record_id', recordId)
+      .order('created_at', { ascending: false });
+    if (err) {
+      setError(err.message);
+    } else if (rows) {
+      setData((rows as Record<string, unknown>[]).map(transformRecordNote));
+    }
+    setLoading(false);
+  }, [recordType, recordId]);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  const addNote = useCallback(async (note: string, noteType: string, authorName: string, isConfidential: boolean) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { error: err } = await supabase
+      .from('record_notes')
+      .insert({ record_type: recordType, record_id: recordId, note, note_type: noteType, author_name: authorName, is_confidential: isConfidential });
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [recordType, recordId, refetch]);
+
+  return { data, loading, refetch, addNote };
 }

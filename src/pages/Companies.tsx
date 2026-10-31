@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Search, Building2, MapPin, Users, Calendar, Mail, Phone, ArrowLeft, Plus, Filter, Edit3, X, Check, AlertCircle } from 'lucide-react';
 import { useCompanies } from '@/hooks/useSupabaseData';
 import { useEmployees, useMedicals } from '@/hooks/useSupabaseData';
+import { useApp } from '@/context/AppContext';
 import { Badge } from '@/components/Badge';
+import { NotesPanel } from '@/components/NotesPanel';
 import type { Company } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger'> = {
@@ -32,6 +34,7 @@ const emptyForm: Partial<Company> = {
 };
 
 export function Companies() {
+  const { user } = useApp();
   const { data: companyList, loading, error, addCompany, updateCompany } = useCompanies();
   const { data: employees } = useEmployees();
   const { data: medicals } = useMedicals();
@@ -232,6 +235,8 @@ export function Companies() {
             </div>
           </div>
         </div>
+
+        <NotesPanel recordType="company" recordId={selected.id} authorName={user?.name || 'STelo Admin'} />
       </div>
     );
   }

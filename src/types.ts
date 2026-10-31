@@ -1,8 +1,11 @@
 export type UserRole =
   | 'admin'
+  | 'coordinator'
   | 'employer'
   | 'provider'
-  | 'employee';
+  | 'employee'
+  | 'lab'
+  | 'ai';
 
 export interface RoleInfo {
   id: UserRole;
@@ -595,4 +598,148 @@ export interface Provider {
   siteVisits: ProviderSiteVisit[];
   createdAt: string;
   updatedAt: string;
+}
+
+// --- Workflow Management types ---
+
+export type WorkflowCategory =
+  | 'Occupational Medical'
+  | 'Travel Medical'
+  | 'Visa Medical'
+  | 'Specialist Referral'
+  | 'Laboratory'
+  | 'GOP & Accommodation'
+  | 'Health Coaching'
+  | 'Screening';
+
+export type WorkflowInstanceStatus = 'Not Started' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled';
+export type WorkflowStepStatus = 'Pending' | 'In Progress' | 'Completed' | 'Skipped' | 'Blocked' | 'Exception';
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  category: WorkflowCategory;
+  description: string;
+  version: number;
+  active: boolean;
+  steps: WorkflowStepDef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowStepDef {
+  id: string;
+  stepNumber: number;
+  stepName: string;
+  purpose: string;
+  instructions: string;
+  responsibleRole: UserRole;
+  requiredInfo: string[];
+  requiredDocuments: string[];
+  requiredApprovals: string[];
+  systemActions: string[];
+  completionCriteria: string;
+  escalationRules: string;
+  exceptionHandling: string;
+}
+
+export interface WorkflowInstance {
+  id: string;
+  workflowDefinitionId: string;
+  workflowName: string;
+  instanceReference: string;
+  employeeName: string;
+  employeeId: string | null;
+  companyName: string;
+  companyId: string | null;
+  linkedMedicalId: string | null;
+  linkedAppointmentId: string | null;
+  status: WorkflowInstanceStatus;
+  currentStep: number;
+  totalSteps: number;
+  assignedTo: string;
+  notes: string;
+  stepInstances: WorkflowStepInstance[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowStepInstance {
+  id: string;
+  workflowInstanceId: string;
+  stepNumber: number;
+  stepName: string;
+  status: WorkflowStepStatus;
+  responsibleRole: UserRole;
+  assignedPerson: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  notes: string;
+  exceptionFlagged: boolean;
+  exceptionReason: string;
+}
+
+export interface WorkflowAuditEntry {
+  id: string;
+  workflowInstanceId: string;
+  stepNumber: number | null;
+  action: string;
+  actor: string;
+  fromStatus: string;
+  toStatus: string;
+  details: string;
+  timestamp: string;
+}
+
+// --- Record Notes types ---
+
+export interface RecordNote {
+  id: string;
+  recordType: string;
+  recordId: string;
+  note: string;
+  noteType: string;
+  authorName: string;
+  isConfidential: boolean;
+  createdAt: string;
+}
+
+// --- Digital Certificate types ---
+
+export type CertificateType = 'membership' | 'medical_alert' | 'fitness';
+export type CertificateStatus = 'Active' | 'Expired' | 'Suspended' | 'Revoked' | 'Replaced';
+
+export interface DigitalCertificate {
+  id: string;
+  certificateType: CertificateType;
+  certificateNumber: string;
+  employeeId: string | null;
+  employeeName: string;
+  companyName: string;
+  linkedMedicalId: string | null;
+  title: string;
+  description: string;
+  status: CertificateStatus;
+  issueDate: string;
+  expiryDate: string | null;
+  issuedBy: string;
+  verificationCode: string;
+  qrPayload: string;
+  metadata: Record<string, unknown>;
+  revokedReason: string;
+  revokedAt: string | null;
+  replacedBy: string | null;
+  createdAt: string;
+}
+
+// --- Notification types ---
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  link: string;
+  read: boolean;
+  createdAt: string;
 }

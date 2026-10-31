@@ -25,12 +25,14 @@ import {
   Settings as SettingsIcon,
   Info,
   ChevronDown,
+  MessageSquare,
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { useApp } from '@/context/AppContext';
 import { isDemoMode } from '@/hooks/useSupabaseData';
 import { providers as demoProviders } from '@/data/mockData';
 import { medicals, appointments } from '@/data/mockData';
+import { NotesPanel } from '@/components/NotesPanel';
 import type {
   Provider,
   ProviderCategory,
@@ -440,7 +442,8 @@ function ProviderDetail({
   onTierChange: (id: string, tier: ProviderTier) => void;
   onAddSiteVisit: (id: string, visit: Omit<ProviderSiteVisit, 'id'>) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'performance' | 'siteVisits'>('overview');
+  const { user } = useApp();
+  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'performance' | 'siteVisits' | 'notes'>('overview');
   const [showSiteVisitForm, setShowSiteVisitForm] = useState(false);
   const [siteVisitForm, setSiteVisitForm] = useState<Omit<ProviderSiteVisit, 'id'>>({
     visitDate: '',
@@ -458,6 +461,7 @@ function ProviderDetail({
     { id: 'documents' as const, label: 'Documents', icon: FileText },
     { id: 'performance' as const, label: 'Performance', icon: TrendingUp },
     { id: 'siteVisits' as const, label: 'Site Visits', icon: ClipboardCheck },
+    { id: 'notes' as const, label: 'Notes', icon: MessageSquare },
   ];
 
   const handleSiteVisitSubmit = (e: React.FormEvent) => {
@@ -760,6 +764,11 @@ function ProviderDetail({
             </div>
           )}
         </div>
+      )}
+
+      {/* Notes tab */}
+      {activeTab === 'notes' && (
+        <NotesPanel recordType="provider" recordId={p.id} authorName={user?.name || 'STelo Admin'} />
       )}
 
       {/* Admin status & tier management */}

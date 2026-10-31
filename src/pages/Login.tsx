@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Lock, Mail, ArrowRight, HeartPulse, CheckCircle2, Globe, AlertCircle, UserPlus, Crown, Stethoscope, Building2, User } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowRight, HeartPulse, CheckCircle2, Globe, AlertCircle, UserPlus, Crown, Stethoscope, Building2, User, ClipboardList, FlaskConical } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useApp } from '@/context/AppContext';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
@@ -7,9 +7,11 @@ import type { UserRole } from '@/types';
 
 const roleOptions: { value: UserRole; label: string; icon: typeof Crown; description: string }[] = [
   { value: 'admin', label: 'Admin', icon: Crown, description: 'Full platform access' },
+  { value: 'coordinator', label: 'Coordinator', icon: ClipboardList, description: 'Operational coordination' },
   { value: 'provider', label: 'Provider', icon: Stethoscope, description: 'Clinical access' },
   { value: 'employer', label: 'Employer', icon: Building2, description: 'Company-scoped access' },
   { value: 'employee', label: 'Employee', icon: User, description: 'Personal records only' },
+  { value: 'lab', label: 'Lab/Specialist', icon: FlaskConical, description: 'Lab requests & results' },
 ];
 
 export function Login() {

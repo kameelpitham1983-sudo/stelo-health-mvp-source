@@ -17,6 +17,8 @@ import {
   ClipboardList,
   HeartPulse,
   BedDouble,
+  Workflow,
+  Award,
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
@@ -31,20 +33,22 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'workflows', label: 'Workflow Centre', icon: Workflow, roles: ['admin', 'coordinator', 'provider'] },
   { id: 'synopsis', label: 'Synopsis', icon: ClipboardList, roles: ['admin', 'provider'] },
-  { id: 'companies', label: 'Companies', icon: Building2, roles: ['admin', 'provider'] },
-  { id: 'employees', label: 'Employees', icon: Users, roles: ['admin', 'employer', 'provider'] },
-  { id: 'medicals', label: 'Medicals', icon: Stethoscope, roles: ['admin', 'employer', 'provider'] },
-  { id: 'appointments', label: 'Appointments', icon: CalendarDays },
-  { id: 'sickness', label: 'Sickness Absence', icon: HeartPulse, roles: ['admin', 'employer', 'provider'] },
-  { id: 'travel', label: 'Travel Health', icon: Plane, roles: ['admin', 'employer', 'provider'] },
-  { id: 'visa', label: 'Visa Medicals', icon: Globe, roles: ['admin', 'employer', 'provider'] },
-  { id: 'providers', label: 'Provider Network', icon: Network, roles: ['admin', 'provider'] },
-  { id: 'gops', label: 'Guarantees of Payment', icon: ShieldCheck, roles: ['admin', 'provider'] },
-  { id: 'accommodation', label: 'Accommodation', icon: BedDouble, roles: ['admin', 'provider'] },
-  { id: 'documents', label: 'Documents', icon: FileText },
-  { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employer'] },
-  { id: 'ai', label: 'Stelo AI', icon: Sparkles },
+  { id: 'certificates', label: 'Digital Identity', icon: Award, roles: ['admin', 'coordinator', 'provider', 'employer', 'employee'] },
+  { id: 'companies', label: 'Companies', icon: Building2, roles: ['admin', 'provider', 'coordinator'] },
+  { id: 'employees', label: 'Employees', icon: Users, roles: ['admin', 'employer', 'provider', 'coordinator'] },
+  { id: 'medicals', label: 'Medicals', icon: Stethoscope, roles: ['admin', 'employer', 'provider', 'coordinator'] },
+  { id: 'appointments', label: 'Appointments', icon: CalendarDays, roles: ['admin', 'employer', 'provider', 'coordinator', 'employee'] },
+  { id: 'sickness', label: 'Sickness Absence', icon: HeartPulse, roles: ['admin', 'employer', 'provider', 'coordinator'] },
+  { id: 'travel', label: 'Travel Health', icon: Plane, roles: ['admin', 'employer', 'provider', 'coordinator'] },
+  { id: 'visa', label: 'Visa Medicals', icon: Globe, roles: ['admin', 'employer', 'provider', 'coordinator'] },
+  { id: 'providers', label: 'Provider Network', icon: Network, roles: ['admin', 'provider', 'coordinator', 'lab'] },
+  { id: 'gops', label: 'Guarantees of Payment', icon: ShieldCheck, roles: ['admin', 'provider', 'coordinator'] },
+  { id: 'accommodation', label: 'Accommodation', icon: BedDouble, roles: ['admin', 'provider', 'coordinator'] },
+  { id: 'documents', label: 'Documents', icon: FileText, roles: ['admin', 'employer', 'provider', 'coordinator', 'employee'] },
+  { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employer', 'coordinator'] },
+  { id: 'ai', label: 'Stelo AI', icon: Sparkles, roles: ['admin', 'provider', 'coordinator', 'employer'] },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
