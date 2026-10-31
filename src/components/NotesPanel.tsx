@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { MessageSquare, Lock, Plus, X, AlertCircle } from 'lucide-react';
-import { useRecordNotes } from '@/hooks/useSupabaseData';
-import { isDemoMode } from '@/hooks/useSupabaseData';
+import { MessageSquare, Lock, Plus, X, AlertCircle, Download } from 'lucide-react';
+import { useRecordNotes, isDemoMode } from '@/hooks/useSupabaseData';
+import { useApp } from '@/context/AppContext';
 import { Badge } from '@/components/Badge';
 
 interface NotesPanelProps {
@@ -18,6 +18,7 @@ function formatDate(iso: string): string {
 }
 
 export function NotesPanel({ recordType, recordId, authorName, canAddNote = true }: NotesPanelProps) {
+  const { user } = useApp();
   const { data: notes, loading, addNote } = useRecordNotes(recordType, recordId);
   const [showForm, setShowForm] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -25,6 +26,9 @@ export function NotesPanel({ recordType, recordId, authorName, canAddNote = true
   const [isConfidential, setIsConfidential] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'coordinator';
+  const canExport = isAdmin || user?.role === 'provider';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,17 +48,48 @@ export function NotesPanel({ recordType, recordId, authorName, canAddNote = true
     }
   };
 
+  const handleExport = () => {
+    const rows: string[] = [];
+    rows.push('Record Type,Record ID,Note Category,Author,Date,Confidentiality,Note Content');
+    notes.forEach((n) => {
+      rows.push([
+        recordType,
+        recordId,
+        n.noteType,
+        `"${n.authorName}"`,
+        n.createdAt,
+        n.isConfidential ? 'Confidential' : 'Standard',
+        `"${n.note.replace(/"/g, '""')}"`,
+      ].join(','));
+    });
+    const csv = rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = window.document.createElement('a');
+    a.href = url;
+    a.download = `notes-${recordType}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display font-bold text-ink-900 flex items-center gap-2">
           <MessageSquare size={18} className="text-brand-600" /> Notes & Activity History
         </h3>
-        {canAddNote && !showForm && (
-          <button className="btn-secondary text-sm" onClick={() => setShowForm(true)}>
-            <Plus size={14} /> Add Note
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {canExport && notes.length > 0 && (
+            <button className="btn-ghost p-2 text-sm" onClick={handleExport} title="Export notes">
+              <Download size={14} />
+            </button>
+          )}
+          {canAddNote && !showForm && (
+            <button className="btn-secondary text-sm" onClick={() => setShowForm(true)}>
+              <Plus size={14} /> Add Note
+            </button>
+          )}
+        </div>
       </div>
 
       {isDemoMode && (
@@ -104,7 +139,7 @@ export function NotesPanel({ recordType, recordId, authorName, canAddNote = true
           </div>
           {isConfidential && (
             <p className="text-xs text-warning-700 flex items-center gap-1">
-              <AlertCircle size={12} /> Confidential notes are hidden from employer/HR roles.
+              <AlertCircle size={12} /> Confidential notes are hidden from employer/HR roles and protected by database-level access controls.
             </p>
           )}
         </form>

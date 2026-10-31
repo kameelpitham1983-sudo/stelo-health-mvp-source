@@ -19,12 +19,13 @@ import { GOPs } from '@/pages/GOPs';
 import { Accommodation } from '@/pages/Accommodation';
 import { Workflows } from '@/pages/Workflows';
 import { Certificates } from '@/pages/Certificates';
+import { AuditLog } from '@/pages/AuditLog';
 
 function AppContent() {
   const { user, currentPage, authReady } = useApp();
   if (!authReady) return <div className="min-h-screen flex items-center justify-center bg-ink-50"><div className="w-8 h-8 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
   if (!user) return <Login />;
-  const pages: Record<string, React.ReactNode> = { dashboard: <Dashboard />, workflows: <Workflows />, synopsis: <Synopsis />, certificates: <Certificates />, companies: <Companies />, employees: <Employees />, medicals: <Medicals />, appointments: <Appointments />, sickness: <SicknessAbsence />, travel: <TravelHealth />, visa: <VisaMedicals />, providers: <Providers />, gops: <GOPs />, accommodation: <Accommodation />, documents: <Documents />, reports: <Reports />, ai: <SteloAI />, settings: <Settings /> };
+  const pages: Record<string, React.ReactNode> = { dashboard: <Dashboard />, workflows: <Workflows />, synopsis: <Synopsis />, certificates: <Certificates />, companies: <Companies />, employees: <Employees />, medicals: <Medicals />, appointments: <Appointments />, sickness: <SicknessAbsence />, travel: <TravelHealth />, visa: <VisaMedicals />, providers: <Providers />, gops: <GOPs />, accommodation: <Accommodation />, documents: <Documents />, reports: <Reports />, ai: <SteloAI />, settings: <Settings />, audit: <AuditLog /> };
   return <Layout>{pages[currentPage]}</Layout>;
 }
 

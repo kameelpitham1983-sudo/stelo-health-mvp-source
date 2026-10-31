@@ -295,6 +295,7 @@ export function useMedicals() {
     false,
     () => mockData.medicals,
   );
+  const logAudit = useLogAuditEvent();
 
   const addMedical = useCallback(async (medical: Partial<Medical>) => {
     if (isDemoMode) throw new Error(demoWriteError);
@@ -314,12 +315,24 @@ export function useMedicals() {
       .select()
       .single();
     if (err) throw new Error(err.message);
+    const created = transformMedical(row as Record<string, unknown>);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'medical',
+      recordId: created.id,
+      recordReference: `${created.employeeName} — ${created.type}`,
+      action: 'create',
+      toStatus: created.status,
+      details: `Medical assessment created: ${created.type} for ${created.employeeName}`,
+    });
     await refetch();
-    return transformMedical(row as Record<string, unknown>);
-  }, [refetch]);
+    return created;
+  }, [refetch, user, logAudit]);
 
   const updateMedical = useCallback(async (id: string, updates: Partial<Medical>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    const prev = data.find((m) => m.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.result !== undefined) updateData.result = updates.result;
@@ -330,8 +343,19 @@ export function useMedicals() {
 
     const { error: err } = await supabase.from('medicals').update(updateData).eq('id', id);
     if (err) throw new Error(err.message);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'medical',
+      recordId: id,
+      recordReference: prev ? `${prev.employeeName} — ${prev.type}` : id,
+      action: 'update',
+      fromStatus: prev?.status,
+      toStatus: updates.status,
+      details: updates.status ? `Status changed to ${updates.status}` : 'Medical record updated',
+    });
     await refetch();
-  }, [refetch]);
+  }, [refetch, data, user, logAudit]);
 
   return { data, loading, error, refetch, addMedical, updateMedical };
 }
@@ -355,6 +379,7 @@ function transformAppointment(row: Record<string, unknown>): Appointment {
 }
 
 export function useAppointments() {
+  const { user } = useApp();
   const { data, loading, error, refetch } = useSupabaseQuery<Appointment>(
     'appointments',
     transformAppointment,
@@ -362,6 +387,7 @@ export function useAppointments() {
     true,
     () => mockData.appointments,
   );
+  const logAudit = useLogAuditEvent();
 
   const addAppointment = useCallback(async (appt: Partial<Appointment>) => {
     if (isDemoMode) throw new Error(demoWriteError);
@@ -382,12 +408,24 @@ export function useAppointments() {
       .select()
       .single();
     if (err) throw new Error(err.message);
+    const created = transformAppointment(row as Record<string, unknown>);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'appointment',
+      recordId: created.id,
+      recordReference: `${created.employeeName} — ${created.type} — ${created.date}`,
+      action: 'create',
+      toStatus: created.status,
+      details: `Appointment created: ${created.type} for ${created.employeeName}`,
+    });
     await refetch();
-    return transformAppointment(row as Record<string, unknown>);
-  }, [refetch]);
+    return created;
+  }, [refetch, user, logAudit]);
 
   const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    const prev = data.find((a) => a.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.date !== undefined) updateData.appointment_date = updates.date;
@@ -398,8 +436,19 @@ export function useAppointments() {
 
     const { error: err } = await supabase.from('appointments').update(updateData).eq('id', id);
     if (err) throw new Error(err.message);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'appointment',
+      recordId: id,
+      recordReference: prev ? `${prev.employeeName} — ${prev.type} — ${prev.date}` : id,
+      action: 'update',
+      fromStatus: prev?.status,
+      toStatus: updates.status,
+      details: updates.status ? `Status changed to ${updates.status}` : 'Appointment updated',
+    });
     await refetch();
-  }, [refetch]);
+  }, [refetch, data, user, logAudit]);
 
   return { data, loading, error, refetch, addAppointment, updateAppointment };
 }
@@ -464,6 +513,7 @@ function transformDocument(row: Record<string, unknown>): DocumentRecord {
 }
 
 export function useDocuments() {
+  const { user } = useApp();
   const { data, loading, error, refetch } = useSupabaseQuery<DocumentRecord>(
     'documents',
     transformDocument,
@@ -471,6 +521,7 @@ export function useDocuments() {
     false,
     () => mockData.documents,
   );
+  const logAudit = useLogAuditEvent();
 
   const addDocument = useCallback(async (doc: Partial<DocumentRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
@@ -487,28 +538,114 @@ export function useDocuments() {
         file_size: doc.fileSize || '',
         file_type: doc.fileType || 'PDF',
         expiry_date: doc.expiryDate || null,
+        employee_id: doc.employeeId || null,
+        medical_id: doc.medicalId || null,
+        appointment_id: doc.appointmentId || null,
+        provider_id: doc.providerId || null,
+        workflow_instance_id: doc.workflowInstanceId || null,
+        responsible_person: doc.responsiblePerson || null,
+        version_number: 1,
+        is_current_version: true,
       })
       .select()
       .single();
     if (err) throw new Error(err.message);
+    const created = transformDocument(row as Record<string, unknown>);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'document',
+      recordId: created.id,
+      recordReference: created.name,
+      action: 'create',
+      toStatus: created.status,
+      details: `Document uploaded: ${created.name} (${created.type})`,
+    });
     await refetch();
-    return transformDocument(row as Record<string, unknown>);
-  }, [refetch]);
+    return created;
+  }, [refetch, user, logAudit]);
 
   const updateDocument = useCallback(async (id: string, updates: Partial<DocumentRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    const prev = data.find((d) => d.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.type !== undefined) updateData.type = updates.type;
     if (updates.expiryDate !== undefined) updateData.expiry_date = updates.expiryDate || null;
+    if (updates.responsiblePerson !== undefined) updateData.responsible_person = updates.responsiblePerson || null;
 
     const { error: err } = await supabase.from('documents').update(updateData).eq('id', id);
     if (err) throw new Error(err.message);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'document',
+      recordId: id,
+      recordReference: prev?.name || id,
+      action: 'update',
+      fromStatus: prev?.status,
+      toStatus: updates.status,
+      details: updates.status ? `Status changed to ${updates.status}` : 'Document updated',
+    });
     await refetch();
-  }, [refetch]);
+  }, [refetch, data, user, logAudit]);
 
-  return { data, loading, error, refetch, addDocument, updateDocument };
+  const replaceDocument = useCallback(async (id: string, replacement: Partial<DocumentRecord> & { versionNotes?: string }) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const prev = data.find((d) => d.id === id);
+    if (!prev) throw new Error('Document not found');
+
+    // Archive current version into document_versions
+    const { error: archiveErr } = await supabase.from('document_versions').insert({
+      document_id: id,
+      version_number: prev.versionNumber || 1,
+      name: prev.name,
+      type: prev.type,
+      status: prev.status,
+      uploaded_by: prev.uploadedBy,
+      version_notes: replacement.versionNotes || 'Replaced with new version',
+    });
+    if (archiveErr) throw new Error(archiveErr.message);
+
+    // Update the document in place with new version info
+    const newVersionNumber = (prev.versionNumber || 1) + 1;
+    const { data: row, error: err } = await supabase
+      .from('documents')
+      .update({
+        name: replacement.name || prev.name,
+        type: replacement.type || prev.type,
+        status: replacement.status || 'Draft',
+        uploaded_by: replacement.uploadedBy || prev.uploadedBy,
+        uploaded_date: new Date().toISOString(),
+        file_size: replacement.fileSize || prev.fileSize,
+        file_type: replacement.fileType || prev.fileType,
+        expiry_date: replacement.expiryDate || prev.expiryDate,
+        version_number: newVersionNumber,
+        replaces_document_id: id,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    const updated = transformDocument(row as Record<string, unknown>);
+
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'document',
+      recordId: id,
+      recordReference: updated.name,
+      action: 'version_replace',
+      fromStatus: prev.status,
+      toStatus: updated.status,
+      details: `Document replaced: v${prev.versionNumber || 1} → v${newVersionNumber}`,
+    });
+    await refetch();
+    return updated;
+  }, [refetch, data, user, logAudit]);
+
+  return { data, loading, error, refetch, addDocument, updateDocument, replaceDocument };
 }
 
 // --- Document Versions ---
@@ -770,6 +907,7 @@ export function useSicknessCases() {
     false,
     () => mockSicknessCases,
   );
+  const logAudit = useLogAuditEvent();
 
   const addCase = useCallback(async (caseData: Partial<SicknessAbsenceCase>) => {
     if (isDemoMode) throw new Error(demoWriteError);
@@ -795,12 +933,24 @@ export function useSicknessCases() {
       .select()
       .single();
     if (err) throw new Error(err.message);
+    const created = transformSicknessCase(row as Record<string, unknown>);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'sickness_case',
+      recordId: created.id,
+      recordReference: `${created.caseReference} — ${created.employeeName}`,
+      action: 'create',
+      toStatus: created.caseStatus,
+      details: `Sickness absence case created: ${created.caseReference}`,
+    });
     await refetch();
-    return transformSicknessCase(row as Record<string, unknown>);
-  }, [refetch]);
+    return created;
+  }, [refetch, user, logAudit]);
 
   const updateCase = useCallback(async (id: string, updates: Partial<SicknessAbsenceCase>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    const prev = data.find((c) => c.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.caseStatus !== undefined) updateData.case_status = updates.caseStatus;
     if (updates.expectedReturnDate !== undefined) updateData.expected_return_date = updates.expectedReturnDate;
@@ -814,8 +964,19 @@ export function useSicknessCases() {
 
     const { error: err } = await supabase.from('sickness_absence_cases').update(updateData).eq('id', id);
     if (err) throw new Error(err.message);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'sickness_case',
+      recordId: id,
+      recordReference: prev ? `${prev.caseReference} — ${prev.employeeName}` : id,
+      action: 'update',
+      fromStatus: prev?.caseStatus,
+      toStatus: updates.caseStatus,
+      details: updates.caseStatus ? `Case status changed to ${updates.caseStatus}` : 'Sickness case updated',
+    });
     await refetch();
-  }, [refetch]);
+  }, [refetch, data, user, logAudit]);
 
   return { data, loading, error, refetch, addCase, updateCase };
 }

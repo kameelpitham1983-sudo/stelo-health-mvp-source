@@ -19,6 +19,7 @@ import {
   BedDouble,
   Workflow,
   Award,
+  History,
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
   { id: 'accommodation', label: 'Accommodation', icon: BedDouble, roles: ['admin', 'provider', 'coordinator'] },
   { id: 'documents', label: 'Documents', icon: FileText, roles: ['admin', 'employer', 'provider', 'coordinator', 'employee'] },
   { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employer', 'coordinator'] },
+  { id: 'audit', label: 'Audit Log', icon: History, roles: ['admin', 'coordinator'] },
   { id: 'ai', label: 'Stelo AI', icon: Sparkles, roles: ['admin', 'provider', 'coordinator', 'employer'] },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
