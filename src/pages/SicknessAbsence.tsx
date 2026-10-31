@@ -26,6 +26,7 @@ import {
   isDemoMode,
 } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
+import { NotesPanel } from '@/components/NotesPanel';
 import type { SicknessAbsenceCase, SicknessCaseStatus, SicknessRiskAssessment } from '@/types';
 
 const caseStatuses: SicknessCaseStatus[] = [
@@ -572,6 +573,8 @@ export function SicknessAbsence() {
             </div>
           )}
         </div>
+
+        <NotesPanel recordType="sickness" recordId={selectedCase.id} authorName={user?.name || 'STelo Admin'} />
       </div>
     );
   }

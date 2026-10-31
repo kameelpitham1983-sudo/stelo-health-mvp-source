@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { digitalCertificates } from '@/data/mockData';
 import { Badge } from '@/components/Badge';
+import { NotesPanel } from '@/components/NotesPanel';
 import { QRCode } from '@/components/QRCode';
+import { useApp } from '@/context/AppContext';
 import type { DigitalCertificate, CertificateType, CertificateStatus } from '@/types';
 
 const statusColors: Record<CertificateStatus, 'success' | 'warning' | 'danger' | 'ink'> = {
@@ -48,6 +50,7 @@ function formatDate(iso: string | null): string {
 }
 
 export function Certificates() {
+  const { user } = useApp();
   const [selected, setSelected] = useState<DigitalCertificate | null>(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -253,6 +256,8 @@ export function Certificates() {
             </div>
           </div>
         </div>
+
+        <NotesPanel recordType="certificate" recordId={selected.id} authorName={user?.name || 'STelo Admin'} />
       </div>
     );
   }
