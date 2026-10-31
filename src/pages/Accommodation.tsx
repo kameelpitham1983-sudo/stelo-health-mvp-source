@@ -20,6 +20,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
+import { NotesPanel } from '@/components/NotesPanel';
+import { useApp } from '@/context/AppContext';
 import { isDemoMode } from '@/hooks/useSupabaseData';
 import { demoHotels, demoHotelBookings } from '@/data/mockData';
 import type { Hotel, HotelBooking, AccommodationCategory, AccommodationStatus } from '@/types';
@@ -63,6 +65,7 @@ const emptyHotelForm: Partial<Hotel> = {
 type Tab = 'directory' | 'bookings';
 
 export function Accommodation() {
+  const { user } = useApp();
   const [tab, setTab] = useState<Tab>('directory');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -205,6 +208,8 @@ export function Accommodation() {
             </div>
           )}
         </div>
+
+        <NotesPanel recordType="accommodation" recordId={h.id} authorName={user?.name || 'STelo Admin'} />
       </div>
     );
   }
