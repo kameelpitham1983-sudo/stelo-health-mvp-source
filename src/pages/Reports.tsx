@@ -1,4 +1,4 @@
-import { BarChart3, Download, TrendingUp, Users, Stethoscope, Plane, FileText, ShieldCheck, AlertCircle } from 'lucide-react';
+import { BarChart3, Download, TrendingUp, Users, Stethoscope, Plane, FileText, ShieldCheck, AlertCircle, Workflow } from 'lucide-react';
 import { useState } from 'react';
 import {
   useCompanies,
@@ -6,7 +6,9 @@ import {
   useMedicals,
   useTravelHealth,
   useDocuments,
+  useWorkflowInstances,
 } from '@/hooks/useSupabaseData';
+import { workflowInstances as demoWorkflowInstances } from '@/data/mockData';
 import { Badge } from '@/components/Badge';
 
 export function Reports() {
@@ -15,6 +17,7 @@ export function Reports() {
   const { data: medicals, loading: medLoading } = useMedicals();
   const { data: travelHealth, loading: travelLoading } = useTravelHealth();
   const { data: documents, loading: docLoading } = useDocuments();
+  const { data: liveWorkflowInstances } = useWorkflowInstances();
 
   const [exporting, setExporting] = useState(false);
 
@@ -43,6 +46,13 @@ export function Reports() {
   const restrictedCount = employees.filter((e) => e.healthStatus === 'Fit with Restrictions').length;
   const pendingCount = employees.filter((e) => e.healthStatus === 'Pending Assessment').length;
   const unfitCount = employees.filter((e) => e.healthStatus === 'Unfit').length;
+
+  const allWorkflowInstances = liveWorkflowInstances.length > 0 ? liveWorkflowInstances : demoWorkflowInstances;
+  const activeWorkflowCount = allWorkflowInstances.filter((w) => w.status === 'In Progress').length;
+  const completedWorkflowCount = allWorkflowInstances.filter((w) => w.status === 'Completed').length;
+  const onHoldWorkflowCount = allWorkflowInstances.filter((w) => w.status === 'On Hold').length;
+  const exceptionWorkflowCount = allWorkflowInstances.filter((w) => w.stepInstances.some((s) => s.exceptionFlagged)).length;
+
   const healthStatusBreakdown = [
     { label: 'Fit', value: fitCount, color: 'bg-success-500' },
     { label: 'Fit with Restrictions', value: restrictedCount, color: 'bg-warning-500' },
@@ -57,6 +67,7 @@ export function Reports() {
     { title: 'Company Performance Dashboard', description: 'Per-company metrics on compliance, appointment attendance and health outcomes.', icon: BarChart3, color: 'bg-teal-50 text-teal-600' },
     { title: 'Vaccination Coverage Report', description: 'Immunisation status across the workforce with gap analysis.', icon: FileText, color: 'bg-accent-50 text-accent-600' },
     { title: 'Employee Health Trends Report', description: 'Year-over-year trends in occupational health indicators.', icon: TrendingUp, color: 'bg-brand-50 text-brand-600' },
+    { title: 'Workflow Performance Report', description: 'Active, completed, on-hold and exception-flagged workflow instances across the platform.', icon: Workflow, color: 'bg-accent-50 text-accent-600' },
   ];
 
   const handleExport = (reportTitle: string) => {
@@ -82,6 +93,13 @@ export function Reports() {
     rows.push(`Fit with Restrictions,${restrictedCount}`);
     rows.push(`Pending Assessment,${pendingCount}`);
     rows.push(`Unfit,${unfitCount}`);
+    rows.push('');
+    rows.push('Workflow Metrics');
+    rows.push(`Active Workflows,${activeWorkflowCount}`);
+    rows.push(`Completed Workflows,${completedWorkflowCount}`);
+    rows.push(`On Hold Workflows,${onHoldWorkflowCount}`);
+    rows.push(`Exception-Flagged Workflows,${exceptionWorkflowCount}`);
+    rows.push(`Total Workflow Instances,${allWorkflowInstances.length}`);
 
     const csv = rows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -121,9 +139,9 @@ export function Reports() {
           <p className="text-xs text-ink-400 mt-1">{travelHealth.filter((t) => t.status === 'Action Required').length} need action</p>
         </div>
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3"><FileText size={16} className="text-accent-600" /><span className="text-xs font-semibold text-ink-500">Documents</span></div>
-          <p className="text-2xl font-bold font-display text-ink-900">{documents.length}</p>
-          <p className="text-xs text-ink-400 mt-1">{documents.filter((d) => d.status === 'Pending Review').length} pending review</p>
+          <div className="flex items-center gap-2 mb-3"><Workflow size={16} className="text-accent-600" /><span className="text-xs font-semibold text-ink-500">Workflows</span></div>
+          <p className="text-2xl font-bold font-display text-ink-900">{allWorkflowInstances.length}</p>
+          <p className="text-xs text-ink-400 mt-1">{activeWorkflowCount} active · {exceptionWorkflowCount} exceptions</p>
         </div>
       </div>
 
@@ -158,6 +176,39 @@ export function Reports() {
         </div>
         <div className="flex flex-wrap gap-4">
           {healthStatusBreakdown.map((h) => (
+            <span key={h.label} className="flex items-center gap-2 text-xs text-ink-600">
+              <span className={`w-2.5 h-2.5 rounded-sm ${h.color}`} />
+              {h.label} ({h.value})
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Workflow breakdown bar */}
+      <div className="card p-5">
+        <h3 className="font-display font-bold text-ink-900 mb-4">Workflow status distribution</h3>
+        <div className="flex h-8 rounded-lg overflow-hidden mb-3">
+          {(() => {
+            const segments = [
+              { label: 'In Progress', value: activeWorkflowCount, color: 'bg-brand-500' },
+              { label: 'Completed', value: completedWorkflowCount, color: 'bg-success-500' },
+              { label: 'On Hold', value: onHoldWorkflowCount, color: 'bg-warning-500' },
+              { label: 'Exceptions', value: exceptionWorkflowCount, color: 'bg-danger-500' },
+            ];
+            const total = segments.reduce((s, h) => s + h.value, 0) || 1;
+            return segments.map((h) => {
+              const pct = (h.value / total) * 100;
+              return h.value > 0 ? <div key={h.label} className={h.color} style={{ width: `${pct}%` }} title={h.label} /> : null;
+            });
+          })()}
+        </div>
+        <div className="flex flex-wrap gap-4">
+          {[
+            { label: 'In Progress', value: activeWorkflowCount, color: 'bg-brand-500' },
+            { label: 'Completed', value: completedWorkflowCount, color: 'bg-success-500' },
+            { label: 'On Hold', value: onHoldWorkflowCount, color: 'bg-warning-500' },
+            { label: 'Exceptions', value: exceptionWorkflowCount, color: 'bg-danger-500' },
+          ].map((h) => (
             <span key={h.label} className="flex items-center gap-2 text-xs text-ink-600">
               <span className={`w-2.5 h-2.5 rounded-sm ${h.color}`} />
               {h.label} ({h.value})
