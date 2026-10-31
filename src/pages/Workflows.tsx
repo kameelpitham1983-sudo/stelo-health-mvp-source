@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import {
   Workflow,
   Search,
-  Filter,
   ArrowLeft,
   Users,
   Building2,
@@ -15,8 +14,13 @@ import {
   ChevronRight,
   ClipboardList,
   Activity,
+  Plus,
+  X,
+  Zap,
 } from 'lucide-react';
 import { workflowDefinitions, workflowInstances } from '@/data/mockData';
+import { useWorkflowDefinitions, useWorkflowInstances, useEmployees, useCompanies, isDemoMode } from '@/hooks/useSupabaseData';
+import { useApp } from '@/context/AppContext';
 import { Badge } from '@/components/Badge';
 import type {
   WorkflowDefinition,
@@ -75,19 +79,40 @@ function formatDateTime(iso: string | null): string {
 }
 
 export function Workflows() {
+  const { user } = useApp();
+  const { data: liveDefs } = useWorkflowDefinitions();
+  const { data: liveInstances } = useWorkflowInstances();
+  const { data: employees } = useEmployees();
+  const { data: companies } = useCompanies();
+
   const [view, setView] = useState<'library' | 'instances'>('instances');
   const [selectedDef, setSelectedDef] = useState<WorkflowDefinition | null>(null);
   const [selectedInst, setSelectedInst] = useState<WorkflowInstance | null>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [showLaunchForm, setShowLaunchForm] = useState(false);
+  const [launchDef, setLaunchDef] = useState<WorkflowDefinition | null>(null);
+  const [launchEmployeeId, setLaunchEmployeeId] = useState('');
+  const [launchCompanyId, setLaunchCompanyId] = useState('');
+  const [launchNotes, setLaunchNotes] = useState('');
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [launching, setLaunching] = useState(false);
+  const [localInstances, setLocalInstances] = useState<WorkflowInstance[]>([]);
+
+  const allDefs = liveDefs.length > 0 ? liveDefs : workflowDefinitions;
+  const allInstances = useMemo(() => {
+    return [...localInstances, ...(liveInstances.length > 0 ? liveInstances : workflowInstances)];
+  }, [localInstances, liveInstances]);
+
+  const canLaunch = user?.role === 'admin' || user?.role === 'coordinator';
 
   const categories = useMemo(() => {
-    const cats = new Set(workflowDefinitions.map((d) => d.category));
+    const cats = new Set(allDefs.map((d) => d.category));
     return ['all', ...Array.from(cats)];
-  }, []);
+  }, [allDefs]);
 
   const filteredInstances = useMemo(() => {
-    return workflowInstances.filter((inst) => {
+    return allInstances.filter((inst) => {
       const q = search.toLowerCase();
       const matchesSearch = !q ||
         inst.employeeName.toLowerCase().includes(q) ||
@@ -95,13 +120,13 @@ export function Workflows() {
         inst.instanceReference.toLowerCase().includes(q) ||
         inst.workflowName.toLowerCase().includes(q);
       const matchesCategory = categoryFilter === 'all' ||
-        workflowDefinitions.find((d) => d.id === inst.workflowDefinitionId)?.category === categoryFilter;
+        allDefs.find((d) => d.id === inst.workflowDefinitionId)?.category === categoryFilter;
       return matchesSearch && matchesCategory;
     });
-  }, [search, categoryFilter]);
+  }, [allInstances, allDefs, search, categoryFilter]);
 
   const filteredDefs = useMemo(() => {
-    return workflowDefinitions.filter((d) => {
+    return allDefs.filter((d) => {
       const q = search.toLowerCase();
       const matchesSearch = !q ||
         d.name.toLowerCase().includes(q) ||
@@ -109,7 +134,65 @@ export function Workflows() {
       const matchesCategory = categoryFilter === 'all' || d.category === categoryFilter;
       return matchesSearch && matchesCategory;
     });
-  }, [search, categoryFilter]);
+  }, [allDefs, search, categoryFilter]);
+
+  const handleLaunchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!launchDef || !launchEmployeeId) return;
+    setLaunchError(null);
+    setLaunching(true);
+    try {
+      const employee = employees.find((emp) => emp.id === launchEmployeeId);
+      const company = companies.find((c) => c.id === (launchCompanyId || employee?.companyId));
+      if (!employee) throw new Error('Please select a valid employee');
+      const now = new Date();
+      const ref = `WF-${launchDef.category.split(' ')[0].toUpperCase().slice(0, 3)}-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(allInstances.length + 1).padStart(3, '0')}`;
+      const newInstance: WorkflowInstance = {
+        id: `wi-local-${Date.now()}`,
+        workflowDefinitionId: launchDef.id,
+        workflowName: launchDef.name,
+        instanceReference: ref,
+        employeeName: employee.name,
+        employeeId: employee.id,
+        companyName: company?.name || employee.companyName,
+        companyId: company?.id || employee.companyId,
+        linkedMedicalId: null,
+        linkedAppointmentId: null,
+        status: 'In Progress',
+        currentStep: 1,
+        totalSteps: launchDef.steps.length,
+        assignedTo: user?.name || 'Coordinator',
+        notes: launchNotes,
+        stepInstances: launchDef.steps.map((step) => ({
+          id: `wsi-${Date.now()}-${step.stepNumber}`,
+          workflowInstanceId: `wi-local-${Date.now()}`,
+          stepNumber: step.stepNumber,
+          stepName: step.stepName,
+          status: step.stepNumber === 1 ? 'In Progress' : 'Pending',
+          responsibleRole: step.responsibleRole,
+          assignedPerson: step.stepNumber === 1 ? (user?.name || 'Coordinator') : '',
+          startedAt: step.stepNumber === 1 ? new Date().toISOString() : null,
+          completedAt: null,
+          notes: '',
+          exceptionFlagged: false,
+          exceptionReason: '',
+        })),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setLocalInstances((prev) => [newInstance, ...prev]);
+      setShowLaunchForm(false);
+      setLaunchDef(null);
+      setLaunchEmployeeId('');
+      setLaunchCompanyId('');
+      setLaunchNotes('');
+      setSelectedInst(newInstance);
+    } catch (err) {
+      setLaunchError(err instanceof Error ? err.message : 'Failed to launch workflow');
+    } finally {
+      setLaunching(false);
+    }
+  };
 
   if (selectedInst) {
     const def = workflowDefinitions.find((d) => d.id === selectedInst.workflowDefinitionId);
@@ -236,8 +319,51 @@ export function Workflows() {
           <button onClick={() => setSelectedDef(null)} className="btn-secondary">
             <ArrowLeft size={16} /> Back to Workflow Library
           </button>
-          <Badge color={selectedDef.active ? 'success' : 'ink'} dot>{selectedDef.active ? 'Active' : 'Inactive'}</Badge>
+          <div className="flex items-center gap-2">
+            {canLaunch && (
+              <button className="btn-primary" onClick={() => { setLaunchDef(selectedDef); setShowLaunchForm(true); }}>
+                <Zap size={16} /> Launch Instance
+              </button>
+            )}
+            <Badge color={selectedDef.active ? 'success' : 'ink'} dot>{selectedDef.active ? 'Active' : 'Inactive'}</Badge>
+          </div>
         </div>
+
+        {showLaunchForm && launchDef && (
+          <div className="card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-ink-900">Launch New Workflow Instance</h3>
+              <button type="button" className="btn-secondary" onClick={() => { setShowLaunchForm(false); setLaunchDef(null); }}><X size={16} /> Cancel</button>
+            </div>
+            <p className="text-sm text-ink-500">Starting: <span className="font-semibold text-ink-900">{launchDef.name}</span></p>
+            {launchError && <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg">{launchError}</div>}
+            <form className="space-y-4" onSubmit={handleLaunchSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-ink-700 mb-1">Employee *</label>
+                  <select className="input w-full" value={launchEmployeeId} onChange={(e) => { setLaunchEmployeeId(e.target.value); const emp = employees.find((x) => x.id === e.target.value); if (emp) setLaunchCompanyId(emp.companyId); }} required>
+                    <option value="">Select employee...</option>
+                    {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name} — {emp.companyName}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-ink-700 mb-1">Company</label>
+                  <select className="input w-full" value={launchCompanyId} onChange={(e) => setLaunchCompanyId(e.target.value)}>
+                    <option value="">Auto-fill from employee</option>
+                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Notes (optional)</label>
+                <textarea className="input w-full" rows={2} value={launchNotes} onChange={(e) => setLaunchNotes(e.target.value)} placeholder="Any initial notes for this workflow..." />
+              </div>
+              <button type="submit" disabled={launching} className="btn-primary">
+                {launching ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Zap size={16} /> Launch Workflow</>}
+              </button>
+            </form>
+          </div>
+        )}
 
         <div className="card p-5 lg:p-6">
           <p className="text-xs font-semibold text-brand-600 uppercase tracking-wider mb-1">{selectedDef.category}</p>
@@ -339,7 +465,57 @@ export function Workflows() {
           <h2 className="text-xl font-display font-bold text-ink-900">Workflow Centre</h2>
           <p className="text-sm text-ink-500">Manage process definitions and track live workflow instances</p>
         </div>
+        {canLaunch && (
+          <button className="btn-primary" onClick={() => { setLaunchDef(null); setShowLaunchForm(true); }}>
+            <Plus size={16} /> Launch Instance
+          </button>
+        )}
       </div>
+
+      {showLaunchForm && !selectedDef && (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-ink-900">Launch New Workflow Instance</h3>
+            <button type="button" className="btn-secondary" onClick={() => setShowLaunchForm(false)}><X size={16} /> Cancel</button>
+          </div>
+          {isDemoMode && (
+            <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg">Demo mode — launched instances are stored locally for this session only.</div>
+          )}
+          {launchError && <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg">{launchError}</div>}
+          <form className="space-y-4" onSubmit={handleLaunchSubmit}>
+            <div>
+              <label className="block text-sm font-semibold text-ink-700 mb-1">Workflow Process *</label>
+              <select className="input w-full" value={launchDef?.id || ''} onChange={(e) => setLaunchDef(allDefs.find((d) => d.id === e.target.value) || null)} required>
+                <option value="">Select workflow...</option>
+                {allDefs.filter((d) => d.active).map((d) => <option key={d.id} value={d.id}>{d.name} ({d.category})</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Employee *</label>
+                <select className="input w-full" value={launchEmployeeId} onChange={(e) => { setLaunchEmployeeId(e.target.value); const emp = employees.find((x) => x.id === e.target.value); if (emp) setLaunchCompanyId(emp.companyId); }} required>
+                  <option value="">Select employee...</option>
+                  {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name} — {emp.companyName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Company</label>
+                <select className="input w-full" value={launchCompanyId} onChange={(e) => setLaunchCompanyId(e.target.value)}>
+                  <option value="">Auto-fill from employee</option>
+                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-ink-700 mb-1">Notes (optional)</label>
+              <textarea className="input w-full" rows={2} value={launchNotes} onChange={(e) => setLaunchNotes(e.target.value)} placeholder="Any initial notes for this workflow..." />
+            </div>
+            <button type="submit" disabled={launching || !launchDef} className="btn-primary">
+              {launching ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Zap size={16} /> Launch Workflow</>}
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -436,9 +612,8 @@ export function Workflows() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredDefs.map((def) => {
-              const instanceCount = workflowInstances.filter((i) => i.workflowDefinitionId === def.id).length;
               return (
-                <div
+              <div
                   key={def.id}
                   onClick={() => setSelectedDef(def)}
                   className="card card-hover p-5 cursor-pointer"
@@ -452,10 +627,20 @@ export function Workflows() {
                   <p className="text-xs font-semibold text-brand-600 uppercase tracking-wider">{def.category}</p>
                   <h3 className="font-display font-bold text-ink-900 mt-1">{def.name}</h3>
                   <p className="text-sm text-ink-500 mt-1 line-clamp-2">{def.description}</p>
-                  <div className="flex items-center gap-4 mt-4 pt-4 border-t border-ink-100 text-xs text-ink-500">
-                    <span className="flex items-center gap-1"><ClipboardList size={13} /> {def.steps.length} steps</span>
-                    <span className="flex items-center gap-1"><Activity size={13} /> {instanceCount} live</span>
-                    <span>v{def.version}</span>
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-ink-100">
+                    <div className="flex items-center gap-4 text-xs text-ink-500">
+                      <span className="flex items-center gap-1"><ClipboardList size={13} /> {def.steps.length} steps</span>
+                      <span className="flex items-center gap-1"><Activity size={13} /> {allInstances.filter((i) => i.workflowDefinitionId === def.id).length} live</span>
+                      <span>v{def.version}</span>
+                    </div>
+                    {canLaunch && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setLaunchDef(def); setShowLaunchForm(true); }}
+                        className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1"
+                      >
+                        <Zap size={12} /> Launch
+                      </button>
+                    )}
                   </div>
                 </div>
               );
