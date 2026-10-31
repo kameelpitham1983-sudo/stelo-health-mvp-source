@@ -4,6 +4,7 @@ import { useMedicals, useEmployees, useCompanies } from '@/hooks/useSupabaseData
 import { isDemoMode } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import { QuestionnaireWorkflow } from '@/components/QuestionnaireWorkflow';
+import { NotesPanel } from '@/components/NotesPanel';
 import { useApp } from '@/context/AppContext';
 import { questionnaireInstances } from '@/data/mockData';
 import type { Medical, MedicalType, MedicalStatus, HealthStatus } from '@/types';
@@ -294,6 +295,8 @@ export function Medicals() {
           </div>
           <QuestionnaireStatusBadge medicalId={med.id} version={questionnaireVersion} />
         </div>
+
+        <NotesPanel recordType="medical" recordId={med.id} authorName={user?.name || 'STelo Admin'} />
       </div>
     );
   }

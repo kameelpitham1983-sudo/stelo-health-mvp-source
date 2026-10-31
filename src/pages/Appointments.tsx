@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2, Search, Stethoscope, ArrowRight } from 'lucide-react';
 import { useAppointments, useEmployees, useCompanies, useMedicals, isDemoMode } from '@/hooks/useSupabaseData';
+import { useApp } from '@/context/AppContext';
 import { Badge } from '@/components/Badge';
+import { NotesPanel } from '@/components/NotesPanel';
 import type { Appointment, AppointmentType, AppointmentMode, AppointmentStatus } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'ink' | 'brand'> = {
@@ -36,6 +38,7 @@ const emptyForm: Partial<Appointment> = {
 };
 
 export function Appointments() {
+  const { user } = useApp();
   const { data: dbAppointments, loading, error, addAppointment, updateAppointment } = useAppointments();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
@@ -340,6 +343,8 @@ export function Appointments() {
             <button onClick={() => { setDetailAppt(null); setCancelTarget(detailAppt); }} className="btn-secondary text-danger-600 hover:bg-danger-50"><Trash2 size={16} /> Cancel Appointment</button>
           )}
         </div>
+
+        <NotesPanel recordType="appointment" recordId={detailAppt.id} authorName={user?.name || 'STelo Admin'} />
       </div>
     );
   }
