@@ -9,6 +9,8 @@ import type {
   Appointment,
   TravelHealthRecord,
   DocumentRecord,
+  DocumentVersion,
+  AuditLogEntry,
   ActivityEvent,
   SicknessAbsenceCase,
   SicknessRiskAssessment,
@@ -449,6 +451,15 @@ function transformDocument(row: Record<string, unknown>): DocumentRecord {
     fileSize: (row.file_size as string) || '',
     fileType: (row.file_type as string) || 'PDF',
     expiryDate: row.expiry_date ? (row.expiry_date as string) : null,
+    employeeId: (row.employee_id as string) || null,
+    medicalId: (row.medical_id as string) || null,
+    appointmentId: (row.appointment_id as string) || null,
+    providerId: (row.provider_id as string) || null,
+    workflowInstanceId: (row.workflow_instance_id as string) || null,
+    responsiblePerson: (row.responsible_person as string) || null,
+    replacesDocumentId: (row.replaces_document_id as string) || null,
+    versionNumber: (row.version_number as number) || 1,
+    isCurrentVersion: row.is_current_version !== false,
   };
 }
 
@@ -498,6 +509,126 @@ export function useDocuments() {
   }, [refetch]);
 
   return { data, loading, error, refetch, addDocument, updateDocument };
+}
+
+// --- Document Versions ---
+
+function transformDocumentVersion(row: Record<string, unknown>): DocumentVersion {
+  return {
+    id: row.id as string,
+    documentId: (row.document_id as string) || '',
+    versionNumber: (row.version_number as number) || 1,
+    name: (row.name as string) || '',
+    type: (row.type as string) || '',
+    status: (row.status as string) || '',
+    uploadedBy: (row.uploaded_by as string) || '',
+    versionNotes: (row.version_notes as string) || null,
+    createdAt: (row.created_at as string) || '',
+  };
+}
+
+export function useDocumentVersions(documentId: string | null) {
+  const [data, setData] = useState<DocumentVersion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    if (!documentId) return;
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) { setData([]); setLoading(false); return; }
+    const { data: rows, error: err } = await supabase
+      .from('document_versions')
+      .select('*')
+      .eq('document_id', documentId)
+      .order('version_number', { ascending: false });
+    if (err) { setError(err.message); }
+    else { setData((rows as Record<string, unknown>[]).map(transformDocumentVersion)); }
+    setLoading(false);
+  }, [documentId]);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  return { data, loading, error, refetch };
+}
+
+// --- Audit Log ---
+
+function transformAuditLog(row: Record<string, unknown>): AuditLogEntry {
+  return {
+    id: row.id as string,
+    actorId: (row.actor_id as string) || null,
+    actorName: (row.actor_name as string) || '',
+    actorRole: (row.actor_role as string) || '',
+    recordType: (row.record_type as string) || '',
+    recordId: (row.record_id as string) || null,
+    recordReference: (row.record_reference as string) || '',
+    action: (row.action as string) || '',
+    fromStatus: (row.from_status as string) || null,
+    toStatus: (row.to_status as string) || null,
+    companyId: (row.company_id as string) || null,
+    workflowInstanceId: (row.workflow_instance_id as string) || null,
+    details: (row.details as string) || null,
+    success: (row.success as boolean) !== false,
+    createdAt: (row.created_at as string) || '',
+  };
+}
+
+export function useAuditLog() {
+  const [data, setData] = useState<AuditLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) { setData([]); setLoading(false); return; }
+    const { data: rows, error: err } = await supabase
+      .from('audit_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (err) { setError(err.message); }
+    else { setData((rows as Record<string, unknown>[]).map(transformAuditLog)); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  return { data, loading, error, refetch };
+}
+
+export function useLogAuditEvent() {
+  return useCallback(async (entry: {
+    actorName: string;
+    actorRole: string;
+    recordType: string;
+    recordId?: string | null;
+    recordReference?: string;
+    action: string;
+    fromStatus?: string | null;
+    toStatus?: string | null;
+    companyId?: string | null;
+    workflowInstanceId?: string | null;
+    details?: string | null;
+    success?: boolean;
+  }) => {
+    if (isDemoMode || !supabaseConfigured) return;
+    await supabase.from('audit_log').insert({
+      actor_name: entry.actorName,
+      actor_role: entry.actorRole,
+      record_type: entry.recordType,
+      record_id: entry.recordId || null,
+      record_reference: entry.recordReference || '',
+      action: entry.action,
+      from_status: entry.fromStatus || null,
+      to_status: entry.toStatus || null,
+      company_id: entry.companyId || null,
+      workflow_instance_id: entry.workflowInstanceId || null,
+      details: entry.details || null,
+      success: entry.success !== false,
+    });
+  }, []);
 }
 
 // --- Activity Events ---

@@ -150,6 +150,27 @@ export interface DocumentRecord {
   fileSize: string;
   fileType: string;
   expiryDate?: string | null;
+  employeeId?: string | null;
+  medicalId?: string | null;
+  appointmentId?: string | null;
+  providerId?: string | null;
+  workflowInstanceId?: string | null;
+  responsiblePerson?: string | null;
+  replacesDocumentId?: string | null;
+  versionNumber?: number;
+  isCurrentVersion?: boolean;
+}
+
+export interface DocumentVersion {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  name: string;
+  type: string;
+  status: string;
+  uploadedBy: string;
+  versionNotes: string | null;
+  createdAt: string;
 }
 
 export interface ActivityEvent {
@@ -729,6 +750,26 @@ export interface DigitalCertificate {
   revokedReason: string;
   revokedAt: string | null;
   replacedBy: string | null;
+  createdAt: string;
+}
+
+// --- Audit Log types ---
+
+export interface AuditLogEntry {
+  id: string;
+  actorId: string | null;
+  actorName: string;
+  actorRole: string;
+  recordType: string;
+  recordId: string | null;
+  recordReference: string;
+  action: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  companyId: string | null;
+  workflowInstanceId: string | null;
+  details: string | null;
+  success: boolean;
   createdAt: string;
 }
 
