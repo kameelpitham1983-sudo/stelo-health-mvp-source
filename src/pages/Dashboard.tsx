@@ -16,6 +16,7 @@ import {
   Network,
   Star,
   Truck,
+  Workflow,
 } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/Badge';
@@ -28,8 +29,9 @@ import {
   useTravelHealth,
   useDocuments,
   useActivityEvents,
+  useWorkflowInstances,
 } from '@/hooks/useSupabaseData';
-import { visaMedicalCases, travelConsultations, providers as demoProviders } from '@/data/mockData';
+import { visaMedicalCases, travelConsultations, providers as demoProviders, workflowInstances as demoWorkflowInstances } from '@/data/mockData';
 
 const activityIcons: Record<string, typeof ActivityIcon> = {
   medical: Stethoscope,
@@ -60,6 +62,7 @@ export function Dashboard() {
   const { data: travelHealth } = useTravelHealth();
   const { data: documents } = useDocuments();
   const { data: activityFeed } = useActivityEvents();
+  const { data: liveWorkflowInstances } = useWorkflowInstances();
 
   if (!user) return null;
 
@@ -95,6 +98,12 @@ export function Dashboard() {
   const providerOnboarding = demoProviders.filter((p) => p.status === 'Onboarding' || p.status === 'Pending Verification').length;
   const providerUnverified = demoProviders.filter((p) => p.status === 'Unverified').length;
   const providerMobile = demoProviders.filter((p) => p.mobileServiceAvailable).length;
+
+  const allWorkflowInstances = liveWorkflowInstances.length > 0 ? liveWorkflowInstances : demoWorkflowInstances;
+  const activeWorkflows = allWorkflowInstances.filter((w) => w.status === 'In Progress').length;
+  const completedWorkflows = allWorkflowInstances.filter((w) => w.status === 'Completed').length;
+  const onHoldWorkflows = allWorkflowInstances.filter((w) => w.status === 'On Hold').length;
+  const exceptionWorkflows = allWorkflowInstances.filter((w) => w.stepInstances.some((s) => s.exceptionFlagged)).length;
 
   const fitCount = employees.filter((e) => e.healthStatus === 'Fit').length;
   const restrictedCount = employees.filter((e) => e.healthStatus === 'Fit with Restrictions').length;
@@ -421,6 +430,24 @@ export function Dashboard() {
           <VisaStatCard icon={Truck} label="Mobile Units" value={providerMobile} color="brand" />
         </div>
         <p className="text-xs text-ink-400 mt-3">Demo data — provider records are fictional with unverified placeholder fields.</p>
+      </div>
+
+      {/* Workflow Centre overview */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-bold text-ink-900 flex items-center gap-2">
+            <Workflow size={18} className="text-brand-600" /> Workflow Centre
+          </h3>
+          <button onClick={() => setPage('workflows')} className="text-xs text-brand-600 font-medium hover:text-brand-700">
+            View all
+          </button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <VisaStatCard icon={Workflow} label="Active Workflows" value={activeWorkflows} color="brand" />
+          <VisaStatCard icon={ShieldCheck} label="Completed" value={completedWorkflows} color="success" />
+          <VisaStatCard icon={AlertCircle} label="On Hold" value={onHoldWorkflows} color="warning" />
+          <VisaStatCard icon={AlertCircle} label="Exceptions Flagged" value={exceptionWorkflows} color="danger" />
+        </div>
       </div>
     </div>
   );
