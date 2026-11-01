@@ -35,6 +35,9 @@ import type {
   HotelBooking,
   AccommodationCategory,
   AccommodationStatus,
+  VisaMedicalCase,
+  VisaMedicalStatus,
+  VisaAuditEntry,
 } from '@/types';
 
 // Demo data fallback: when the database is empty or unreachable, pages show
@@ -2148,4 +2151,183 @@ export function useHotelBookings() {
   }, [refetch]);
 
   return { data, loading, error, refetch, addBooking, updateBooking };
+}
+
+// --- Visa Medical Cases ---
+
+function transformVisaMedicalCase(row: Record<string, unknown>): VisaMedicalCase {
+  return {
+    id: row.id as string,
+    caseReference: (row.case_reference as string) || '',
+    employeeName: (row.employee_name as string) || '',
+    employeeId: (row.employee_id as string) || '',
+    companyName: (row.company_name as string) || '',
+    destinationCountry: (row.destination_country as string) || '',
+    visaCategory: (row.visa_category as string) || '',
+    status: (row.status as string) as VisaMedicalStatus,
+    requirements: Array.isArray(row.requirements) ? row.requirements as VisaMedicalCase['requirements'] : [],
+    checklistProgress: (row.checklist_progress as Record<string, boolean>) || {},
+    appointmentId: (row.appointment_id as string) || null,
+    appointmentDate: row.appointment_date ? String(row.appointment_date) : null,
+    providerName: (row.provider_name as string) || '',
+    questionnaireStatus: (row.questionnaire_status as string) as VisaMedicalCase['questionnaireStatus'],
+    clinicianReviewNotes: (row.clinician_review_notes as string) || '',
+    certificateIssued: (row.certificate_issued as boolean) || false,
+    certificateExpiryDate: row.certificate_expiry_date ? String(row.certificate_expiry_date) : null,
+    followUpDate: row.follow_up_date ? String(row.follow_up_date) : null,
+    requestedBy: (row.requested_by as string) || '',
+    requestedAt: String(row.requested_at) || '',
+    completedAt: row.completed_at ? String(row.completed_at) : null,
+    auditTrail: [],
+  };
+}
+
+function transformVisaAuditEntry(row: Record<string, unknown>): VisaAuditEntry {
+  return {
+    id: row.id as string,
+    timestamp: String(row.created_at) || '',
+    action: (row.action as string) || '',
+    actor: (row.actor as string) || '',
+  };
+}
+
+export function useVisaMedicalCases() {
+  const { user } = useApp();
+  const [data, setData] = useState<VisaMedicalCase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.visaMedicalCases);
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('visa_medical_cases')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (err) {
+      setError(err.message);
+      setData(mockData.visaMedicalCases);
+    } else {
+      const cases = (rows as Record<string, unknown>[]).map(transformVisaMedicalCase);
+      if (cases.length === 0) {
+        setData(mockData.visaMedicalCases);
+      } else {
+        const caseIds = cases.map((c) => c.id);
+        const { data: auditRows } = await supabase
+          .from('visa_medical_audit_entries')
+          .select('*')
+          .in('visa_case_id', caseIds)
+          .order('created_at', { ascending: true });
+        const auditMap = new Map<string, VisaAuditEntry[]>();
+        if (auditRows) {
+          for (const aud of auditRows as Record<string, unknown>[]) {
+            const cId = aud.visa_case_id as string;
+            const list = auditMap.get(cId) || [];
+            list.push(transformVisaAuditEntry(aud));
+            auditMap.set(cId, list);
+          }
+        }
+        cases.forEach((c) => {
+          c.auditTrail = auditMap.get(c.id) || [];
+        });
+        setData(cases);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addVisaMedicalCase = useCallback(async (caseData: Partial<VisaMedicalCase>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const { data: existing } = await supabase
+      .from('visa_medical_cases')
+      .select('case_reference')
+      .like('case_reference', `VM-${dateStr}-%`)
+      .order('case_reference', { ascending: false })
+      .limit(1);
+    const seqNum = existing && existing.length > 0
+      ? (parseInt((existing[0] as Record<string, unknown>).case_reference as string) || 0) + 1
+      : 1;
+    const caseReference = `VM-${dateStr}-${String(seqNum).padStart(3, '0')}`;
+
+    const { data: row, error: err } = await supabase
+      .from('visa_medical_cases')
+      .insert({
+        case_reference: caseReference,
+        employee_name: caseData.employeeName || '',
+        employee_id: caseData.employeeId || null,
+        company_name: caseData.companyName || '',
+        company_id: null,
+        destination_country: caseData.destinationCountry || '',
+        visa_category: caseData.visaCategory || '',
+        status: 'Requested',
+        requirements: caseData.requirements || [],
+        checklist_progress: {},
+        appointment_id: null,
+        appointment_date: null,
+        provider_name: '',
+        questionnaire_status: 'Not Started',
+        clinician_review_notes: '',
+        certificate_issued: false,
+        certificate_expiry_date: null,
+        follow_up_date: null,
+        requested_by: caseData.requestedBy || user?.name || 'Unknown',
+        requested_at: now.toISOString(),
+        completed_at: null,
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    const created = transformVisaMedicalCase(row as Record<string, unknown>);
+
+    await supabase.from('visa_medical_audit_entries').insert({
+      visa_case_id: created.id,
+      action: 'Visa medical requested',
+      actor: caseData.requestedBy || user?.name || 'Unknown',
+    });
+
+    created.auditTrail = [{ id: '', timestamp: now.toISOString(), action: 'Visa medical requested', actor: caseData.requestedBy || user?.name || 'Unknown' }];
+    await refetch();
+    return created;
+  }, [refetch, user]);
+
+  const updateVisaMedicalCase = useCallback(async (id: string, updates: Partial<VisaMedicalCase>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.appointmentId !== undefined) updateData.appointment_id = updates.appointmentId || null;
+    if (updates.appointmentDate !== undefined) updateData.appointment_date = updates.appointmentDate || null;
+    if (updates.providerName !== undefined) updateData.provider_name = updates.providerName;
+    if (updates.questionnaireStatus !== undefined) updateData.questionnaire_status = updates.questionnaireStatus;
+    if (updates.clinicianReviewNotes !== undefined) updateData.clinician_review_notes = updates.clinicianReviewNotes;
+    if (updates.certificateIssued !== undefined) updateData.certificate_issued = updates.certificateIssued;
+    if (updates.certificateExpiryDate !== undefined) updateData.certificate_expiry_date = updates.certificateExpiryDate || null;
+    if (updates.followUpDate !== undefined) updateData.follow_up_date = updates.followUpDate || null;
+    if (updates.checklistProgress !== undefined) updateData.checklist_progress = updates.checklistProgress;
+    if (updates.completedAt !== undefined) updateData.completed_at = updates.completedAt;
+    const { error: err } = await supabase.from('visa_medical_cases').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  const addVisaAuditEntry = useCallback(async (caseId: string, action: string) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { error: err } = await supabase.from('visa_medical_audit_entries').insert({
+      visa_case_id: caseId,
+      action,
+      actor: user?.name || 'Unknown',
+    });
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch, user]);
+
+  return { data, loading, error, refetch, addVisaMedicalCase, updateVisaMedicalCase, addVisaAuditEntry };
 }

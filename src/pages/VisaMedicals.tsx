@@ -19,11 +19,12 @@ import {
   ShieldCheck,
   Award,
   Info,
+  Loader2,
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { useApp } from '@/context/AppContext';
-import { isDemoMode } from '@/hooks/useSupabaseData';
-import { visaMedicalCases, visaCountryRequirements } from '@/data/mockData';
+import { isDemoMode, useVisaMedicalCases } from '@/hooks/useSupabaseData';
+import { visaCountryRequirements } from '@/data/mockData';
 import type {
   VisaMedicalCase,
   VisaMedicalStatus,
@@ -76,24 +77,20 @@ const emptyForm: Partial<VisaMedicalCase> & {
 
 export function VisaMedicals() {
   const { user } = useApp();
+  const { data: visaCases, loading, addVisaMedicalCase, updateVisaMedicalCase, addVisaAuditEntry } = useVisaMedicalCases();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [selectedCase, setSelectedCase] = useState<VisaMedicalCase | null>(null);
   const [showRequirements, setShowRequirements] = useState(false);
-  const [demoCases, setDemoCases] = useState<VisaMedicalCase[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const isProvider = user?.role === 'admin' || user?.role === 'provider';
+  const isProvider = user?.role === 'admin' || user?.role === 'provider' || user?.role === 'master_admin';
 
-  const allCases = useMemo(() => {
-    if (demoCases.length === 0) return visaMedicalCases;
-    const baseIds = new Set(visaMedicalCases.map((c) => c.id));
-    const added = demoCases.filter((c) => !baseIds.has(c.id));
-    return [...visaMedicalCases, ...added];
-  }, [demoCases]);
+  const allCases = visaCases;
 
   const filtered = allCases.filter((c) => {
     const matchSearch =
@@ -110,7 +107,7 @@ export function VisaMedicals() {
     return acc;
   }, {} as Record<string, number>);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     if (!formData.employeeName || !formData.destinationCountry || !formData.visaCategory) {
@@ -120,82 +117,58 @@ export function VisaMedicals() {
     const countryReq = visaCountryRequirements.find(
       (r) => r.country === formData.destinationCountry && r.visaCategory === formData.visaCategory,
     );
-    const newCase: VisaMedicalCase = {
-      id: `vm-demo-${Date.now()}`,
-      caseReference: `VM-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(demoCases.length + 4).padStart(3, '0')}`,
-      employeeName: formData.employeeName || '',
-      employeeId: formData.employeeId || '',
-      companyName: formData.companyName || '',
-      destinationCountry: formData.destinationCountry || '',
-      visaCategory: formData.visaCategory || '',
-      status: 'Requested',
-      requirements: countryReq?.requirements || [],
-      checklistProgress: {},
-      appointmentId: null,
-      appointmentDate: null,
-      providerName: '',
-      questionnaireStatus: 'Not Started',
-      clinicianReviewNotes: '',
-      certificateIssued: false,
-      certificateExpiryDate: null,
-      followUpDate: null,
-      requestedBy: formData.requestedBy || user?.name || '',
-      requestedAt: new Date().toISOString(),
-      completedAt: null,
-      auditTrail: [
-        { id: `va-${Date.now()}`, timestamp: new Date().toISOString(), action: 'Visa medical requested', actor: formData.requestedBy || user?.name || '' },
-      ],
-    };
-    setDemoCases((prev) => [...prev, newCase]);
-    setShowForm(false);
-    setFormData(emptyForm);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  const updateCaseStatus = (caseId: string, newStatus: VisaMedicalStatus) => {
-    const update = (c: VisaMedicalCase): VisaMedicalCase => {
-      if (c.id !== caseId) return c;
-      return {
-        ...c,
-        status: newStatus,
-        completedAt: newStatus === 'Completed' ? new Date().toISOString() : c.completedAt,
-        auditTrail: [
-          ...c.auditTrail,
-          { id: `va-${Date.now()}`, timestamp: new Date().toISOString(), action: `Status changed to ${newStatus}`, actor: user?.name || 'Clinician' },
-        ],
-      };
-    };
-    setDemoCases((prev) => {
-      const existing = prev.find((c) => c.id === caseId);
-      if (existing) return prev.map(update);
-      const baseCase = visaMedicalCases.find((c) => c.id === caseId);
-      if (baseCase) return [...prev, update(baseCase)];
-      return prev;
-    });
-    if (selectedCase?.id === caseId) {
-      setSelectedCase((prev) => prev ? { ...update(prev) } : prev);
+    setBusy(true);
+    try {
+      await addVisaMedicalCase({
+        employeeName: formData.employeeName || '',
+        employeeId: formData.employeeId || '',
+        companyName: formData.companyName || '',
+        destinationCountry: formData.destinationCountry || '',
+        visaCategory: formData.visaCategory || '',
+        requirements: countryReq?.requirements || [],
+        requestedBy: formData.requestedBy || user?.name || '',
+      });
+      setShowForm(false);
+      setFormData(emptyForm);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create visa medical case.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const toggleChecklistItem = (caseId: string, reqId: string) => {
-    const update = (c: VisaMedicalCase): VisaMedicalCase => {
-      if (c.id !== caseId) return c;
-      const current = c.checklistProgress[reqId] || false;
-      return {
-        ...c,
-        checklistProgress: { ...c.checklistProgress, [reqId]: !current },
-      };
-    };
-    setDemoCases((prev) => {
-      const existing = prev.find((c) => c.id === caseId);
-      if (existing) return prev.map(update);
-      const baseCase = visaMedicalCases.find((c) => c.id === caseId);
-      if (baseCase) return [...prev, update(baseCase)];
-      return prev;
-    });
+  const updateCaseStatus = async (caseId: string, newStatus: VisaMedicalStatus) => {
+    setBusy(true);
+    try {
+      await updateVisaMedicalCase(caseId, {
+        status: newStatus,
+        completedAt: newStatus === 'Completed' ? new Date().toISOString() : null,
+      });
+      await addVisaAuditEntry(caseId, `Status changed to ${newStatus}`);
+      if (selectedCase?.id === caseId) {
+        setSelectedCase((prev) => prev ? { ...prev, status: newStatus, completedAt: newStatus === 'Completed' ? new Date().toISOString() : prev.completedAt } : prev);
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update status.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleChecklistItem = async (caseId: string, reqId: string) => {
+    const currentCase = allCases.find((c) => c.id === caseId);
+    if (!currentCase) return;
+    const current = currentCase.checklistProgress[reqId] || false;
+    const newProgress = { ...currentCase.checklistProgress, [reqId]: !current };
     if (selectedCase?.id === caseId) {
-      setSelectedCase((prev) => prev ? { ...update(prev) } : prev);
+      setSelectedCase((prev) => prev ? { ...prev, checklistProgress: newProgress } : prev);
+    }
+    try {
+      await updateVisaMedicalCase(caseId, { checklistProgress: newProgress });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update checklist.');
     }
   };
 
@@ -222,6 +195,12 @@ export function VisaMedicals() {
           <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
             <AlertCircle size={16} className="shrink-0" />
             Demo mode — changes to this visa medical case are stored locally only and will not be saved as live records.
+          </div>
+        )}
+
+        {submitError && (
+          <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" /> {submitError}
           </div>
         )}
 
@@ -306,7 +285,7 @@ export function VisaMedicals() {
                   <div key={req.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${isChecked ? 'bg-success-50 border-success-200' : 'bg-white border-ink-100'}`}>
                     <button
                       onClick={() => isProvider && toggleChecklistItem(vc.id, req.id)}
-                      disabled={!isProvider}
+                      disabled={!isProvider || busy}
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
                         isChecked ? 'bg-success-500 border-success-500' : 'border-ink-300 hover:border-brand-400'
                       } ${isProvider ? 'cursor-pointer' : 'cursor-default'}`}
@@ -335,9 +314,10 @@ export function VisaMedicals() {
                 <button
                   key={s}
                   onClick={() => updateCaseStatus(vc.id, s)}
+                  disabled={busy}
                   className="btn-secondary text-sm"
                 >
-                  {s}
+                  {busy ? <Loader2 size={14} className="animate-spin" /> : s}
                 </button>
               ))}
             </div>
@@ -378,7 +358,7 @@ export function VisaMedicals() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Visa Medicals</h2>
-          <p className="text-sm text-ink-500">{filtered.length} visa medical cases</p>
+          <p className="text-sm text-ink-500">{loading ? 'Loading...' : `${filtered.length} visa medical cases`}</p>
         </div>
         <div className="flex gap-2">
           <button className="btn-secondary" onClick={() => setShowRequirements(true)}>
@@ -507,15 +487,20 @@ export function VisaMedicals() {
               <Info size={14} className="mt-0.5 shrink-0" />
               <span>Completing a medical does not guarantee visa approval. The destination country's embassy or immigration authority makes the final decision. Requirements shown are illustrative and must be verified with the relevant embassy or panel physician.</span>
             </div>
-            <button type="submit" className="btn-primary">
-              {saved ? <><Check size={16} /> Created</> : <><Plus size={16} /> Create Visa Medical Case</>}
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? <><Loader2 size={16} className="animate-spin" /> Creating...</> : saved ? <><Check size={16} /> Created</> : <><Plus size={16} /> Create Visa Medical Case</>}
             </button>
           </form>
         </div>
       )}
 
       {/* Case list */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="card p-12 text-center">
+          <Loader2 size={24} className="animate-spin text-brand-500 mx-auto mb-3" />
+          <p className="text-sm text-ink-500">Loading visa medical cases...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card p-12 text-center">
           <Globe size={32} className="text-ink-300 mx-auto mb-3" />
           <p className="text-sm text-ink-500">No visa medical cases found. {isProvider && 'Click "New Visa Medical" to create one.'}</p>
