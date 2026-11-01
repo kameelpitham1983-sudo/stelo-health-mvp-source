@@ -20,12 +20,16 @@ export interface MedicalAssessmentRecord {
   caseId: string | null;
   caseReference: string;
   onboardingCaseId: string | null;
+  workOrderApproved: boolean;
+  medicalId: string;
+  medicalRecordType: string;
   assessmentType: MedicalAssessmentType;
   worksiteRequirements: string;
   consentRecorded: boolean;
   questionnaireStatus: QuestionnaireStatus;
   historyReviewed: boolean;
   investigationsRequested: string;
+  providerId: string | null;
   providerName: string;
   appointmentDate: string;
   appointmentConfirmed: boolean;
@@ -64,6 +68,20 @@ export const MEDICAL_ASSESSMENT_STEPS: MedicalAssessmentStep[] = [
   { id: 'notified', title: 'Authorised parties notified', responsible: 'Coordinator', channel: 'Integration not connected' },
 ];
 
+export const MEDICAL_ASSESSMENT_GUIDANCE: Record<string, { requiredInfo: string; nextStep: string }> = {
+  work_order: { requiredInfo: 'An approved onboarding work order linked to this assessment.', nextStep: 'Approve the work order in onboarding, then link it here.' },
+  details: { requiredInfo: 'Assessment type and worksite or job requirements.', nextStep: 'Describe the worksite requirements, then move to consent.' },
+  consent: { requiredInfo: 'Employee consent recorded and the medical questionnaire completed.', nextStep: 'Record consent and the questionnaire status. Consent is never assumed.' },
+  history: { requiredInfo: 'Questionnaire responses reviewed for the clinician.', nextStep: 'Mark the medical history as reviewed for the clinician.' },
+  investigations: { requiredInfo: 'Investigations and laboratory requests, or a note that none are needed.', nextStep: 'Record the requests. Laboratory forms are prepared outside the app.' },
+  appointment: { requiredInfo: 'A provider from the Provider Network and a confirmed appointment date.', nextStep: 'Confirm the appointment and tell the employee. Availability is not checked by the app.' },
+  clinician_review: { requiredInfo: 'Clinician name, findings and any restrictions.', nextStep: 'The authorised clinician records findings and marks the review complete.' },
+  additional_review: { requiredInfo: 'Reason for additional clinical review.', nextStep: 'Record the additional review requirement and the clinician who will complete it.' },
+  outcome: { requiredInfo: 'A clinician-authorised fitness outcome.', nextStep: 'Only an authorised clinician records the outcome, once every gate above is satisfied.' },
+  certificate: { requiredInfo: 'Confirmation that the certificate or outcome pack was issued.', nextStep: 'Issue the certificate or outcome pack, then confirm it here.' },
+  notified: { requiredInfo: 'Confirmation that authorised parties were notified.', nextStep: 'Notify the employer and employee, then confirm here. No automatic notifications are connected.' },
+};
+
 export const OUTCOME_LABELS: Record<FitnessOutcome, string> = {
   not_recorded: 'Not recorded',
   fit: 'Fit',
@@ -74,8 +92,8 @@ export const OUTCOME_LABELS: Record<FitnessOutcome, string> = {
 export const MEDICAL_ASSESSMENT_NOTICE =
   'Clinical decisions, restrictions and fitness outcomes are recorded by an authorised clinician. The app does not determine fitness and does not approve clinical content.';
 
-export function getOutcomeGateBlocker(r: MedicalAssessmentRecord, workOrderApproved: boolean): string | null {
-  if (!workOrderApproved) return 'The onboarding work order has not been approved.';
+export function getOutcomeGateBlocker(r: MedicalAssessmentRecord): string | null {
+  if (!r.workOrderApproved) return 'The onboarding work order has not been approved.';
   if (!r.consentRecorded) return 'Employee consent has not been recorded.';
   if (r.questionnaireStatus !== 'completed') return 'The medical questionnaire has not been completed.';
   if (!r.clinicianReviewed) return 'A clinician has not reviewed the findings.';
@@ -84,17 +102,18 @@ export function getOutcomeGateBlocker(r: MedicalAssessmentRecord, workOrderAppro
 }
 
 export function getMedicalAssessmentStepId(r: MedicalAssessmentRecord): string | null {
-  if (r.certificateIssued && r.completionNotified) return null;
-  if (r.certificateIssued) return 'notified';
-  if (r.fitnessOutcome !== 'not_recorded') return 'certificate';
-  if (r.additionalReviewRequired && r.additionalReviewNote.trim() === '') return 'additional_review';
-  if (!r.clinicianReviewed) return 'clinician_review';
-  if (!r.appointmentConfirmed) return 'appointment';
-  if (r.investigationsRequested.trim() === '') return 'investigations';
-  if (!r.historyReviewed) return 'history';
-  if (r.questionnaireStatus !== 'completed' || !r.consentRecorded) return 'consent';
+  if (!r.workOrderApproved) return 'work_order';
   if (r.worksiteRequirements.trim() === '') return 'details';
-  return 'outcome';
+  if (!r.consentRecorded || r.questionnaireStatus !== 'completed') return 'consent';
+  if (!r.historyReviewed) return 'history';
+  if (r.investigationsRequested.trim() === '') return 'investigations';
+  if (!r.appointmentConfirmed) return 'appointment';
+  if (!r.clinicianReviewed) return 'clinician_review';
+  if (r.additionalReviewRequired && r.additionalReviewNote.trim() === '') return 'additional_review';
+  if (r.fitnessOutcome === 'not_recorded') return 'outcome';
+  if (!r.certificateIssued) return 'certificate';
+  if (!r.completionNotified) return 'notified';
+  return null;
 }
 
 export function getMedicalAssessmentStatusLabel(r: MedicalAssessmentRecord): string {
@@ -116,8 +135,8 @@ export function getMedicalAssessmentStatusLabel(r: MedicalAssessmentRecord): str
 }
 
 export function createEmptyMedicalAssessment(
-  base: Pick<MedicalAssessmentRecord, 'employeeId' | 'employeeName' | 'companyId' | 'companyName' | 'assessmentType' | 'mode'> &
-    Partial<Pick<MedicalAssessmentRecord, 'caseId' | 'caseReference' | 'onboardingCaseId'>>,
+  base: Pick<MedicalAssessmentRecord, 'employeeId' | 'employeeName' | 'companyId' | 'companyName' | 'assessmentType' | 'mode' | 'medicalId' | 'medicalRecordType'> &
+    Partial<Pick<MedicalAssessmentRecord, 'caseId' | 'caseReference' | 'onboardingCaseId' | 'workOrderApproved'>>,
 ): MedicalAssessmentRecord {
   return {
     ...base,
@@ -125,6 +144,8 @@ export function createEmptyMedicalAssessment(
     caseId: base.caseId ?? null,
     caseReference: base.caseReference ?? '',
     onboardingCaseId: base.onboardingCaseId ?? null,
+    workOrderApproved: base.workOrderApproved ?? false,
+    providerId: null,
     worksiteRequirements: '',
     consentRecorded: false,
     questionnaireStatus: 'not_sent',

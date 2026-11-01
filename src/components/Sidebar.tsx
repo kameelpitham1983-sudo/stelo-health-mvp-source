@@ -22,6 +22,7 @@ import {
   History,
   Briefcase,
   UserCheck,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { id: 'cases', label: 'Case Management', icon: Briefcase },
   { id: 'onboarding', label: 'Onboarding', icon: UserCheck },
   { id: 'screening', label: 'HPV & Colorectal Screening', icon: HeartPulse },
+  { id: 'medicalAssessment', label: 'Medical Assessments', icon: ClipboardCheck },
   { id: 'workflows', label: 'Workflow Centre', icon: Workflow },
   { id: 'synopsis', label: 'Synopsis', icon: ClipboardList },
   { id: 'certificates', label: 'Digital Identity', icon: Award },

@@ -26,6 +26,7 @@ import { CaseDetail } from '@/pages/CaseDetail';
 import { LearningCentre } from '@/pages/LearningCentre';
 import { Onboarding } from '@/pages/Onboarding';
 import { Screening } from '@/pages/Screening';
+import { MedicalAssessment } from '@/pages/MedicalAssessment';
 import { GuidedOnboarding } from '@/components/GuidedOnboarding';
 import { canAccessPage } from '@/lib/permissions';
 
@@ -60,6 +61,7 @@ function AppContent() {
     learning: <LearningCentre onStartOnboarding={startOnboarding} onboardingCompleted={!showOnboarding} />,
     onboarding: <Onboarding />,
     screening: <Screening />,
+    medicalAssessment: <MedicalAssessment />,
   };
   const allowed = canAccessPage(user.role, currentPage);
   return (
