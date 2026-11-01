@@ -7,7 +7,7 @@ import {
   ChevronDown,
   AlertCircle,
   Plus,
-  X,
+  Pencil,
   ArrowLeft,
   Mail,
   Phone,
@@ -19,11 +19,13 @@ import {
   FileText,
   ArrowRight,
 } from 'lucide-react';
-import { useEmployees, useCompanies, useMedicals } from '@/hooks/useSupabaseData';
+import { useEmployees, useCompanies, useMedicals, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
+import { DemoNotice } from '@/components/DemoNotice';
+import { EmployeeForm } from '@/components/EmployeeForm';
 import type { Employee } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'brand' | 'teal' | 'ink'> = {
@@ -54,13 +56,15 @@ const emptyForm: Partial<Employee> = {
 
 export function Employees() {
   const { user, setPage, setPageWithContext, navContext, clearNavContext } = useApp();
-  const { data: employees, loading, error, addEmployee } = useEmployees();
+  const { data: employees, loading, error, addEmployee, updateEmployee } = useEmployees();
   const { data: companies } = useCompanies();
   const { data: medicals } = useMedicals();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selected, setSelected] = useState<Employee | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = employees.find((e) => e.id === selectedId) ?? null;
+  const [showEditForm, setShowEditForm] = useState(false);
 
   // Consume navigation context from other pages
   useEffect(() => {
@@ -100,6 +104,37 @@ export function Employees() {
     }
   };
 
+  const startEdit = () => {
+    if (!selected) return;
+    setFormData({
+      name: selected.name,
+      email: selected.email,
+      phone: selected.phone,
+      jobTitle: selected.jobTitle,
+      companyId: selected.companyId,
+      department: selected.department,
+      status: selected.status,
+      travelReady: selected.travelReady,
+    });
+    setSubmitError(null);
+    setShowEditForm(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selected) return;
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      await updateEmployee(selected.id, formData);
+      setShowEditForm(false);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update employee');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><span className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
   }
@@ -114,7 +149,7 @@ export function Employees() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <button onClick={() => setSelected(null)} className="btn-secondary">
+          <button onClick={() => { setSelectedId(null); setShowEditForm(false); }} className="btn-secondary">
             <ArrowLeft size={16} /> Back to Employees
           </button>
         </div>
@@ -140,6 +175,11 @@ export function Employees() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
+            {isDemoMode && can(user, 'employee.edit') && (
+              <button onClick={startEdit} className="btn-secondary text-sm">
+                <Pencil size={15} /> Edit Details
+              </button>
+            )}
             <button onClick={() => setPageWithContext('medicals', { employeeId: selected.id, employeeName: selected.name })} className="btn-secondary text-sm">
               <Stethoscope size={15} /> New Assessment
             </button>
@@ -151,6 +191,20 @@ export function Employees() {
             </button>
           </div>
         </div>
+
+        {showEditForm && (
+          <EmployeeForm
+            title="Edit Employee Details"
+            formData={formData}
+            setFormData={setFormData}
+            companies={companies}
+            submitting={submitting}
+            submitError={submitError}
+            submitLabel="Save Changes"
+            onSubmit={handleEditSubmit}
+            onCancel={() => setShowEditForm(false)}
+          />
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="card p-5">
@@ -228,6 +282,11 @@ export function Employees() {
 
   return (
     <div className="space-y-6">
+      <DemoNotice steps={[
+        'Required: full name, email, job title and company. Pick the company from the list first.',
+        'Responsible role: Admin or Coordinator registers and edits employees.',
+        'Next step: open the new employee, then start a medical assessment or onboarding for them.',
+      ]} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Employees</h2>
@@ -241,63 +300,17 @@ export function Employees() {
       </div>
 
       {showAddForm && (
-        <div className="card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-ink-900">Register New Employee</h3>
-            <button type="button" className="btn-secondary" onClick={() => setShowAddForm(false)}><X size={16} /> Cancel</button>
-          </div>
-          {submitError && <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg">{submitError}</div>}
-          <form className="space-y-4" onSubmit={handleAddSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Full Name *</label>
-                <input className="input w-full" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="First and last name" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Email Address *</label>
-                <input className="input w-full" type="email" value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required placeholder="name@company.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Phone Number</label>
-                <input className="input w-full" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Phone number" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Job Title *</label>
-                <input className="input w-full" value={formData.jobTitle || ''} onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })} required placeholder="e.g. Site Engineer" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Company *</label>
-                <select className="input w-full" value={formData.companyId || ''} onChange={(e) => setFormData({ ...formData, companyId: e.target.value })} required>
-                  <option value="">Select company...</option>
-                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Department</label>
-                <input className="input w-full" value={formData.department || ''} onChange={(e) => setFormData({ ...formData, department: e.target.value })} placeholder="e.g. Operations" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">Employment Status</label>
-                <select className="input w-full" value={formData.status || 'Pending Clearance'} onChange={(e) => setFormData({ ...formData, status: e.target.value as Employee['status'] })}>
-                  <option>Pending Clearance</option>
-                  <option>Active</option>
-                  <option>On Leave</option>
-                  <option>Cleared</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-ink-700 mb-1">International Travel Required</label>
-                <select className="input w-full" value={formData.travelReady ? 'yes' : 'no'} onChange={(e) => setFormData({ ...formData, travelReady: e.target.value === 'yes' })}>
-                  <option value="no">No</option>
-                  <option value="yes">Yes</option>
-                </select>
-              </div>
-            </div>
-            <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Plus size={16} /> Register Employee</>}
-            </button>
-          </form>
-        </div>
+        <EmployeeForm
+          title="Register New Employee"
+          formData={formData}
+          setFormData={setFormData}
+          companies={companies}
+          submitting={submitting}
+          submitError={submitError}
+          submitLabel="Register Employee"
+          onSubmit={handleAddSubmit}
+          onCancel={() => setShowAddForm(false)}
+        />
       )}
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -340,7 +353,7 @@ export function Employees() {
             </thead>
             <tbody className="divide-y divide-ink-100">
               {filtered.map((emp) => (
-                <tr key={emp.id} onClick={() => setSelected(emp)} className="hover:bg-ink-50/50 transition-colors cursor-pointer">
+                <tr key={emp.id} onClick={() => setSelectedId(emp.id)} className="hover:bg-ink-50/50 transition-colors cursor-pointer">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shrink-0">

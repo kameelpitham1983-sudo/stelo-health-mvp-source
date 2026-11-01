@@ -6,6 +6,7 @@ import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
+import { DemoNotice } from '@/components/DemoNotice';
 import type { Company } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger'> = {
@@ -257,6 +258,11 @@ export function Companies() {
 
   return (
     <div className="space-y-6">
+      <DemoNotice steps={[
+        'Required: company name. Tier, status and contact details can be added now or edited later.',
+        'Responsible role: Admin or Coordinator adds and edits companies.',
+        'Next step: register employees under the company from the Employees page.',
+      ]} />
       {showAddForm && (
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">

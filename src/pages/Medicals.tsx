@@ -7,6 +7,7 @@ import { isDemoMode } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import { QuestionnaireWorkflow } from '@/components/QuestionnaireWorkflow';
 import { NotesPanel } from '@/components/NotesPanel';
+import { DemoNotice } from '@/components/DemoNotice';
 import { questionnaireInstances } from '@/data/mockData';
 import type { Medical, MedicalType, MedicalStatus, HealthStatus } from '@/types';
 
@@ -326,6 +327,11 @@ export function Medicals() {
 
   return (
     <div className="space-y-6">
+      <DemoNotice steps={[
+        'Required: employee, medical type, date and status. Choose the employee first to fill in their name and company.',
+        'Responsible role: Admin, Coordinator or Provider creates and edits medicals. Only Admin or Provider records clinical review.',
+        'Next step: when a medical is marked Completed with a result, the employee fitness status is updated as well.',
+      ]} />
       {showForm && (
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">

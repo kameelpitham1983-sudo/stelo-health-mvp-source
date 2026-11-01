@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { useApp } from '@/context/AppContext';
 import { assertCan, can, canViewEmployeeRecord, canViewCompany } from '@/lib/permissions';
-import { readDemoState, writeDemoState } from '@/lib/demoStore';
+import { addDemoRecord, applyDemoRecords, newDemoId, updateDemoRecord } from '@/lib/demoRecords';
 import * as mockData from '@/data/mockData';
 import type {
   Company,
@@ -100,6 +100,25 @@ function useSupabaseQuery<T>(
 
 // --- Company transforms ---
 
+function buildDemoCompany(input: Partial<Company>): Company {
+  return {
+    id: newDemoId('demo-company'),
+    name: input.name ?? '',
+    industry: input.industry ?? '',
+    tier: input.tier ?? 'SMB',
+    status: input.status ?? 'Onboarding',
+    employeeCount: input.employeeCount ?? 0,
+    locations: input.locations ?? 1,
+    primaryLocation: input.primaryLocation ?? '',
+    contractStart: input.contractStart ?? '',
+    contractEnd: input.contractEnd ?? '',
+    contactName: input.contactName ?? '',
+    contactEmail: input.contactEmail ?? '',
+    contactPhone: input.contactPhone ?? '',
+    logoColor: input.logoColor ?? 'brand',
+  };
+}
+
 function transformCompany(row: Record<string, unknown>): Company {
   return {
     id: row.id as string,
@@ -126,12 +145,17 @@ export function useCompanies() {
     transformCompany,
     'name',
     true,
-    () => mockData.companies,
+    () => applyDemoRecords(mockData.companies, 'companies'),
   );
 
   const addCompany = useCallback(async (company: Partial<Company>) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'company.create');
+    if (isDemoMode) {
+      const created = buildDemoCompany(company);
+      addDemoRecord<Company>('companies', created);
+      await refetch();
+      return created;
+    }
     const { data: row, error: err } = await supabase
       .from('companies')
       .insert({
@@ -155,8 +179,12 @@ export function useCompanies() {
   }, [refetch]);
 
   const updateCompany = useCallback(async (id: string, updates: Partial<Company>) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'company.edit');
+    if (isDemoMode) {
+      updateDemoRecord<Company>('companies', id, updates);
+      await refetch();
+      return;
+    }
     const { error: err } = await supabase
       .from('companies')
       .update({
@@ -180,6 +208,36 @@ export function useCompanies() {
 }
 
 // --- Employee transforms ---
+
+function initialsFor(name: string): string {
+  const parts = name.split(' ').filter(Boolean);
+  return parts.slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase();
+}
+
+function companyNameFor(companyId?: string): string | undefined {
+  if (!companyId) return undefined;
+  return applyDemoRecords(mockData.companies, 'companies').find((c) => c.id === companyId)?.name;
+}
+
+function buildDemoEmployee(input: Partial<Employee>): Employee {
+  const name = input.name ?? '';
+  return {
+    id: newDemoId('demo-employee'),
+    name,
+    email: input.email ?? '',
+    phone: input.phone ?? '',
+    jobTitle: input.jobTitle ?? '',
+    companyId: input.companyId ?? '',
+    companyName: companyNameFor(input.companyId) ?? '',
+    department: input.department ?? '',
+    status: input.status ?? 'Pending Clearance',
+    healthStatus: input.healthStatus ?? 'Pending Assessment',
+    lastMedicalDate: '',
+    nextMedicalDue: '',
+    travelReady: input.travelReady ?? false,
+    avatarInitials: initialsFor(name),
+  };
+}
 
 function transformEmployee(row: Record<string, unknown>): Employee {
   const firstName = (row.first_name as string) || '';
@@ -212,7 +270,7 @@ export function useEmployees() {
     setLoading(true);
     setError(null);
     if (!supabaseConfigured) {
-      setData(mockData.employees.filter((e) => canViewEmployeeRecord(user, e.id, e.companyId)));
+      setData(applyDemoRecords(mockData.employees, 'employees').filter((e) => canViewEmployeeRecord(user, e.id, e.companyId)));
       setLoading(false);
       return;
     }
@@ -239,8 +297,13 @@ export function useEmployees() {
   }, [refetch]);
 
   const addEmployee = useCallback(async (employee: Partial<Employee>) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'employee.create');
+    if (isDemoMode) {
+      const created = buildDemoEmployee(employee);
+      addDemoRecord<Employee>('employees', created);
+      await refetch();
+      return created;
+    }
     const nameParts = (employee.name || '').split(' ');    
     const firstName = nameParts[0] || '';
     const surname = nameParts.slice(1).join(' ') || '';
@@ -265,6 +328,17 @@ export function useEmployees() {
     return transformEmployee(row as Record<string, unknown>);
   }, [refetch]);
 
+  const updateEmployee = useCallback(async (employeeId: string, updates: Partial<Employee>) => {
+    assertCan(user, 'employee.edit');
+    if (!isDemoMode) throw new Error('Editing employees is not yet connected to the live database.');
+    const patch: Partial<Employee> = { ...updates };
+    const companyName = companyNameFor(updates.companyId);
+    if (companyName) patch.companyName = companyName;
+    if (updates.name !== undefined) patch.avatarInitials = initialsFor(updates.name);
+    updateDemoRecord<Employee>('employees', employeeId, patch);
+    await refetch();
+  }, [refetch, user]);
+
   const updateEmployeeFitness = useCallback(async (
     employeeId: string,
     fitnessOutcome: string,
@@ -272,8 +346,16 @@ export function useEmployees() {
     nextAssessmentDue: string | null,
     restrictions?: string,
   ) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'medical.clinical_review');
+    if (isDemoMode) {
+      updateDemoRecord<Employee>('employees', employeeId, {
+        healthStatus: fitnessOutcome as Employee['healthStatus'],
+        lastMedicalDate: lastAssessmentDate,
+        ...(nextAssessmentDue !== undefined ? { nextMedicalDue: nextAssessmentDue ?? '' } : {}),
+      });
+      await refetch();
+      return;
+    }
     const updateData: Record<string, unknown> = {
       fitness_outcome: fitnessOutcome,
       last_assessment_date: lastAssessmentDate || null,
@@ -281,16 +363,30 @@ export function useEmployees() {
     if (nextAssessmentDue !== undefined) updateData.next_assessment_due = nextAssessmentDue;
     if (restrictions !== undefined) updateData.restrictions = restrictions;
 
-    if (isDemoMode) throw new Error(demoWriteError);
     const { error: err } = await supabase.from('employees').update(updateData).eq('id', employeeId);
     if (err) throw new Error(err.message);
     await refetch();
-  }, [refetch]);
+  }, [refetch, user]);
 
-  return { data, loading, error, refetch, addEmployee, updateEmployeeFitness };
+  return { data, loading, error, refetch, addEmployee, updateEmployee, updateEmployeeFitness };
 }
 
 // --- Medicals ---
+
+function buildDemoMedical(input: Partial<Medical>): Medical {
+  return {
+    id: newDemoId('demo-medical'),
+    employeeName: input.employeeName ?? '',
+    employeeId: input.employeeId ?? '',
+    companyName: input.companyName ?? '',
+    type: input.type ?? 'Annual Occupational',
+    status: input.status ?? 'Scheduled',
+    date: input.date ?? '',
+    providerName: input.providerName ?? '',
+    result: input.result ?? 'Pending',
+    notes: input.notes ?? '',
+  };
+}
 
 function transformMedical(row: Record<string, unknown>): Medical {
   return {
@@ -307,11 +403,8 @@ function transformMedical(row: Record<string, unknown>): Medical {
   };
 }
 
-type DemoMedicalOverrides = Record<string, Partial<Medical>>;
-
 export function saveDemoMedicalOverride(id: string, patch: Partial<Medical>) {
-  const current = readDemoState<DemoMedicalOverrides>('medicalOverrides', () => ({}));
-  writeDemoState<DemoMedicalOverrides>('medicalOverrides', { ...current, [id]: { ...current[id], ...patch } });
+  updateDemoRecord<Medical>('medicals', id, patch);
 }
 
 export function useMedicals() {
@@ -322,21 +415,24 @@ export function useMedicals() {
     transformMedical,
     'assessment_date',
     false,
-    () => mockData.medicals,
+    () => applyDemoRecords(mockData.medicals, 'medicals'),
   );
   const data = useMemo(() => {
-    const overrides = isDemoMode ? readDemoState<DemoMedicalOverrides>('medicalOverrides', () => ({})) : {};
-    const withOverrides = allMedicals.map((m) => (overrides[m.id] ? { ...m, ...overrides[m.id] } : m));
     const scoped = user?.role === 'employee'
-      ? withOverrides.filter((m) => !!user.linkedEmployeeId && m.employeeId === user.linkedEmployeeId)
-      : withOverrides;
+      ? allMedicals.filter((m) => !!user.linkedEmployeeId && m.employeeId === user.linkedEmployeeId)
+      : allMedicals;
     return can(user, 'clinical.view') ? scoped : scoped.map((m) => ({ ...m, result: '', notes: '' }));
   }, [allMedicals, user]);
   const logAudit = useLogAuditEvent();
 
   const addMedical = useCallback(async (medical: Partial<Medical>) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'medical.create');
+    if (isDemoMode) {
+      const created = buildDemoMedical(medical);
+      addDemoRecord<Medical>('medicals', created);
+      await refetch();
+      return created;
+    }
     const { data: row, error: err } = await supabase
       .from('medicals')
       .insert({
@@ -369,8 +465,12 @@ export function useMedicals() {
   }, [refetch, user, logAudit]);
 
   const updateMedical = useCallback(async (id: string, updates: Partial<Medical>) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'medical.edit');
+    if (isDemoMode) {
+      updateDemoRecord<Medical>('medicals', id, updates);
+      await refetch();
+      return;
+    }
     const prev = data.find((m) => m.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -399,6 +499,22 @@ export function useMedicals() {
   return { data, loading, error, refetch, addMedical, updateMedical };
 }
 
+function buildDemoAppointment(input: Partial<Appointment>): Appointment {
+  return {
+    id: newDemoId('demo-appointment'),
+    employeeName: input.employeeName ?? '',
+    companyName: input.companyName ?? '',
+    type: input.type ?? 'Occupational Health',
+    mode: input.mode ?? 'In-clinic',
+    status: input.status ?? 'Pending',
+    date: input.date ?? '',
+    time: input.time ?? '09:00',
+    durationMin: input.durationMin ?? 30,
+    providerName: input.providerName ?? '',
+    location: input.location ?? '',
+  };
+}
+
 // --- Appointments ---
 
 function transformAppointment(row: Record<string, unknown>): Appointment {
@@ -424,13 +540,18 @@ export function useAppointments() {
     transformAppointment,
     'appointment_date',
     true,
-    () => mockData.appointments,
+    () => applyDemoRecords(mockData.appointments, 'appointments'),
   );
   const logAudit = useLogAuditEvent();
 
   const addAppointment = useCallback(async (appt: Partial<Appointment>) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'appointment.create');
+    if (isDemoMode) {
+      const created = buildDemoAppointment(appt);
+      addDemoRecord<Appointment>('appointments', created);
+      await refetch();
+      return created;
+    }
     const { data: row, error: err } = await supabase
       .from('appointments')
       .insert({
@@ -464,8 +585,12 @@ export function useAppointments() {
   }, [refetch, user, logAudit]);
 
   const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {
-    if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'appointment.edit');
+    if (isDemoMode) {
+      updateDemoRecord<Appointment>('appointments', id, updates);
+      await refetch();
+      return;
+    }
     const prev = data.find((a) => a.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;

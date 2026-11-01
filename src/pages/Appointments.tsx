@@ -5,6 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
+import { DemoNotice } from '@/components/DemoNotice';
 import type { Appointment, AppointmentType, AppointmentMode, AppointmentStatus } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'ink' | 'brand'> = {
@@ -40,7 +41,7 @@ const emptyForm: Partial<Appointment> = {
 
 export function Appointments() {
   const { user, navContext, clearNavContext } = useApp();
-  const { data: dbAppointments, loading, error, addAppointment, updateAppointment } = useAppointments();
+  const { data: appointments, loading, error, addAppointment, updateAppointment } = useAppointments();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
   const { data: medicals } = useMedicals();
@@ -76,20 +77,6 @@ export function Appointments() {
     }
     clearNavContext();
   }, [navContext, employees, clearNavContext]);
-
-  // Local demo state: when in demo mode, mutations update this local list
-  // instead of hitting the blocked database.
-  const [demoAppointments, setDemoAppointments] = useState<Appointment[]>([]);
-
-  const appointments = useMemo(() => {
-    if (isDemoMode && demoAppointments.length > 0) {
-      // Merge: base demo data + locally added demo records
-      const baseIds = new Set(dbAppointments.map((a) => a.id));
-      const added = demoAppointments.filter((a) => !baseIds.has(a.id));
-      return [...dbAppointments, ...added];
-    }
-    return dbAppointments;
-  }, [dbAppointments, demoAppointments]);
 
   const sorted = useMemo(() => [...appointments].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)), [appointments]);
   const upcoming = sorted.filter((a) => a.status === 'Confirmed' || a.status === 'Pending');
@@ -180,49 +167,12 @@ export function Appointments() {
 
     setSubmitting(true);
     try {
-      if (isDemoMode) {
-        // Demo mode: update local state only
-        if (editingId) {
-          setDemoAppointments((prev) =>
-            prev.map((a) => a.id === editingId ? { ...a, ...formData } : a)
-          );
-          // Also update base demo data items in local state
-          setDemoAppointments((prev) => {
-            const exists = prev.some((a) => a.id === editingId);
-            if (!exists) {
-              const baseItem = dbAppointments.find((a) => a.id === editingId);
-              if (baseItem) {
-                return [...prev, { ...baseItem, ...formData }];
-              }
-            }
-            return prev;
-          });
-        } else {
-          const newAppt: Appointment = {
-            id: `demo-appt-${Date.now()}`,
-            employeeName: formData.employeeName || '',
-            companyName: formData.companyName || '',
-            type: formData.type || 'Occupational Health',
-            mode: formData.mode || 'In-clinic',
-            status: formData.status || 'Pending',
-            date: formData.date || '',
-            time: formData.time || '09:00',
-            durationMin: formData.durationMin || 30,
-            providerName: formData.providerName || '',
-            location: formData.location || '',
-          };
-          setDemoAppointments((prev) => [...prev, newAppt]);
-        }
+      if (editingId) {
+        await updateAppointment(editingId, formData);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       } else {
-        if (editingId) {
-          await updateAppointment(editingId, formData);
-          setSaved(true);
-          setTimeout(() => setSaved(false), 2000);
-        } else {
-          await addAppointment(formData);
-        }
+        await addAppointment(formData);
       }
       setShowForm(false);
       setEditingId(null);
@@ -254,17 +204,7 @@ export function Appointments() {
   const confirmCancel = async () => {
     if (!cancelTarget) return;
     try {
-      if (isDemoMode) {
-        setDemoAppointments((prev) => {
-          const exists = prev.some((a) => a.id === cancelTarget.id);
-          if (exists) {
-            return prev.map((a) => a.id === cancelTarget.id ? { ...a, status: 'Cancelled' } : a);
-          }
-          return [...prev, { ...cancelTarget, status: 'Cancelled' }];
-        });
-      } else {
-        await updateAppointment(cancelTarget.id, { status: 'Cancelled' });
-      }
+      await updateAppointment(cancelTarget.id, { status: 'Cancelled' });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to cancel appointment');
     }
@@ -369,12 +309,11 @@ export function Appointments() {
 
   return (
     <div className="space-y-6">
-      {isDemoMode && (
-        <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
-          <AlertCircle size={16} className="shrink-0" />
-          Demo mode — showing sample appointments. Changes are local only and will not be saved as live records. Restart the dev server with valid Supabase credentials to enable live data.
-        </div>
-      )}
+      <DemoNotice steps={[
+        'Required: employee and date. Pick the employee first to fill in their company.',
+        'Responsible role: Admin, Coordinator or Provider books and changes appointments.',
+        'Next step: after the visit, set the appointment to Completed. Reminders are not sent in Demo.',
+      ]} />
       {showForm && (
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -471,7 +410,7 @@ export function Appointments() {
           </div>
           <p className="text-sm text-ink-600">
             {cancelTarget.employeeName} — {cancelTarget.type} on {cancelTarget.date} at {cancelTarget.time}.
-            {isDemoMode ? ' This is a demo record — the change will be local only.' : ' This will mark the appointment as cancelled.'}
+            {isDemoMode ? ' Demo: this change is kept in this browser tab only.' : ' This will mark the appointment as cancelled.'}
           </p>
           <div className="flex gap-2">
             <button onClick={confirmCancel} className="btn-primary bg-danger-600 hover:bg-danger-700">Yes, Cancel Appointment</button>
