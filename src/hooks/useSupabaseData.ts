@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { useApp } from '@/context/AppContext';
-import { assertCan, canViewEmployeeRecord, canViewCompany } from '@/lib/permissions';
+import { assertCan, can, canViewEmployeeRecord, canViewCompany } from '@/lib/permissions';
 import * as mockData from '@/data/mockData';
 import type {
   Company,
@@ -316,12 +316,12 @@ export function useMedicals() {
     false,
     () => mockData.medicals,
   );
-  const data = useMemo(
-    () => user?.role === 'employee'
+  const data = useMemo(() => {
+    const scoped = user?.role === 'employee'
       ? allMedicals.filter((m) => !!user.linkedEmployeeId && m.employeeId === user.linkedEmployeeId)
-      : allMedicals,
-    [allMedicals, user],
-  );
+      : allMedicals;
+    return can(user, 'clinical.view') ? scoped : scoped.map((m) => ({ ...m, result: '', notes: '' }));
+  }, [allMedicals, user]);
   const logAudit = useLogAuditEvent();
 
   const addMedical = useCallback(async (medical: Partial<Medical>) => {
@@ -1043,6 +1043,7 @@ export function useRiskAssessments(caseId: string | null) {
 
   const refetch = useCallback(async () => {
     if (!caseId) return;
+    if (!can(user, 'clinical.view')) { setData([]); return; }
     setLoading(true);
     const { data: rows, error: err } = await supabase
       .from('sickness_risk_assessments')
@@ -1055,7 +1056,7 @@ export function useRiskAssessments(caseId: string | null) {
       setData((rows as Record<string, unknown>[]).map(transformRiskAssessment));
     }
     setLoading(false);
-  }, [caseId]);
+  }, [caseId, user]);
 
   useEffect(() => {
     refetch();
@@ -1150,6 +1151,7 @@ export function useSynopsisNotes(synopsisId: string | null) {
 
   const refetch = useCallback(async () => {
     if (!synopsisId) return;
+    if (!can(user, 'confidential_note.view')) { setData([]); return; }
     setLoading(true);
     const { data: rows, error: err } = await supabase
       .from('synopsis_meeting_notes')
@@ -1168,7 +1170,7 @@ export function useSynopsisNotes(synopsisId: string | null) {
       );
     }
     setLoading(false);
-  }, [synopsisId]);
+  }, [synopsisId, user]);
 
   useEffect(() => {
     refetch();
@@ -1808,10 +1810,10 @@ export function useRecordNotes(recordType: string | null, recordId: string | nul
     if (err) {
       setError(err.message);
     } else if (rows) {
-      setData((rows as Record<string, unknown>[]).map(transformRecordNote));
+      setData((rows as Record<string, unknown>[]).map(transformRecordNote).filter((n) => !n.isConfidential || can(user, 'confidential_note.view')));
     }
     setLoading(false);
-  }, [recordType, recordId]);
+  }, [recordType, recordId, user]);
 
   useEffect(() => {
     refetch();
