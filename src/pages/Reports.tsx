@@ -135,8 +135,8 @@ export function Reports() {
     rows.push('');
     rows.push('Sickness Absence');
     rows.push(`Total Cases,${sicknessCases.length}`);
-    rows.push(`Active,${sicknessCases.filter((s) => s.status === 'Open' || s.status === 'Under Review').length}`);
-    rows.push(`Closed,${sicknessCases.filter((s) => s.status === 'Closed' || s.status === 'Resolved').length}`);
+    rows.push(`Active,${sicknessCases.filter((s) => s.caseStatus !== 'Closed').length}`);
+    rows.push(`Closed,${sicknessCases.filter((s) => s.caseStatus === 'Closed').length}`);
     rows.push('');
     rows.push('Visa Medicals');
     rows.push(`Total Cases,${visaCases.length}`);

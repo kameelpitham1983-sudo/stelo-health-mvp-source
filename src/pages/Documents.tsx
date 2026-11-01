@@ -431,6 +431,7 @@ function DocumentDetail({
   onBack,
   onStatusChange,
   onDownload,
+  onReplace,
   medicals,
   appointments,
   employees,

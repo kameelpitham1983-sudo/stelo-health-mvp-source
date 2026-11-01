@@ -263,9 +263,9 @@ export function Certificates() {
                         <p className="text-sm font-bold">
                           {(selected.metadata as Record<string, unknown>).alertText as string || selected.description}
                         </p>
-                        {(selected.metadata as Record<string, unknown>).allergies && (
+                        {Array.isArray((selected.metadata as Record<string, unknown>).allergies) && (
                           <p className="text-xs mt-1 text-white/80">
-                            Allergies: {Array.from(selected.metadata.allergies as string[]).join(', ')}
+                            Allergies: {((selected.metadata as Record<string, unknown>).allergies as string[]).join(', ')}
                           </p>
                         )}
                       </div>

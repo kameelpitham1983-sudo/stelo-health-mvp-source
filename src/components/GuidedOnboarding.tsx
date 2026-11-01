@@ -14,7 +14,7 @@ interface OnboardingStep {
   page?: PageId;
 }
 
-const roleIntros: Record<UserRole, string> = {
+const baseRoleIntros: Omit<Record<UserRole, string>, 'master_admin'> = {
   admin: 'As an Administrator, you have full platform access. You manage companies, employees, providers, workflows, cases, and all system settings.',
   coordinator: 'As a Coordinator, you are the operational backbone. You open cases, schedule appointments, track progress, and ensure every case moves forward.',
   provider: 'As a Provider or Clinician, you conduct clinical assessments, review questionnaires, and record fitness outcomes. Your clinical decisions are the core of the platform.',
@@ -24,7 +24,9 @@ const roleIntros: Record<UserRole, string> = {
   ai: 'The AI assistant provides clinical decision support. All output must be reviewed by an authorised clinician.',
 };
 
-const roleSteps: Record<UserRole, OnboardingStep[]> = {
+const roleIntros: Record<UserRole, string> = { ...baseRoleIntros, master_admin: baseRoleIntros.admin };
+
+const baseRoleSteps: Omit<Record<UserRole, OnboardingStep[]>, 'master_admin'> = {
   admin: [
     { title: 'Dashboard', description: 'Your starting point. See platform-wide activity, active cases, and key statistics at a glance.', icon: LayoutDashboard, page: 'dashboard' },
     { title: 'Case Management', description: 'Every operational matter lives here. Open new cases, track progress, and close them with a full audit trail.', icon: Briefcase, page: 'cases' },
@@ -68,6 +70,8 @@ const roleSteps: Record<UserRole, OnboardingStep[]> = {
     { title: 'Stelo AI', description: 'Ask clinical questions and get AI-assisted insights. All output must be reviewed by a clinician.', icon: Sparkles, page: 'ai' },
   ],
 };
+
+const roleSteps: Record<UserRole, OnboardingStep[]> = { ...baseRoleSteps, master_admin: baseRoleSteps.admin };
 
 interface GuidedOnboardingProps {
   onComplete: () => void;

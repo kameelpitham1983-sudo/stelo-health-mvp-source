@@ -11,7 +11,9 @@ import type { UserRole } from '@/types';
 
 // --- Role-specific onboarding guides ---
 
-const roleGuides: Record<UserRole, { title: string; description: string; steps: { title: string; description: string; page?: PageId }[] }> = {
+type RoleGuide = { title: string; description: string; steps: { title: string; description: string; page?: PageId }[] };
+
+const baseRoleGuides: Omit<Record<UserRole, RoleGuide>, 'master_admin'> = {
   admin: {
     title: 'Administrator Guide',
     description: 'You have full platform access — manage companies, employees, providers, workflows, cases, and all records.',
@@ -88,6 +90,8 @@ const roleGuides: Record<UserRole, { title: string; description: string; steps: 
 };
 
 // --- Operational workflow stages ---
+
+const roleGuides: Record<UserRole, RoleGuide> = { ...baseRoleGuides, master_admin: baseRoleGuides.admin };
 
 const workflowStages = [
   { number: 1, title: 'Receive and Record a Request', module: 'Case Management', page: 'cases' as PageId, description: 'A client requests a medical assessment. Open a new case with the case type, company, and employee details.', who: 'Coordinator or Admin' },
