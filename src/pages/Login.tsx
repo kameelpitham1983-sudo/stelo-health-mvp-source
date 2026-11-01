@@ -147,7 +147,10 @@ export function Login() {
         </div>
       )}
       {supabaseConfigured && <div className="mt-6 text-center"><button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(''); }} className="text-sm text-brand-600 font-medium hover:text-brand-700">{isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}</button></div>}
-      {!supabaseConfigured && <div className="mt-6 p-3.5 bg-ink-50 rounded-lg border border-ink-100"><p className="text-xs text-ink-500 text-center"><strong className="text-ink-700">Demo mode:</strong> enter any email and password, then click sign in.</p>
+      <div className="mt-6 p-3.5 bg-ink-50 rounded-lg border border-ink-100">
+        <p className="text-xs text-ink-500 text-center">
+          <strong className="text-ink-700">Demo mode:</strong> {supabaseConfigured ? 'No account yet? Explore the platform with mock data — no sign-in required.' : 'enter any email and password, then click sign in.'}
+        </p>
         <div className="mt-3">
           <label className="block text-sm font-semibold text-ink-700 mb-1.5">Sign in as</label>
           <div className="grid grid-cols-2 gap-2">
@@ -166,6 +169,12 @@ export function Login() {
             })}
           </div>
         </div>
-      </div>}<p className="text-center text-xs text-ink-400 mt-6">© 2025 Stelo Health. All rights reserved.</p></div></div>
+        {supabaseConfigured && (
+          <button type="button" onClick={() => { login(demoRole); }} className="btn-secondary w-full mt-3 py-2.5 text-sm">
+            Launch Demo as {roleOptions.find((r) => r.value === demoRole)?.label}
+          </button>
+        )}
+      </div>
+      <p className="text-center text-xs text-ink-400 mt-6">© 2025 Stelo Health. All rights reserved.</p></div></div>
   </div>;
 }
