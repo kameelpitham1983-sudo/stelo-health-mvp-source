@@ -1821,7 +1821,7 @@ export function useRecordNotes(recordType: string | null, recordId: string | nul
 
   const addNote = useCallback(async (note: string, noteType: string, authorName: string, isConfidential: boolean) => {
     if (isDemoMode) throw new Error(demoWriteError);
-    if (isConfidential) assertCan(user, 'confidential_note.view');
+    if (isConfidential) assertCan(user, 'confidential_note.create');
     const { error: err } = await supabase
       .from('record_notes')
       .insert({ record_type: recordType, record_id: recordId, note, note_type: noteType, author_name: authorName, is_confidential: isConfidential });
