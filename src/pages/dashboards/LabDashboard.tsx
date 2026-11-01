@@ -3,9 +3,7 @@ import { useApp } from '@/context/AppContext';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/Badge';
 import { useCases, useDocuments } from '@/hooks/useSupabaseData';
-import { DashboardHeader, Panel, EmptyRow, todayIso } from '@/pages/dashboards/shared';
-
-const CLOSED_CASE_STATUSES = ['completed', 'cancelled'];
+import { DashboardHeader, Panel, EmptyRow, todayIso, CLOSED_CASE_STATUSES } from '@/pages/dashboards/shared';
 
 export function LabDashboard() {
   const { setPage } = useApp();

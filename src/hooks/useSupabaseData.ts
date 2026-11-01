@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { useApp } from '@/context/AppContext';
-import { assertCan } from '@/lib/permissions';
+import { assertCan, canViewEmployeeRecord, canViewCompany } from '@/lib/permissions';
 import * as mockData from '@/data/mockData';
 import type {
   Company,
@@ -211,7 +211,7 @@ export function useEmployees() {
     setLoading(true);
     setError(null);
     if (!supabaseConfigured) {
-      setData(mockData.employees);
+      setData(mockData.employees.filter((e) => canViewEmployeeRecord(user, e.id, e.companyId)));
       setLoading(false);
       return;
     }
@@ -228,10 +228,10 @@ export function useEmployees() {
         emp.companyName = companyData?.name as string;
         return emp;
       });
-      setData(transformed);
+      setData(transformed.filter((e) => canViewEmployeeRecord(user, e.id, e.companyId)));
     }
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     refetch();
@@ -309,12 +309,18 @@ function transformMedical(row: Record<string, unknown>): Medical {
 export function useMedicals() {
   const { user } = useApp();
   const isEmployer = user?.role === 'employer';
-  const { data, loading, error, refetch } = useSupabaseQuery<Medical>(
+  const { data: allMedicals, loading, error, refetch } = useSupabaseQuery<Medical>(
     isEmployer ? 'medicals_employer_view' : 'medicals',
     transformMedical,
     'assessment_date',
     false,
     () => mockData.medicals,
+  );
+  const data = useMemo(
+    () => user?.role === 'employee'
+      ? allMedicals.filter((m) => !!user.linkedEmployeeId && m.employeeId === user.linkedEmployeeId)
+      : allMedicals,
+    [allMedicals, user],
   );
   const logAudit = useLogAuditEvent();
 
@@ -1861,6 +1867,46 @@ function transformProvider(row: Record<string, unknown>): Provider {
   };
 }
 
+export interface ProfileSummary {
+  id: string;
+  role: string;
+  displayName: string;
+  companyId: string | null;
+  linkedEmployeeId: string | null;
+}
+
+export function useProfiles() {
+  const [data, setData] = useState<ProfileSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) { setData([]); setLoading(false); return; }
+    const { data: rows, error: err } = await supabase
+      .from('profiles')
+      .select('id, role, display_name, company_id, linked_employee_id')
+      .order('display_name', { ascending: true });
+    if (err) {
+      setError(err.message);
+    } else {
+      setData((rows as Record<string, unknown>[]).map((row) => ({
+        id: row.id as string,
+        role: (row.role as string) || '',
+        displayName: (row.display_name as string) || '',
+        companyId: (row.company_id as string) || null,
+        linkedEmployeeId: (row.linked_employee_id as string) || null,
+      })));
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  return { data, loading, error, refetch };
+}
+
 export function useProviders() {
   const { user } = useApp();
   const [data, setData] = useState<Provider[]>([]);
@@ -2040,9 +2086,12 @@ export function useCases() {
       .select('*')
       .order('created_at', { ascending: false });
     if (err) { setError(err.message); }
-    else { setData((rows as Record<string, unknown>[]).map(transformCase)); }
+    else {
+      const cases = (rows as Record<string, unknown>[]).map(transformCase);
+      setData(cases.filter((c) => user?.role !== 'employer' || canViewCompany(user, c.companyId)));
+    }
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => { refetch(); }, [refetch]);
 

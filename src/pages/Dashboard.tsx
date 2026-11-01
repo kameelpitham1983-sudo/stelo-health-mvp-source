@@ -33,7 +33,6 @@ import {
   useVisaMedicalCases,
   useProviders,
 } from '@/hooks/useSupabaseData';
-import { travelConsultations, workflowInstances as demoWorkflowInstances } from '@/data/mockData';
 
 const activityIcons: Record<string, typeof ActivityIcon> = {
   medical: Stethoscope,
@@ -80,7 +79,7 @@ export function Dashboard() {
   const travelActionsRequired = travelHealth.filter((t) => t.status === 'Action Required').length;
   const documentsPending = documents.filter((d) => d.status === 'Pending Review').length;
 
-  // Visa medicals — live hook (falls back to mock data when DB is empty)
+  // Visa medicals
   const visaAwaitingDocs = visaCases.filter((v) => v.status === 'Awaiting Documents').length;
   const visaQuestionnairePending = visaCases.filter(
     (v) => v.status === 'Questionnaire Pending' || v.questionnaireStatus === 'Not Started' || v.questionnaireStatus === 'Draft',
@@ -88,14 +87,11 @@ export function Dashboard() {
   const visaAwaitingReview = visaCases.filter((v) => v.status === 'Awaiting Clinician Review').length;
   const visaCompleted = visaCases.filter((v) => v.status === 'Completed').length;
   const visaFollowUps = visaCases.filter((v) => v.status === 'Follow-up Required').length;
-  const upcomingTravelConsultations = travelConsultations.filter(
-    (c) => c.status === 'Not Scheduled' || c.status === 'Scheduled',
-  ).length;
-  const postTravelReviewsDue = travelConsultations.filter(
-    (c) => c.status === 'Post-Travel Review Required',
-  ).length;
+  const travelPending = travelHealth.filter((t) => t.status === 'Pending').length;
+  const travelInProgress = travelHealth.filter((t) => t.status === 'In Progress').length;
+  const travelCleared = travelHealth.filter((t) => t.status === 'Cleared').length;
 
-  // Provider Network — live hook (falls back to mock data when DB is empty)
+  // Provider Network
   const providerTotal = providers.length;
   const providerVerified = providers.filter((p) => p.status === 'Verified').length;
   const providerPreferred = providers.filter((p) => p.tier === 'Preferred').length;
@@ -103,11 +99,10 @@ export function Dashboard() {
   const providerUnverified = providers.filter((p) => p.status === 'Unverified').length;
   const providerMobile = providers.filter((p) => p.mobileServiceAvailable).length;
 
-  const allWorkflowInstances = liveWorkflowInstances.length > 0 ? liveWorkflowInstances : demoWorkflowInstances;
-  const activeWorkflows = allWorkflowInstances.filter((w) => w.status === 'In Progress').length;
-  const completedWorkflows = allWorkflowInstances.filter((w) => w.status === 'Completed').length;
-  const onHoldWorkflows = allWorkflowInstances.filter((w) => w.status === 'On Hold').length;
-  const exceptionWorkflows = allWorkflowInstances.filter((w) => w.stepInstances.some((s) => s.exceptionFlagged)).length;
+  const activeWorkflows = liveWorkflowInstances.filter((w) => w.status === 'In Progress').length;
+  const completedWorkflows = liveWorkflowInstances.filter((w) => w.status === 'Completed').length;
+  const onHoldWorkflows = liveWorkflowInstances.filter((w) => w.status === 'On Hold').length;
+  const exceptionWorkflows = liveWorkflowInstances.filter((w) => w.stepInstances.some((s) => s.exceptionFlagged)).length;
 
   const fitCount = employees.filter((e) => e.healthStatus === 'Fit').length;
   const restrictedCount = employees.filter((e) => e.healthStatus === 'Fit with Restrictions').length;
@@ -403,12 +398,10 @@ export function Dashboard() {
             </button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <VisaStatCard icon={CalendarDays} label="Upcoming Consultations" value={upcomingTravelConsultations} color="brand" />
-            <VisaStatCard icon={ShieldCheck} label="Completed" value={travelConsultations.filter((c) => c.status === 'Completed' || c.status === 'Post-Travel Completed').length} color="success" />
-            <VisaStatCard icon={AlertCircle} label="Post-Travel Reviews Due" value={postTravelReviewsDue} color="warning" />
-            <VisaStatCard icon={Plane} label="Travel Actions Required" value={travelActionsRequired} color="danger" />
-            <VisaStatCard icon={Stethoscope} label="In Progress" value={travelHealth.filter((t) => t.status === 'In Progress').length} color="brand" />
-            <VisaStatCard icon={ShieldCheck} label="Cleared" value={travelHealth.filter((t) => t.status === 'Cleared').length} color="success" />
+            <VisaStatCard icon={CalendarDays} label="Pending" value={travelPending} color="brand" />
+            <VisaStatCard icon={Stethoscope} label="In Progress" value={travelInProgress} color="brand" />
+            <VisaStatCard icon={Plane} label="Actions Required" value={travelActionsRequired} color="danger" />
+            <VisaStatCard icon={ShieldCheck} label="Cleared" value={travelCleared} color="success" />
           </div>
         </div>
       </div>

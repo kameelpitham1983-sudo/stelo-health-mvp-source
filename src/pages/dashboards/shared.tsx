@@ -25,6 +25,8 @@ export function EmptyRow({ text }: { text: string }) {
   return <p className="text-sm text-ink-400 py-6 text-center">{text}</p>;
 }
 
+export const CLOSED_CASE_STATUSES = ['completed', 'cancelled'];
+
 export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
