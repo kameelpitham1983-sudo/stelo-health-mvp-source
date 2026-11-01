@@ -43,7 +43,8 @@ export function Login() {
         login(inferDemoRole(email));
       }
     } catch (cause) {
-      setError(cause instanceof Error && cause.message === 'Invalid login credentials' ? 'Invalid email or password' : 'Could not sign in. Please try again.');
+      const msg = cause instanceof Error ? cause.message : 'Could not sign in. Please try again.';
+      setError(msg === 'Invalid login credentials' ? 'Invalid email or password' : msg);
     } finally { setLoading(false); }
   };
 
@@ -58,7 +59,8 @@ export function Login() {
       if (authError) throw authError;
       if (data.user) { setError('Account created. You can now sign in with your email and password.'); setIsSignUp(false); }
     } catch (cause) {
-      setError(cause instanceof Error && cause.message === 'User already registered' ? 'An account with this email already exists.' : 'Could not create account. Please try again.');
+      const msg = cause instanceof Error ? cause.message : 'Could not create account. Please try again.';
+      setError(msg === 'User already registered' ? 'An account with this email already exists.' : msg);
     } finally { setLoading(false); }
   };
 
@@ -69,7 +71,7 @@ export function Login() {
     </div>
     <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-20 py-8"><div className="w-full max-w-md mx-auto"><div className="lg:hidden mb-8"><Logo size="md" /></div><div className="mb-8"><h2 className="text-2xl font-display font-bold text-ink-900 mb-1.5">{isSignUp ? 'Create your account' : 'Welcome back'}</h2><p className="text-ink-500 text-sm">{supabaseConfigured ? (isSignUp ? 'Sign up to access the Stelo Health platform.' : 'Sign in to the Stelo Health platform.') : 'Enter any email and password, then click sign in — demo mode uses mock data.'}</p></div>
       {error && <div className="mb-5 flex items-start gap-2.5 p-3.5 bg-danger-50 border border-danger-200 rounded-lg"><AlertCircle size={16} className="text-danger-600 shrink-0 mt-0.5" /><p className="text-sm text-danger-700">{error}</p></div>}
-      <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-5"><div><label className="block text-sm font-semibold text-ink-700 mb-1.5">Email address</label><div className="relative"><Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="input pl-10" required /></div></div><div><label className="block text-sm font-semibold text-ink-700 mb-1.5">Password</label><div className="relative"><Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="input pl-10" required minLength={6} /></div></div>{!isSignUp && supabaseConfigured && <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-ink-600 cursor-pointer"><input type="checkbox" className="w-4 h-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" defaultChecked /><span>Remember me</span></label><button type="button" className="text-brand-600 font-medium hover:text-brand-700">Forgot password?</button></div>}<button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">{loading ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{isSignUp ? 'Creating account...' : 'Signing in...'}</span> : isSignUp ? <><UserPlus size={18} />Create Account</> : <>Sign In to Stelo Health<ArrowRight size={18} /></>}</button></form>
+      <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-5"><div><label className="block text-sm font-semibold text-ink-700 mb-1.5">Email address</label><div className="relative"><Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="input pl-10" required autoComplete="email" /></div></div><div><label className="block text-sm font-semibold text-ink-700 mb-1.5">Password</label><div className="relative"><Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="input pl-10" required minLength={6} autoComplete={isSignUp ? 'new-password' : 'current-password'} /></div></div>{!isSignUp && supabaseConfigured && <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-ink-600 cursor-pointer"><input type="checkbox" className="w-4 h-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" defaultChecked /><span>Remember me</span></label><button type="button" className="text-brand-600 font-medium hover:text-brand-700">Forgot password?</button></div>}<button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">{loading ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{isSignUp ? 'Creating account...' : 'Signing in...'}</span> : isSignUp ? <><UserPlus size={18} />Create Account</> : <>Sign In to Stelo Health<ArrowRight size={18} /></>}</button></form>
       {supabaseConfigured && isSignUp && (
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-ink-700 mb-1">Account Type</label>
@@ -89,7 +91,7 @@ export function Login() {
             })}
           </div>
           {signUpRole !== 'employee' && (
-            <p className="text-xs text-ink-400">The first account created with a non-employee role gets that role. After an admin exists, all new sign-ups default to Employee.</p>
+            <p className="text-xs text-ink-400">Privileged roles (Admin, Coordinator, Provider, Employer) are only assigned if no admin exists yet. Once an admin is registered, all new sign-ups receive Employee access and must be upgraded by an administrator.</p>
           )}
         </div>
       )}
