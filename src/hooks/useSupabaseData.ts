@@ -25,6 +25,16 @@ import type {
   CaseRecord,
   CaseActivityEntry,
   Provider,
+  GOP,
+  GOPInvoice,
+  GOPAuditEntry,
+  GOPStatus,
+  GOPRecipientType,
+  GOPCurrency,
+  Hotel,
+  HotelBooking,
+  AccommodationCategory,
+  AccommodationStatus,
 } from '@/types';
 
 // Demo data fallback: when the database is empty or unreachable, pages show
@@ -1682,4 +1692,460 @@ export function useCaseActivity(caseId: string | null) {
   }, [caseId, refetch, user]);
 
   return { data, loading, error, refetch, addActivity };
+}
+
+// --- GOP (Guarantee of Payment) ---
+
+function transformGOP(row: Record<string, unknown>): GOP {
+  return {
+    id: row.id as string,
+    gopReference: (row.gop_reference as string) || '',
+    status: (row.status as string) as GOPStatus,
+    recipientType: (row.recipient_type as string) as GOPRecipientType,
+    recipientName: (row.recipient_name as string) || '',
+    recipientId: (row.recipient_id as string) || null,
+    recipientVerified: (row.recipient_verified as boolean) || false,
+    companyName: (row.company_name as string) || '',
+    employeeName: (row.employee_name as string) || '',
+    appointmentId: (row.appointment_id as string) || null,
+    tripId: (row.trip_id as string) || null,
+    serviceDescription: (row.service_description as string) || '',
+    authorisedAmount: Number(row.authorised_amount) || 0,
+    currency: (row.currency as string) as GOPCurrency,
+    validityStartDate: row.validity_start_date ? String(row.validity_start_date) : '',
+    validityEndDate: row.validity_end_date ? String(row.validity_end_date) : '',
+    approvedBy: (row.approved_by as string) || null,
+    approvedAt: row.approved_at ? String(row.approved_at) : null,
+    approverRole: (row.approver_role as string) || null,
+    issuedBy: (row.issued_by as string) || '',
+    issuedAt: row.issued_at ? String(row.issued_at) : '',
+    notes: (row.notes as string) || '',
+    exceptionApproved: (row.exception_approved as boolean) || false,
+    exceptionReason: (row.exception_reason as string) || '',
+    invoices: [],
+    auditTrail: [],
+  };
+}
+
+function transformGOPInvoice(row: Record<string, unknown>): GOPInvoice {
+  return {
+    id: row.id as string,
+    gopId: (row.gop_id as string) || '',
+    invoiceNumber: (row.invoice_number as string) || '',
+    invoiceDate: row.invoice_date ? String(row.invoice_date) : '',
+    invoicedAmount: Number(row.invoiced_amount) || 0,
+    currency: (row.currency as string) as GOPCurrency,
+    matched: (row.matched as boolean) || false,
+    paymentStatus: (row.payment_status as string) as GOPInvoice['paymentStatus'],
+    paymentDate: row.payment_date ? String(row.payment_date) : null,
+    notes: (row.notes as string) || '',
+  };
+}
+
+function transformGOPAuditEntry(row: Record<string, unknown>): GOPAuditEntry {
+  return {
+    id: row.id as string,
+    timestamp: String(row.created_at) || '',
+    action: (row.action as string) || '',
+    actor: (row.actor as string) || '',
+  };
+}
+
+export function useGOPs() {
+  const { user } = useApp();
+  const [data, setData] = useState<GOP[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.demoGOPs);
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('gops')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (err) {
+      setError(err.message);
+      setData(mockData.demoGOPs);
+    } else {
+      const gops = (rows as Record<string, unknown>[]).map(transformGOP);
+      if (gops.length === 0) {
+        setData(mockData.demoGOPs);
+      } else {
+        // Fetch invoices and audit entries for each GOP
+        const gopIds = gops.map((g) => g.id);
+        const [invRes, auditRes] = await Promise.all([
+          supabase.from('gop_invoices').select('*').in('gop_id', gopIds),
+          supabase.from('gop_audit_entries').select('*').in('gop_id', gopIds).order('created_at', { ascending: true }),
+        ]);
+        const invoiceMap = new Map<string, GOPInvoice[]>();
+        if (invRes.data) {
+          for (const inv of invRes.data as Record<string, unknown>[]) {
+            const gId = inv.gop_id as string;
+            const list = invoiceMap.get(gId) || [];
+            list.push(transformGOPInvoice(inv));
+            invoiceMap.set(gId, list);
+          }
+        }
+        const auditMap = new Map<string, GOPAuditEntry[]>();
+        if (auditRes.data) {
+          for (const aud of auditRes.data as Record<string, unknown>[]) {
+            const gId = aud.gop_id as string;
+            const list = auditMap.get(gId) || [];
+            list.push(transformGOPAuditEntry(aud));
+            auditMap.set(gId, list);
+          }
+        }
+        gops.forEach((g) => {
+          g.invoices = invoiceMap.get(g.id) || [];
+          g.auditTrail = auditMap.get(g.id) || [];
+        });
+        setData(gops);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addGOP = useCallback(async (gopData: Partial<GOP>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const { data: existing } = await supabase
+      .from('gops')
+      .select('gop_reference')
+      .like('gop_reference', `GOP-${dateStr}-%`)
+      .order('gop_reference', { ascending: false })
+      .limit(1);
+    const seqNum = existing && existing.length > 0
+      ? parseInt((existing[0] as Record<string, unknown>).gop_reference as string, 10) + 1 || 1
+      : 1;
+    const gopReference = `GOP-${dateStr}-${String(seqNum).padStart(3, '0')}`;
+
+    const { data: row, error: err } = await supabase
+      .from('gops')
+      .insert({
+        gop_reference: gopReference,
+        status: 'Draft',
+        recipient_type: gopData.recipientType || 'provider',
+        recipient_name: gopData.recipientName || '',
+        recipient_id: gopData.recipientId || null,
+        recipient_verified: gopData.recipientVerified || false,
+        company_name: gopData.companyName || '',
+        employee_name: gopData.employeeName || '',
+        appointment_id: gopData.appointmentId || null,
+        trip_id: gopData.tripId || null,
+        service_description: gopData.serviceDescription || '',
+        authorised_amount: gopData.authorisedAmount || 0,
+        currency: gopData.currency || 'ZAR',
+        validity_start_date: gopData.validityStartDate || null,
+        validity_end_date: gopData.validityEndDate || null,
+        notes: gopData.notes || '',
+        exception_approved: false,
+        exception_reason: '',
+        issued_by: '',
+        issued_at: null,
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    const created = transformGOP(row as Record<string, unknown>);
+
+    await supabase.from('gop_audit_entries').insert({
+      gop_id: created.id,
+      action: 'GOP drafted',
+      actor: user?.name || 'Unknown',
+    });
+
+    created.auditTrail = [{ id: '', timestamp: new Date().toISOString(), action: 'GOP drafted', actor: user?.name || 'Unknown' }];
+    created.invoices = [];
+    await refetch();
+    return created;
+  }, [refetch, user]);
+
+  const updateGOP = useCallback(async (id: string, updates: Partial<GOP>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.recipientType !== undefined) updateData.recipient_type = updates.recipientType;
+    if (updates.recipientName !== undefined) updateData.recipient_name = updates.recipientName;
+    if (updates.recipientId !== undefined) updateData.recipient_id = updates.recipientId || null;
+    if (updates.recipientVerified !== undefined) updateData.recipient_verified = updates.recipientVerified;
+    if (updates.companyName !== undefined) updateData.company_name = updates.companyName;
+    if (updates.employeeName !== undefined) updateData.employee_name = updates.employeeName;
+    if (updates.appointmentId !== undefined) updateData.appointment_id = updates.appointmentId || null;
+    if (updates.tripId !== undefined) updateData.trip_id = updates.tripId;
+    if (updates.serviceDescription !== undefined) updateData.service_description = updates.serviceDescription;
+    if (updates.authorisedAmount !== undefined) updateData.authorised_amount = updates.authorisedAmount;
+    if (updates.currency !== undefined) updateData.currency = updates.currency;
+    if (updates.validityStartDate !== undefined) updateData.validity_start_date = updates.validityStartDate || null;
+    if (updates.validityEndDate !== undefined) updateData.validity_end_date = updates.validityEndDate || null;
+    if (updates.approvedBy !== undefined) updateData.approved_by = updates.approvedBy;
+    if (updates.approvedAt !== undefined) updateData.approved_at = updates.approvedAt;
+    if (updates.approverRole !== undefined) updateData.approver_role = updates.approverRole;
+    if (updates.issuedBy !== undefined) updateData.issued_by = updates.issuedBy;
+    if (updates.issuedAt !== undefined) updateData.issued_at = updates.issuedAt;
+    if (updates.notes !== undefined) updateData.notes = updates.notes;
+    if (updates.exceptionApproved !== undefined) updateData.exception_approved = updates.exceptionApproved;
+    if (updates.exceptionReason !== undefined) updateData.exception_reason = updates.exceptionReason;
+
+    const { error: err } = await supabase.from('gops').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  const addGOPAuditEntry = useCallback(async (gopId: string, action: string) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { error: err } = await supabase.from('gop_audit_entries').insert({
+      gop_id: gopId,
+      action,
+      actor: user?.name || 'Unknown',
+    });
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch, user]);
+
+  const addGOPInvoice = useCallback(async (gopId: string, invoice: Partial<GOPInvoice>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { data: row, error: err } = await supabase
+      .from('gop_invoices')
+      .insert({
+        gop_id: gopId,
+        invoice_number: invoice.invoiceNumber || '',
+        invoice_date: invoice.invoiceDate || null,
+        invoiced_amount: invoice.invoicedAmount || 0,
+        currency: invoice.currency || 'ZAR',
+        matched: invoice.matched || false,
+        payment_status: invoice.paymentStatus || 'Unpaid',
+        payment_date: invoice.paymentDate || null,
+        notes: invoice.notes || '',
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    await refetch();
+    return transformGOPInvoice(row as Record<string, unknown>);
+  }, [refetch]);
+
+  const updateGOPInvoice = useCallback(async (invoiceId: string, updates: Partial<GOPInvoice>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.invoiceNumber !== undefined) updateData.invoice_number = updates.invoiceNumber;
+    if (updates.invoiceDate !== undefined) updateData.invoice_date = updates.invoiceDate || null;
+    if (updates.invoicedAmount !== undefined) updateData.invoiced_amount = updates.invoicedAmount;
+    if (updates.currency !== undefined) updateData.currency = updates.currency;
+    if (updates.matched !== undefined) updateData.matched = updates.matched;
+    if (updates.paymentStatus !== undefined) updateData.payment_status = updates.paymentStatus;
+    if (updates.paymentDate !== undefined) updateData.payment_date = updates.paymentDate || null;
+    if (updates.notes !== undefined) updateData.notes = updates.notes;
+    const { error: err } = await supabase.from('gop_invoices').update(updateData).eq('id', invoiceId);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, addGOP, updateGOP, addGOPAuditEntry, addGOPInvoice, updateGOPInvoice };
+}
+
+// --- Hotels / Accommodation ---
+
+function transformHotel(row: Record<string, unknown>): Hotel {
+  return {
+    id: row.id as string,
+    name: (row.name as string) || '',
+    category: (row.category as string) as AccommodationCategory,
+    status: (row.status as string) as AccommodationStatus,
+    contactPerson: (row.contact_person as string) || '',
+    phone: (row.phone as string) || '',
+    email: (row.email as string) || '',
+    physicalAddress: (row.physical_address as string) || '',
+    gpsCoordinates: (row.gps_coordinates as string) || null,
+    area: (row.area as string) || '',
+    roomTypes: Array.isArray(row.room_types) ? (row.room_types as string[]) : [],
+    indicativeRate: Number(row.indicative_rate) || 0,
+    currency: (row.currency as string) as GOPCurrency,
+    operatingDetails: (row.operating_details as string) || '',
+    bookingContact: (row.booking_contact as string) || '',
+    notes: (row.notes as string) || '',
+    createdAt: String(row.created_at) || '',
+    updatedAt: String(row.updated_at) || '',
+  };
+}
+
+function transformHotelBooking(row: Record<string, unknown>): HotelBooking {
+  return {
+    id: row.id as string,
+    hotelId: (row.hotel_id as string) || '',
+    hotelName: (row.hotel_name as string) || '',
+    travellerName: (row.traveller_name as string) || '',
+    companyName: (row.company_name as string) || '',
+    linkedTripId: (row.linked_trip_id as string) || null,
+    linkedAppointmentId: (row.linked_appointment_id as string) || null,
+    checkInDate: row.check_in_date ? String(row.check_in_date) : '',
+    checkOutDate: row.check_out_date ? String(row.check_out_date) : '',
+    guestDetails: (row.guest_details as string) || '',
+    bookingConfirmation: (row.booking_confirmation as string) || '',
+    roomType: (row.room_type as string) || '',
+    agreedRate: Number(row.agreed_rate) || 0,
+    currency: (row.currency as string) as GOPCurrency,
+    paymentResponsibility: (row.payment_responsibility as string) as HotelBooking['paymentResponsibility'],
+    linkedGOPId: (row.linked_gop_id as string) || null,
+    bookingNotes: (row.booking_notes as string) || '',
+    status: (row.status as string) as HotelBooking['status'],
+  };
+}
+
+export function useHotels() {
+  const { data, loading, error, refetch } = useSupabaseQuery<Hotel>(
+    'hotels',
+    transformHotel,
+    'name',
+    true,
+    () => mockData.demoHotels,
+  );
+
+  const addHotel = useCallback(async (hotelData: Partial<Hotel>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { data: row, error: err } = await supabase
+      .from('hotels')
+      .insert({
+        name: hotelData.name || '',
+        category: hotelData.category || 'Non-Verified',
+        status: hotelData.status || 'Unverified',
+        contact_person: hotelData.contactPerson || '',
+        phone: hotelData.phone || '',
+        email: hotelData.email || '',
+        physical_address: hotelData.physicalAddress || '',
+        gps_coordinates: hotelData.gpsCoordinates || null,
+        area: hotelData.area || '',
+        room_types: hotelData.roomTypes || [],
+        indicative_rate: hotelData.indicativeRate || 0,
+        currency: hotelData.currency || 'ZAR',
+        operating_details: hotelData.operatingDetails || '',
+        booking_contact: hotelData.bookingContact || '',
+        notes: hotelData.notes || '',
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    await refetch();
+    return transformHotel(row as Record<string, unknown>);
+  }, [refetch]);
+
+  const updateHotel = useCallback(async (id: string, updates: Partial<Hotel>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.category !== undefined) updateData.category = updates.category;
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.contactPerson !== undefined) updateData.contact_person = updates.contactPerson;
+    if (updates.phone !== undefined) updateData.phone = updates.phone;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.physicalAddress !== undefined) updateData.physical_address = updates.physicalAddress;
+    if (updates.gpsCoordinates !== undefined) updateData.gps_coordinates = updates.gpsCoordinates;
+    if (updates.area !== undefined) updateData.area = updates.area;
+    if (updates.roomTypes !== undefined) updateData.room_types = updates.roomTypes;
+    if (updates.indicativeRate !== undefined) updateData.indicative_rate = updates.indicativeRate;
+    if (updates.currency !== undefined) updateData.currency = updates.currency;
+    if (updates.operatingDetails !== undefined) updateData.operating_details = updates.operatingDetails;
+    if (updates.bookingContact !== undefined) updateData.booking_contact = updates.bookingContact;
+    if (updates.notes !== undefined) updateData.notes = updates.notes;
+    const { error: err } = await supabase.from('hotels').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, addHotel, updateHotel };
+}
+
+export function useHotelBookings() {
+  const [data, setData] = useState<HotelBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.demoHotelBookings);
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('hotel_bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (err) {
+      setError(err.message);
+      setData(mockData.demoHotelBookings);
+    } else {
+      const bookings = (rows as Record<string, unknown>[]).map(transformHotelBooking);
+      setData(bookings.length > 0 ? bookings : mockData.demoHotelBookings);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addBooking = useCallback(async (bookingData: Partial<HotelBooking>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { data: row, error: err } = await supabase
+      .from('hotel_bookings')
+      .insert({
+        hotel_id: bookingData.hotelId || null,
+        hotel_name: bookingData.hotelName || '',
+        traveller_name: bookingData.travellerName || '',
+        company_name: bookingData.companyName || '',
+        linked_trip_id: bookingData.linkedTripId || null,
+        linked_appointment_id: bookingData.linkedAppointmentId || null,
+        check_in_date: bookingData.checkInDate || null,
+        check_out_date: bookingData.checkOutDate || null,
+        guest_details: bookingData.guestDetails || '',
+        booking_confirmation: bookingData.bookingConfirmation || '',
+        room_type: bookingData.roomType || '',
+        agreed_rate: bookingData.agreedRate || 0,
+        currency: bookingData.currency || 'ZAR',
+        payment_responsibility: bookingData.paymentResponsibility || 'Company',
+        linked_gop_id: bookingData.linkedGOPId || null,
+        booking_notes: bookingData.bookingNotes || '',
+        status: bookingData.status || 'Pending',
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    await refetch();
+    return transformHotelBooking(row as Record<string, unknown>);
+  }, [refetch]);
+
+  const updateBooking = useCallback(async (id: string, updates: Partial<HotelBooking>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.hotelId !== undefined) updateData.hotel_id = updates.hotelId || null;
+    if (updates.hotelName !== undefined) updateData.hotel_name = updates.hotelName;
+    if (updates.travellerName !== undefined) updateData.traveller_name = updates.travellerName;
+    if (updates.companyName !== undefined) updateData.company_name = updates.companyName;
+    if (updates.linkedTripId !== undefined) updateData.linked_trip_id = updates.linkedTripId || null;
+    if (updates.linkedAppointmentId !== undefined) updateData.linked_appointment_id = updates.linkedAppointmentId || null;
+    if (updates.checkInDate !== undefined) updateData.check_in_date = updates.checkInDate || null;
+    if (updates.checkOutDate !== undefined) updateData.check_out_date = updates.checkOutDate || null;
+    if (updates.guestDetails !== undefined) updateData.guest_details = updates.guestDetails;
+    if (updates.bookingConfirmation !== undefined) updateData.booking_confirmation = updates.bookingConfirmation;
+    if (updates.roomType !== undefined) updateData.room_type = updates.roomType;
+    if (updates.agreedRate !== undefined) updateData.agreed_rate = updates.agreedRate;
+    if (updates.currency !== undefined) updateData.currency = updates.currency;
+    if (updates.paymentResponsibility !== undefined) updateData.payment_responsibility = updates.paymentResponsibility;
+    if (updates.linkedGOPId !== undefined) updateData.linked_gop_id = updates.linkedGOPId || null;
+    if (updates.bookingNotes !== undefined) updateData.booking_notes = updates.bookingNotes;
+    if (updates.status !== undefined) updateData.status = updates.status;
+    const { error: err } = await supabase.from('hotel_bookings').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, addBooking, updateBooking };
 }

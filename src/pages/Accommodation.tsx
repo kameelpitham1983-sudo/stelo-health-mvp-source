@@ -22,8 +22,7 @@ import {
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import { useApp } from '@/context/AppContext';
-import { isDemoMode } from '@/hooks/useSupabaseData';
-import { demoHotels, demoHotelBookings } from '@/data/mockData';
+import { isDemoMode, useHotels, useHotelBookings } from '@/hooks/useSupabaseData';
 import type { Hotel, HotelBooking, AccommodationCategory, AccommodationStatus } from '@/types';
 
 const categoryColors: Record<AccommodationCategory, 'success' | 'warning' | 'brand'> = {
@@ -66,6 +65,8 @@ type Tab = 'directory' | 'bookings';
 
 export function Accommodation() {
   const { user } = useApp();
+  const { data: hotels, loading: hotelsLoading, addHotel } = useHotels();
+  const { data: bookings, loading: bookingsLoading } = useHotelBookings();
   const [tab, setTab] = useState<Tab>('directory');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -74,68 +75,68 @@ export function Accommodation() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(emptyHotelForm);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [hotelState, setHotelState] = useState<Hotel[]>([]);
+  const [busy, setBusy] = useState(false);
 
-  const mergedHotels = useMemo(() => {
-    const overrides = new Map(hotelState.map((h) => [h.id, h]));
-    return demoHotels.map((h) => overrides.get(h.id) || h).concat(hotelState.filter((h) => !demoHotels.find((d) => d.id === h.id)));
-  }, [hotelState]);
+  const filtered = useMemo(() => {
+    return hotels.filter((h) => {
+      const matchSearch =
+        h.name.toLowerCase().includes(search.toLowerCase()) ||
+        h.area.toLowerCase().includes(search.toLowerCase());
+      const matchCategory = categoryFilter === 'all' || h.category === categoryFilter;
+      const matchStatus = statusFilter === 'all' || h.status === statusFilter;
+      return matchSearch && matchCategory && matchStatus;
+    });
+  }, [hotels, search, categoryFilter, statusFilter]);
 
-  const filtered = mergedHotels.filter((h) => {
-    const matchSearch =
-      h.name.toLowerCase().includes(search.toLowerCase()) ||
-      h.area.toLowerCase().includes(search.toLowerCase());
-    const matchCategory = categoryFilter === 'all' || h.category === categoryFilter;
-    const matchStatus = statusFilter === 'all' || h.status === statusFilter;
-    return matchSearch && matchCategory && matchStatus;
-  });
+  const counts = useMemo(() => ({
+    total: hotels.length,
+    preferred: hotels.filter((h) => h.category === 'Preferred').length,
+    core: hotels.filter((h) => h.category === 'Core Providers').length,
+    nonVerified: hotels.filter((h) => h.category === 'Non-Verified').length,
+    verified: hotels.filter((h) => h.status === 'Verified').length,
+    unverified: hotels.filter((h) => h.status === 'Unverified').length,
+  }), [hotels]);
 
-  const counts = {
-    total: mergedHotels.length,
-    preferred: mergedHotels.filter((h) => h.category === 'Preferred').length,
-    core: mergedHotels.filter((h) => h.category === 'Core Providers').length,
-    nonVerified: mergedHotels.filter((h) => h.category === 'Non-Verified').length,
-    verified: mergedHotels.filter((h) => h.status === 'Verified').length,
-    unverified: mergedHotels.filter((h) => h.status === 'Unverified').length,
-  };
+  const bookingsForHotel = (hotelId: string): HotelBooking[] => bookings.filter((b) => b.hotelId === hotelId);
 
-  const bookingsForHotel = (hotelId: string): HotelBooking[] => demoHotelBookings.filter((b) => b.hotelId === hotelId);
-
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     if (!formData.name) {
       setSubmitError('Hotel name is required.');
       return;
     }
-    const newHotel: Hotel = {
-      id: `hotel-demo-${Date.now()}`,
-      name: formData.name,
-      category: (formData.category as AccommodationCategory) || 'Non-Verified',
-      status: 'Unverified',
-      contactPerson: formData.contactPerson || 'To be confirmed',
-      phone: formData.phone || 'To be confirmed',
-      email: formData.email || 'To be confirmed',
-      physicalAddress: formData.physicalAddress || 'To be confirmed',
-      gpsCoordinates: null,
-      area: formData.area || 'To be confirmed',
-      roomTypes: [],
-      indicativeRate: formData.indicativeRate || 0,
-      currency: (formData.currency as Hotel['currency']) || 'ZAR',
-      operatingDetails: 'To be confirmed',
-      bookingContact: 'To be confirmed',
-      notes: formData.notes || 'Newly created record — all fields pending verification.',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setHotelState((prev: Hotel[]) => [...prev, newHotel]);
-    setShowForm(false);
-    setFormData(emptyHotelForm);
+    setBusy(true);
+    try {
+      await addHotel({
+        name: formData.name,
+        category: (formData.category as AccommodationCategory) || 'Non-Verified',
+        status: 'Unverified',
+        contactPerson: formData.contactPerson || 'To be confirmed',
+        phone: formData.phone || 'To be confirmed',
+        email: formData.email || 'To be confirmed',
+        physicalAddress: formData.physicalAddress || 'To be confirmed',
+        gpsCoordinates: null,
+        area: formData.area || 'To be confirmed',
+        roomTypes: [],
+        indicativeRate: formData.indicativeRate || 0,
+        currency: (formData.currency as Hotel['currency']) || 'ZAR',
+        operatingDetails: 'To be confirmed',
+        bookingContact: 'To be confirmed',
+        notes: formData.notes || 'Newly created record — all fields pending verification.',
+      });
+      setShowForm(false);
+      setFormData(emptyHotelForm);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create hotel');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (selectedHotel) {
-    const h = selectedHotel;
-    const bookings = bookingsForHotel(h.id);
+    const h = hotels.find((x) => x.id === selectedHotel.id) || selectedHotel;
+    const hotelBookings = bookingsForHotel(h.id);
     return (
       <div className="space-y-6">
         <button onClick={() => setSelectedHotel(null)} className="btn-ghost">
@@ -196,13 +197,13 @@ export function Accommodation() {
         <div className="card p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Calendar size={18} className="text-brand-600" />
-            <h3 className="text-lg font-bold text-ink-900">Bookings ({bookings.length})</h3>
+            <h3 className="text-lg font-bold text-ink-900">Bookings ({hotelBookings.length})</h3>
           </div>
-          {bookings.length === 0 ? (
+          {hotelBookings.length === 0 ? (
             <p className="text-sm text-ink-400">No bookings recorded for this property.</p>
           ) : (
             <div className="space-y-2">
-              {bookings.map((b: HotelBooking) => (
+              {hotelBookings.map((b: HotelBooking) => (
                 <BookingCard key={b.id} booking={b} />
               ))}
             </div>
@@ -226,7 +227,11 @@ export function Accommodation() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Accommodation</h2>
-          <p className="text-sm text-ink-500">{tab === 'directory' ? `${filtered.length} properties` : `${demoHotelBookings.length} bookings`}</p>
+          <p className="text-sm text-ink-500">
+            {tab === 'directory'
+              ? (hotelsLoading ? 'Loading...' : `${filtered.length} properties`)
+              : (bookingsLoading ? 'Loading...' : `${bookings.length} bookings`)}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-ink-100 rounded-lg p-1">
@@ -337,14 +342,19 @@ export function Accommodation() {
                 </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setFormData(emptyHotelForm); }}>Cancel</button>
-                  <button type="submit" className="btn-primary"><Building2 size={16} /> Add Hotel</button>
+                  <button type="submit" className="btn-primary" disabled={busy}><Building2 size={16} /> Add Hotel</button>
                 </div>
               </form>
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.length === 0 ? (
+            {hotelsLoading ? (
+              <div className="col-span-full card p-8 text-center text-ink-400">
+                <BedDouble size={32} className="mx-auto mb-2 opacity-50" />
+                <p>Loading hotels...</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="col-span-full card p-8 text-center text-ink-400">
                 <BedDouble size={32} className="mx-auto mb-2 opacity-50" />
                 <p>No hotels match your filters.</p>
@@ -380,13 +390,18 @@ export function Accommodation() {
         </>
       ) : (
         <div className="space-y-3">
-          {demoHotelBookings.length === 0 ? (
+          {bookingsLoading ? (
+            <div className="card p-8 text-center text-ink-400">
+              <Calendar size={32} className="mx-auto mb-2 opacity-50" />
+              <p>Loading bookings...</p>
+            </div>
+          ) : bookings.length === 0 ? (
             <div className="card p-8 text-center text-ink-400">
               <Calendar size={32} className="mx-auto mb-2 opacity-50" />
               <p>No bookings recorded.</p>
             </div>
           ) : (
-            demoHotelBookings.map((b) => <BookingCard key={b.id} booking={b} />)
+            bookings.map((b) => <BookingCard key={b.id} booking={b} />)
           )}
         </div>
       )}

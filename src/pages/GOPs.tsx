@@ -21,8 +21,7 @@ import {
   CircleDollarSign,
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
-import { isDemoMode } from '@/hooks/useSupabaseData';
-import { demoGOPs } from '@/data/mockData';
+import { isDemoMode, useGOPs } from '@/hooks/useSupabaseData';
 import type { GOP, GOPStatus, GOPRecipientType, GOPAuditEntry, GOPInvoice } from '@/types';
 
 const statusColors: Record<GOPStatus, 'success' | 'warning' | 'danger' | 'brand' | 'ink'> = {
@@ -72,103 +71,87 @@ const emptyForm: Partial<GOP> = {
 };
 
 export function GOPs() {
+  const { data: gops, loading, addGOP, updateGOP, addGOPAuditEntry, addGOPInvoice, updateGOPInvoice } = useGOPs();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedGOP, setSelectedGOP] = useState<GOP | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [gopState, setGopState] = useState<GOP[]>([]);
   const [exceptionModal, setExceptionModal] = useState<{ gop: GOP; targetStatus: GOPStatus } | null>(null);
   const [exceptionReason, setExceptionReason] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const mergedGOPs = useMemo(() => {
-    const overrides = new Map(gopState.map((g) => [g.id, g]));
-    return demoGOPs.map((g) => overrides.get(g.id) || g).concat(gopState.filter((g) => !demoGOPs.find((d) => d.id === g.id)));
-  }, [gopState]);
-
-  const filtered = mergedGOPs.filter((g) => {
-    const matchSearch =
-      g.gopReference.toLowerCase().includes(search.toLowerCase()) ||
-      g.recipientName.toLowerCase().includes(search.toLowerCase()) ||
-      g.employeeName.toLowerCase().includes(search.toLowerCase()) ||
-      g.companyName.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || g.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
-
-  const counts = {
-    total: mergedGOPs.length,
-    pending: mergedGOPs.filter((g) => g.status === 'Pending Approval').length,
-    issued: mergedGOPs.filter((g) => g.status === 'Issued').length,
-    utilised: mergedGOPs.filter((g) => g.status === 'Utilised').length,
-    invoiced: mergedGOPs.filter((g) => g.status === 'Invoiced').length,
-    paid: mergedGOPs.filter((g) => g.status === 'Paid').length,
-  };
-
-  const updateGOP = (id: string, updates: Partial<GOP>) => {
-    setGopState((prev: GOP[]) => {
-      const existing = prev.find((g) => g.id === id);
-      if (existing) return prev.map((g) => (g.id === id ? { ...g, ...updates } : g));
-      const base = demoGOPs.find((g) => g.id === id);
-      return base ? [...prev, { ...base, ...updates }] : prev;
+  const filtered = useMemo(() => {
+    return gops.filter((g) => {
+      const matchSearch =
+        g.gopReference.toLowerCase().includes(search.toLowerCase()) ||
+        g.recipientName.toLowerCase().includes(search.toLowerCase()) ||
+        g.employeeName.toLowerCase().includes(search.toLowerCase()) ||
+        g.companyName.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'all' || g.status === statusFilter;
+      return matchSearch && matchStatus;
     });
-    if (selectedGOP?.id === id) {
-      setSelectedGOP((prev: GOP | null) => (prev ? { ...prev, ...updates } : prev));
-    }
-  };
+  }, [gops, search, statusFilter]);
 
-  const advanceStatus = (gop: GOP, targetStatus: GOPStatus) => {
+  const counts = useMemo(() => ({
+    total: gops.length,
+    pending: gops.filter((g) => g.status === 'Pending Approval').length,
+    issued: gops.filter((g) => g.status === 'Issued').length,
+    utilised: gops.filter((g) => g.status === 'Utilised').length,
+    invoiced: gops.filter((g) => g.status === 'Invoiced').length,
+    paid: gops.filter((g) => g.status === 'Paid').length,
+  }), [gops]);
+
+  const advanceStatus = async (gop: GOP, targetStatus: GOPStatus) => {
     if (!gop.recipientVerified && !gop.exceptionApproved && targetStatus === 'Issued') {
       setExceptionModal({ gop, targetStatus });
       return;
     }
-    const now = new Date().toISOString();
-    const auditEntry: GOPAuditEntry = {
-      id: `ga-${Date.now()}`,
-      timestamp: now,
-      action: `GOP ${targetStatus.toLowerCase()} by Dr. Amara Okonkwo`,
-      actor: 'Dr. Amara Okonkwo',
-    };
-    const updates: Partial<GOP> = {
-      status: targetStatus,
-      auditTrail: [...gop.auditTrail, auditEntry],
-    };
-    if (targetStatus === 'Approved') {
-      updates.approvedBy = 'Dr. Amara Okonkwo';
-      updates.approvedAt = now;
-      updates.approverRole = 'admin';
+    setBusy(true);
+    try {
+      const now = new Date().toISOString();
+      const updates: Partial<GOP> = { status: targetStatus };
+      if (targetStatus === 'Approved') {
+        updates.approvedBy = 'Dr. Amara Okonkwo';
+        updates.approvedAt = now;
+        updates.approverRole = 'admin';
+      }
+      if (targetStatus === 'Issued') {
+        updates.issuedBy = 'Dr. Amara Okonkwo';
+        updates.issuedAt = now;
+      }
+      await updateGOP(gop.id, updates);
+      await addGOPAuditEntry(gop.id, `GOP ${targetStatus.toLowerCase()} by Dr. Amara Okonkwo`);
+      setSelectedGOP((prev) => prev ? { ...prev, ...updates } : prev);
+    } finally {
+      setBusy(false);
     }
-    if (targetStatus === 'Issued') {
-      updates.issuedBy = 'Dr. Amara Okonkwo';
-      updates.issuedAt = now;
-    }
-    updateGOP(gop.id, updates);
   };
 
-  const confirmException = () => {
+  const confirmException = async () => {
     if (!exceptionModal || !exceptionReason.trim()) return;
     const { gop, targetStatus } = exceptionModal;
-    const now = new Date().toISOString();
-    const auditEntry: GOPAuditEntry = {
-      id: `ga-${Date.now()}`,
-      timestamp: now,
-      action: `Exception approved for unverified provider — GOP issued by Dr. Amara Okonkwo`,
-      actor: 'Dr. Amara Okonkwo',
-    };
-    updateGOP(gop.id, {
-      status: targetStatus,
-      exceptionApproved: true,
-      exceptionReason: exceptionReason.trim(),
-      issuedBy: 'Dr. Amara Okonkwo',
-      issuedAt: now,
-      auditTrail: [...gop.auditTrail, auditEntry],
-    });
-    setExceptionModal(null);
-    setExceptionReason('');
+    setBusy(true);
+    try {
+      const now = new Date().toISOString();
+      await updateGOP(gop.id, {
+        status: targetStatus,
+        exceptionApproved: true,
+        exceptionReason: exceptionReason.trim(),
+        issuedBy: 'Dr. Amara Okonkwo',
+        issuedAt: now,
+      });
+      await addGOPAuditEntry(gop.id, `Exception approved for unverified provider — GOP issued by Dr. Amara Okonkwo`);
+      setSelectedGOP((prev) => prev ? { ...prev, status: targetStatus, exceptionApproved: true, exceptionReason: exceptionReason.trim(), issuedBy: 'Dr. Amara Okonkwo', issuedAt: now } : prev);
+      setExceptionModal(null);
+      setExceptionReason('');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     if (!formData.recipientName || !formData.companyName || !formData.employeeName) {
@@ -179,44 +162,31 @@ export function GOPs() {
       setSubmitError('Authorised amount must be greater than zero.');
       return;
     }
-    const ref = `GOP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(mergedGOPs.length + 1).padStart(3, '0')}`;
-    const newGOP: GOP = {
-      id: `gop-demo-${Date.now()}`,
-      gopReference: ref,
-      status: 'Draft',
-      recipientType: (formData.recipientType as GOPRecipientType) || 'provider',
-      recipientName: formData.recipientName,
-      recipientId: null,
-      recipientVerified: false,
-      companyName: formData.companyName,
-      employeeName: formData.employeeName,
-      appointmentId: null,
-      tripId: null,
-      serviceDescription: formData.serviceDescription || '',
-      authorisedAmount: formData.authorisedAmount,
-      currency: (formData.currency as GOP['currency']) || 'ZAR',
-      validityStartDate: formData.validityStartDate || '',
-      validityEndDate: formData.validityEndDate || '',
-      approvedBy: null,
-      approvedAt: null,
-      approverRole: null,
-      issuedBy: '',
-      issuedAt: '',
-      notes: formData.notes || '',
-      exceptionApproved: false,
-      exceptionReason: '',
-      invoices: [],
-      auditTrail: [
-        { id: `ga-${Date.now()}`, timestamp: new Date().toISOString(), action: 'GOP drafted', actor: 'Dr. Amara Okonkwo' },
-      ],
-    };
-    setGopState((prev: GOP[]) => [...prev, newGOP]);
-    setShowForm(false);
-    setFormData(emptyForm);
+    setBusy(true);
+    try {
+      await addGOP({
+        recipientType: (formData.recipientType as GOPRecipientType) || 'provider',
+        recipientName: formData.recipientName,
+        companyName: formData.companyName,
+        employeeName: formData.employeeName,
+        serviceDescription: formData.serviceDescription || '',
+        authorisedAmount: formData.authorisedAmount,
+        currency: (formData.currency as GOP['currency']) || 'ZAR',
+        validityStartDate: formData.validityStartDate || '',
+        validityEndDate: formData.validityEndDate || '',
+        notes: formData.notes || '',
+      });
+      setShowForm(false);
+      setFormData(emptyForm);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create GOP');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (selectedGOP) {
-    const g = selectedGOP;
+    const g = gops.find((x) => x.id === selectedGOP.id) || selectedGOP;
     const nextStatuses = statusFlow[g.status] || [];
     return (
       <div className="space-y-6">
@@ -280,6 +250,7 @@ export function GOPs() {
                   <button
                     key={status}
                     onClick={() => advanceStatus(g, status)}
+                    disabled={busy}
                     className={blocked ? 'btn-secondary opacity-75' : 'btn-primary'}
                   >
                     {status === 'Cancelled' ? <Ban size={16} /> : status === 'Issued' ? <Send size={16} /> : status === 'Approved' ? <CheckCircle2 size={16} /> : status === 'Utilised' ? <CheckCheck size={16} /> : status === 'Invoiced' ? <Receipt size={16} /> : status === 'Paid' ? <CircleDollarSign size={16} /> : <Clock size={16} />}
@@ -353,7 +324,7 @@ export function GOPs() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Guarantees of Payment</h2>
-          <p className="text-sm text-ink-500">{filtered.length} GOPs across all statuses</p>
+          <p className="text-sm text-ink-500">{loading ? 'Loading...' : `${filtered.length} GOPs across all statuses`}</p>
         </div>
         <button className="btn-primary" onClick={() => { setFormData(emptyForm); setShowForm(true); }}>
           <Plus size={16} /> Create GOP
@@ -444,14 +415,19 @@ export function GOPs() {
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setFormData(emptyForm); }}>Cancel</button>
-              <button type="submit" className="btn-primary"><FileText size={16} /> Create Draft GOP</button>
+              <button type="submit" className="btn-primary" disabled={busy}><FileText size={16} /> Create Draft GOP</button>
             </div>
           </form>
         </div>
       )}
 
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="card p-8 text-center text-ink-400">
+            <ShieldCheck size={32} className="mx-auto mb-2 opacity-50" />
+            <p>Loading GOPs...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="card p-8 text-center text-ink-400">
             <ShieldCheck size={32} className="mx-auto mb-2 opacity-50" />
             <p>No GOPs match your filters.</p>
@@ -509,7 +485,7 @@ export function GOPs() {
             />
             <div className="flex justify-end gap-2">
               <button className="btn-secondary" onClick={() => { setExceptionModal(null); setExceptionReason(''); }}>Cancel</button>
-              <button className="btn-primary" onClick={confirmException} disabled={!exceptionReason.trim()}>
+              <button className="btn-primary" onClick={confirmException} disabled={!exceptionReason.trim() || busy}>
                 <ShieldCheck size={16} /> Approve Exception & Issue
               </button>
             </div>
