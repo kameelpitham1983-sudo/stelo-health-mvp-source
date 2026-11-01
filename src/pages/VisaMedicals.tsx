@@ -254,7 +254,7 @@ export function VisaMedicals() {
               </div>
               <DetailRow icon={Calendar} label="Certificate expiry" value={vc.certificateExpiryDate || 'Not issued'} />
               <DetailRow icon={Calendar} label="Follow-up date" value={vc.followUpDate || 'None'} />
-              {vc.clinicianReviewNotes && (
+              {vc.clinicianReviewNotes && isProvider && (
                 <div className="pt-3 border-t border-ink-100">
                   <p className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-1">Clinician Review Notes</p>
                   <p className="text-sm text-ink-700 leading-relaxed">{vc.clinicianReviewNotes}</p>

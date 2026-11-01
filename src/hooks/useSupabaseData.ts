@@ -2313,7 +2313,7 @@ export function useGOPs() {
       .order('gop_reference', { ascending: false })
       .limit(1);
     const seqNum = existing && existing.length > 0
-      ? parseInt((existing[0] as Record<string, unknown>).gop_reference as string, 10) + 1 || 1
+      ? (parseInt(((existing[0] as Record<string, unknown>).gop_reference as string).split('-').pop() || '0', 10) || 0) + 1
       : 1;
     const gopReference = `GOP-${dateStr}-${String(seqNum).padStart(3, '0')}`;
 
@@ -2740,7 +2740,7 @@ export function useVisaMedicalCases() {
       .order('case_reference', { ascending: false })
       .limit(1);
     const seqNum = existing && existing.length > 0
-      ? (parseInt((existing[0] as Record<string, unknown>).case_reference as string) || 0) + 1
+      ? (parseInt(((existing[0] as Record<string, unknown>).case_reference as string).split('-').pop() || '0', 10) || 0) + 1
       : 1;
     const caseReference = `VM-${dateStr}-${String(seqNum).padStart(3, '0')}`;
 
