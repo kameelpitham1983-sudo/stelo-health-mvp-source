@@ -58,7 +58,7 @@ const emptyForm: Partial<Medical> = {
 };
 
 export function Medicals() {
-  const { user } = useApp();
+  const { user, setPage } = useApp();
   const { data: medicals, loading, error, addMedical, updateMedical } = useMedicals();
   const { data: employees, updateEmployeeFitness } = useEmployees();
   const { data: companies } = useCompanies();
@@ -187,6 +187,9 @@ export function Medicals() {
             Back to Medicals
           </button>
           <div className="flex gap-2">
+            <button onClick={() => setPage('appointments')} className="btn-secondary">
+              <Calendar size={16} /> Book Appointment
+            </button>
             <button onClick={() => setShowQuestionnaire(true)} className="btn-secondary">
               <ClipboardList size={16} /> Questionnaire
             </button>

@@ -76,7 +76,7 @@ const emptyForm: Partial<VisaMedicalCase> & {
 };
 
 export function VisaMedicals() {
-  const { user } = useApp();
+  const { user, setPage } = useApp();
   const { data: visaCases, loading, addVisaMedicalCase, updateVisaMedicalCase, addVisaAuditEntry } = useVisaMedicalCases();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -188,7 +188,19 @@ export function VisaMedicals() {
           <button onClick={() => setSelectedCase(null)} className="btn-secondary">
             <ArrowLeft size={16} /> Back to Visa Medicals
           </button>
-          <Badge color={statusColors[vc.status]} dot>{vc.status}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge color={statusColors[vc.status]} dot>{vc.status}</Badge>
+            {(vc.status === 'Appointment Booked' || vc.status === 'Tests Pending' || vc.status === 'Awaiting Clinician Review') && (
+              <button onClick={() => setPage('appointments')} className="btn-secondary text-sm">
+                <Calendar size={15} /> View Appointments
+              </button>
+            )}
+            {vc.certificateIssued && (
+              <button onClick={() => setPage('certificates')} className="btn-secondary text-sm">
+                <Award size={15} /> View Certificate
+              </button>
+            )}
+          </div>
         </div>
 
         {isDemoMode && (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Building2, MapPin, Users, Calendar, Mail, Phone, ArrowLeft, Plus, Filter, Edit3, X, Check, AlertCircle } from 'lucide-react';
+import { Search, Building2, MapPin, Users, Calendar, Mail, Phone, ArrowLeft, Plus, Filter, Edit3, X, Check, AlertCircle, ArrowRight, Stethoscope } from 'lucide-react';
 import { useCompanies } from '@/hooks/useSupabaseData';
 import { useEmployees, useMedicals } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
@@ -34,7 +34,7 @@ const emptyForm: Partial<Company> = {
 };
 
 export function Companies() {
-  const { user } = useApp();
+  const { user, setPage } = useApp();
   const { data: companyList, loading, error, addCompany, updateCompany } = useCompanies();
   const { data: employees } = useEmployees();
   const { data: medicals } = useMedicals();
@@ -166,6 +166,17 @@ export function Companies() {
                 <Badge color={tierColors[selected.tier]}>{selected.tier}</Badge>
               </div>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <button onClick={() => setPage('employees')} className="btn-secondary text-sm">
+              <Users size={15} /> View Employees
+            </button>
+            <button onClick={() => setPage('medicals')} className="btn-secondary text-sm">
+              <Stethoscope size={15} /> View Medicals
+            </button>
+            <button onClick={() => setPage('appointments')} className="btn-secondary text-sm">
+              <Calendar size={15} /> View Appointments
+            </button>
           </div>
         </div>
 
