@@ -86,6 +86,15 @@ export function LabDashboard() {
           )}
         </Panel>
 
+        <Panel title="How results are recorded">
+          <ol className="list-decimal pl-5 space-y-2 text-sm text-ink-600">
+            <li>Check the outstanding requests above and confirm the employee's identity on the case.</li>
+            <li>Upload the laboratory report in Documents with the type Drug Screen Result.</li>
+            <li>If a result is missing details or reference ranges, add a note on the case and request the information from the laboratory.</li>
+            <li>The clinician reviews the uploaded result and decides the next step. The lab does not make clinical decisions.</li>
+          </ol>
+        </Panel>
+
         <Panel title="Providers">
           <p className="text-sm text-ink-500 mb-4">Laboratory and specialist providers you coordinate with are listed in the providers directory.</p>
           <button onClick={() => setPage('providers')} className="btn-secondary w-full justify-center">Open providers</button>

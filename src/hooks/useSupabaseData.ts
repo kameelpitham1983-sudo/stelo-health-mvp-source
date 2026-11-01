@@ -557,6 +557,7 @@ export function useDocuments() {
   const addDocument = useCallback(async (doc: Partial<DocumentRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'document.upload');
+    if (doc.type === 'Drug Screen Result') assertCan(user, 'lab_result.submit');
     const { data: row, error: err } = await supabase
       .from('documents')
       .insert({
@@ -600,6 +601,7 @@ export function useDocuments() {
   const updateDocument = useCallback(async (id: string, updates: Partial<DocumentRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'document.verify');
+    if (updates.type === 'Drug Screen Result') assertCan(user, 'lab_result.submit');
     const prev = data.find((d) => d.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -627,6 +629,7 @@ export function useDocuments() {
   const replaceDocument = useCallback(async (id: string, replacement: Partial<DocumentRecord> & { versionNotes?: string }) => {
     if (isDemoMode) throw new Error(demoWriteError);
     assertCan(user, 'document.upload');
+    if (replacement.type === 'Drug Screen Result') assertCan(user, 'lab_result.submit');
     const prev = data.find((d) => d.id === id);
     if (!prev) throw new Error('Document not found');
 
