@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Search, Download, FileCheck2, Clock, XCircle, FileEdit, ChevronDown, X, AlertCircle, Plus, CalendarClock, AlertTriangle, ArrowLeft, Link2, User, Building2, Stethoscope, Calendar, Workflow, History, Lock, Replace } from 'lucide-react';
 import { useDocuments, useCompanies, useEmployees, useMedicals, useAppointments, useDocumentVersions, useLogAuditEvent } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
@@ -49,7 +49,7 @@ function getExpiryStatus(expiryDate?: string | null): { label: string; color: 's
 }
 
 export function Documents() {
-  const { user } = useApp();
+  const { user, navContext, clearNavContext } = useApp();
   const { data: documents, loading, error, addDocument, updateDocument, replaceDocument } = useDocuments();
   const { data: companies } = useCompanies();
   const { data: employees } = useEmployees();
@@ -66,6 +66,17 @@ export function Documents() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showExpiredOnly, setShowExpiredOnly] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocumentRecord | null>(null);
+
+  // Consume navigation context from other pages
+  useEffect(() => {
+    if (!navContext) return;
+    if (navContext.employeeName) {
+      setSearch(navContext.employeeName);
+    } else if (navContext.companyName) {
+      setSearch(navContext.companyName);
+    }
+    clearNavContext();
+  }, [navContext, clearNavContext]);
 
   const filtered = documents.filter((d) => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase());

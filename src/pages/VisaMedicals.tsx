@@ -76,7 +76,7 @@ const emptyForm: Partial<VisaMedicalCase> & {
 };
 
 export function VisaMedicals() {
-  const { user, setPage } = useApp();
+  const { user, setPage, setPageWithContext } = useApp();
   const { data: visaCases, loading, addVisaMedicalCase, updateVisaMedicalCase, addVisaAuditEntry } = useVisaMedicalCases();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -191,12 +191,12 @@ export function VisaMedicals() {
           <div className="flex items-center gap-2">
             <Badge color={statusColors[vc.status]} dot>{vc.status}</Badge>
             {(vc.status === 'Appointment Booked' || vc.status === 'Tests Pending' || vc.status === 'Awaiting Clinician Review') && (
-              <button onClick={() => setPage('appointments')} className="btn-secondary text-sm">
+              <button onClick={() => setPageWithContext('appointments', { visaCaseId: vc.id, employeeName: vc.employeeName, companyName: vc.companyName })} className="btn-secondary text-sm">
                 <Calendar size={15} /> View Appointments
               </button>
             )}
             {vc.certificateIssued && (
-              <button onClick={() => setPage('certificates')} className="btn-secondary text-sm">
+              <button onClick={() => setPageWithContext('certificates', { visaCaseId: vc.id, employeeName: vc.employeeName })} className="btn-secondary text-sm">
                 <Award size={15} /> View Certificate
               </button>
             )}

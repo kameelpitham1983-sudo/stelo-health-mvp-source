@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2, Search, Stethoscope, ArrowRight } from 'lucide-react';
 import { useAppointments, useEmployees, useCompanies, useMedicals, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
@@ -38,7 +38,7 @@ const emptyForm: Partial<Appointment> = {
 };
 
 export function Appointments() {
-  const { user } = useApp();
+  const { user, navContext, clearNavContext } = useApp();
   const { data: dbAppointments, loading, error, addAppointment, updateAppointment } = useAppointments();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
@@ -58,6 +58,23 @@ export function Appointments() {
   const [dateTo, setDateTo] = useState('');
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [detailAppt, setDetailAppt] = useState<Appointment | null>(null);
+
+  // Consume navigation context from other pages
+  useEffect(() => {
+    if (!navContext) return;
+    if (navContext.employeeName) {
+      const emp = employees.find((e) => e.name === navContext.employeeName);
+      setFormData((prev) => ({
+        ...prev,
+        employeeName: navContext.employeeName || '',
+        companyName: emp?.companyName || navContext.companyName || '',
+      }));
+      setShowForm(true);
+    } else if (navContext.companyName) {
+      setSearch(navContext.companyName);
+    }
+    clearNavContext();
+  }, [navContext, employees, clearNavContext]);
 
   // Local demo state: when in demo mode, mutations update this local list
   // instead of hitting the blocked database.

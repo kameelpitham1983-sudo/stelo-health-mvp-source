@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useApp, type NavContext } from '@/context/AppContext';
 import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck, ClipboardList, Lock } from 'lucide-react';
 import { useMedicals, useEmployees, useCompanies } from '@/hooks/useSupabaseData';
 import { isDemoMode } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
 import { QuestionnaireWorkflow } from '@/components/QuestionnaireWorkflow';
 import { NotesPanel } from '@/components/NotesPanel';
-import { useApp } from '@/context/AppContext';
 import { questionnaireInstances } from '@/data/mockData';
 import type { Medical, MedicalType, MedicalStatus, HealthStatus } from '@/types';
 
@@ -58,7 +58,7 @@ const emptyForm: Partial<Medical> = {
 };
 
 export function Medicals() {
-  const { user, setPage } = useApp();
+  const { user, setPage, setPageWithContext, navContext, clearNavContext } = useApp();
   const { data: medicals, loading, error, addMedical, updateMedical } = useMedicals();
   const { data: employees, updateEmployeeFitness } = useEmployees();
   const { data: companies } = useCompanies();
@@ -79,6 +79,20 @@ export function Medicals() {
   const [questionnaireVersion, setQuestionnaireVersion] = useState(0);
 
   const isProvider = user?.role === 'admin' || user?.role === 'provider';
+
+  // Consume navigation context from other pages
+  useEffect(() => {
+    if (!navContext) return;
+    if (navContext.medicalId) {
+      const med = medicals.find((m) => m.id === navContext.medicalId);
+      if (med) setSelectedMedical(med);
+    } else if (navContext.employeeName) {
+      setSearch(navContext.employeeName);
+    } else if (navContext.companyName) {
+      setSearch(navContext.companyName);
+    }
+    clearNavContext();
+  }, [navContext, medicals, clearNavContext]);
 
   const filtered = medicals.filter((m) => {
     const matchSearch = m.employeeName.toLowerCase().includes(search.toLowerCase()) || m.type.toLowerCase().includes(search.toLowerCase());
@@ -187,7 +201,7 @@ export function Medicals() {
             Back to Medicals
           </button>
           <div className="flex gap-2">
-            <button onClick={() => setPage('appointments')} className="btn-secondary">
+            <button onClick={() => setPageWithContext('appointments', { employeeId: med.employeeId, employeeName: med.employeeName, companyName: med.companyName, medicalId: med.id })} className="btn-secondary">
               <Calendar size={16} /> Book Appointment
             </button>
             <button onClick={() => setShowQuestionnaire(true)} className="btn-secondary">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
   Users,
@@ -52,7 +52,7 @@ const emptyForm: Partial<Employee> = {
 };
 
 export function Employees() {
-  const { user, setPage } = useApp();
+  const { user, setPage, setPageWithContext, navContext, clearNavContext } = useApp();
   const { data: employees, loading, error, addEmployee } = useEmployees();
   const { data: companies } = useCompanies();
   const { data: medicals } = useMedicals();
@@ -60,6 +60,18 @@ export function Employees() {
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState<Employee | null>(null);
+
+  // Consume navigation context from other pages
+  useEffect(() => {
+    if (!navContext) return;
+    if (navContext.companyId) {
+      setCompanyFilter(navContext.companyId);
+    } else if (navContext.companyName) {
+      const company = companies.find((c) => c.name === navContext.companyName);
+      if (company) setCompanyFilter(company.id);
+    }
+    clearNavContext();
+  }, [navContext, companies, clearNavContext]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState<Partial<Employee>>(emptyForm);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -127,13 +139,13 @@ export function Employees() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
-            <button onClick={() => setPage('medicals')} className="btn-secondary text-sm">
+            <button onClick={() => setPageWithContext('medicals', { employeeId: selected.id, employeeName: selected.name })} className="btn-secondary text-sm">
               <Stethoscope size={15} /> New Assessment
             </button>
-            <button onClick={() => setPage('appointments')} className="btn-secondary text-sm">
+            <button onClick={() => setPageWithContext('appointments', { employeeId: selected.id, employeeName: selected.name, companyName: selected.companyName })} className="btn-secondary text-sm">
               <Calendar size={15} /> Book Appointment
             </button>
-            <button onClick={() => setPage('documents')} className="btn-secondary text-sm">
+            <button onClick={() => setPageWithContext('documents', { employeeName: selected.name })} className="btn-secondary text-sm">
               <FileText size={15} /> View Documents
             </button>
           </div>
@@ -195,7 +207,7 @@ export function Employees() {
             ) : (
               <div className="space-y-2">
                 {employeeMedicals.slice(0, 5).map((m) => (
-                  <button key={m.id} onClick={() => setPage('medicals')} className="flex items-center justify-between py-2 border-b border-ink-100 last:border-0 w-full text-left hover:bg-ink-50 -mx-1 px-1 rounded transition-colors">
+                  <button key={m.id} onClick={() => setPageWithContext('medicals', { medicalId: m.id, employeeId: selected.id, employeeName: selected.name })} className="flex items-center justify-between py-2 border-b border-ink-100 last:border-0 w-full text-left hover:bg-ink-50 -mx-1 px-1 rounded transition-colors">
                     <div>
                       <p className="text-sm font-semibold text-ink-900">{m.type}</p>
                       <p className="text-xs text-ink-400">{m.date} · {m.providerName}</p>

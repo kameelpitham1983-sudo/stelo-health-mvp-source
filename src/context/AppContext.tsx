@@ -5,6 +5,16 @@ import { supabase, supabaseConfigured } from '@/lib/supabase';
 
 export type PageId = 'dashboard' | 'workflows' | 'companies' | 'employees' | 'medicals' | 'appointments' | 'sickness' | 'travel' | 'visa' | 'providers' | 'gops' | 'accommodation' | 'documents' | 'reports' | 'ai' | 'settings' | 'synopsis' | 'certificates' | 'audit' | 'cases' | 'caseDetail' | 'learning' | 'userManagement';
 
+export interface NavContext {
+  employeeId?: string;
+  employeeName?: string;
+  companyId?: string;
+  companyName?: string;
+  medicalId?: string;
+  visaCaseId?: string;
+  certificateId?: string;
+}
+
 interface AppContextValue {
   user: User | null;
   login: (role: UserRole) => void;
@@ -12,6 +22,9 @@ interface AppContextValue {
   switchRole: (role: UserRole) => void;
   currentPage: PageId;
   setPage: (page: PageId) => void;
+  setPageWithContext: (page: PageId, context: NavContext) => void;
+  navContext: NavContext | null;
+  clearNavContext: () => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   authReady: boolean;
@@ -25,6 +38,7 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
+  const [navContext, setNavContext] = useState<NavContext | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingShown, setOnboardingShown] = useState(false);
@@ -87,7 +101,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setPage = useCallback((page: PageId) => {
     setCurrentPage(page);
+    setNavContext(null);
     setSidebarOpen(false);
+  }, []);
+
+  const setPageWithContext = useCallback((page: PageId, context: NavContext) => {
+    setNavContext(context);
+    setCurrentPage(page);
+    setSidebarOpen(false);
+  }, []);
+
+  const clearNavContext = useCallback(() => {
+    setNavContext(null);
   }, []);
 
   const startOnboarding = useCallback(() => {
@@ -112,7 +137,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (user) localStorage.setItem(`stelo_onboarding_${user.id}`, '1');
   }, [user]);
 
-  return <AppContext.Provider value={{ user, login, logout, switchRole, currentPage, setPage, sidebarOpen, setSidebarOpen, authReady, showOnboarding, startOnboarding, completeOnboarding }}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={{ user, login, logout, switchRole, currentPage, setPage, setPageWithContext, navContext, clearNavContext, sidebarOpen, setSidebarOpen, authReady, showOnboarding, startOnboarding, completeOnboarding }}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {

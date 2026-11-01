@@ -34,7 +34,7 @@ const emptyForm: Partial<Company> = {
 };
 
 export function Companies() {
-  const { user, setPage } = useApp();
+  const { user, setPage, setPageWithContext } = useApp();
   const { data: companyList, loading, error, addCompany, updateCompany } = useCompanies();
   const { data: employees } = useEmployees();
   const { data: medicals } = useMedicals();
@@ -168,13 +168,13 @@ export function Companies() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
-            <button onClick={() => setPage('employees')} className="btn-secondary text-sm">
+            <button onClick={() => setPageWithContext('employees', { companyId: selected.id, companyName: selected.name })} className="btn-secondary text-sm">
               <Users size={15} /> View Employees
             </button>
-            <button onClick={() => setPage('medicals')} className="btn-secondary text-sm">
+            <button onClick={() => setPageWithContext('medicals', { companyName: selected.name })} className="btn-secondary text-sm">
               <Stethoscope size={15} /> View Medicals
             </button>
-            <button onClick={() => setPage('appointments')} className="btn-secondary text-sm">
+            <button onClick={() => setPageWithContext('appointments', { companyName: selected.name })} className="btn-secondary text-sm">
               <Calendar size={15} /> View Appointments
             </button>
           </div>

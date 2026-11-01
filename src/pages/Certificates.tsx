@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Award,
   Search,
@@ -63,7 +63,7 @@ const emptyForm = {
 };
 
 export function Certificates() {
-  const { user } = useApp();
+  const { user, navContext, clearNavContext } = useApp();
   const { data: certs, loading, issueCertificate, revokeCertificate, suspendCertificate, reactivateCertificate } = useDigitalCertificates();
   const { data: employees } = useEmployees();
   const [selected, setSelected] = useState<DigitalCertificate | null>(null);
@@ -75,6 +75,15 @@ export function Certificates() {
   const [busy, setBusy] = useState(false);
   const [showRevokeForm, setShowRevokeForm] = useState(false);
   const [revokeReason, setRevokeReason] = useState('');
+
+  // Consume navigation context from other pages
+  useEffect(() => {
+    if (!navContext) return;
+    if (navContext.employeeName) {
+      setSearch(navContext.employeeName);
+    }
+    clearNavContext();
+  }, [navContext, clearNavContext]);
 
   const canManage = user?.role === 'admin' || user?.role === 'master_admin' || user?.role === 'coordinator' || user?.role === 'provider';
 
