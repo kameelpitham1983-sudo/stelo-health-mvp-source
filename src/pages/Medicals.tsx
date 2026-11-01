@@ -28,11 +28,12 @@ const typeColors: Record<string, string> = {
   Audiometry: 'bg-ink-100 text-ink-600',
   Spirometry: 'bg-success-50 text-success-600',
   'Vision Test': 'bg-brand-50 text-brand-600',
+  Transfer: 'bg-teal-50 text-teal-600',
 };
 
 const medicalTypes: MedicalType[] = [
   'Pre-Employment', 'Annual Occupational', 'Return to Work', 'Travel Health', 'Deployment Readiness',
-  'Drug & Alcohol Screen', 'Audiometry', 'Spirometry', 'Vision Test',
+  'Drug & Alcohol Screen', 'Audiometry', 'Spirometry', 'Vision Test', 'Transfer',
 ];
 
 const medicalStatuses: MedicalStatus[] = ['Completed', 'Scheduled', 'In Progress', 'Overdue', 'Cancelled'];

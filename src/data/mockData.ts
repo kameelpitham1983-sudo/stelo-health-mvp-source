@@ -248,6 +248,7 @@ export const medicals: Medical[] = [
   { id: 'm9', employeeName: 'Lucas Meyer', employeeId: 'e12', companyName: 'Helix Pharma Research', type: 'Vision Test', status: 'Completed', date: '2025-07-19', providerName: 'Dr. Sarah Chen', result: 'Fit for duty', notes: 'Color vision and acuity acceptable for lab work.' },
   { id: 'm10', employeeName: 'Robert Klein', employeeId: 'e5', companyName: 'Meridian Global Logistics', type: 'Annual Occupational', status: 'Completed', date: '2025-09-28', providerName: 'Dr. Sarah Chen', result: 'Fit for duty', notes: 'Routine annual check — no concerns.' },
   { id: 'm11', employeeName: 'Wei Zhang', employeeId: 'e13', companyName: 'BlueWave Maritime Services', type: 'Deployment Readiness', status: 'In Progress', date: '2025-10-20', providerName: 'Dr. Aisha Bello', result: 'Pending', notes: 'Deployment readiness triage questionnaire in progress — pending clinician review before vessel deployment.' },
+  { id: 'm12', employeeName: 'Michael Torres', employeeId: 'e1', companyName: 'Meridian Global Logistics', type: 'Transfer', status: 'Scheduled', date: '2026-11-15', providerName: 'Dr. Sarah Chen', result: 'Pending', notes: '[Demo] Simulated transfer medical. Not a clinical record.' },
 ];
 
 export const appointments: Appointment[] = [

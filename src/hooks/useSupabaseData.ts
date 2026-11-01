@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { useApp } from '@/context/AppContext';
 import { assertCan, can, canViewEmployeeRecord, canViewCompany } from '@/lib/permissions';
+import { readDemoState, writeDemoState } from '@/lib/demoStore';
 import * as mockData from '@/data/mockData';
 import type {
   Company,
@@ -306,6 +307,13 @@ function transformMedical(row: Record<string, unknown>): Medical {
   };
 }
 
+type DemoMedicalOverrides = Record<string, Partial<Medical>>;
+
+export function saveDemoMedicalOverride(id: string, patch: Partial<Medical>) {
+  const current = readDemoState<DemoMedicalOverrides>('medicalOverrides', () => ({}));
+  writeDemoState<DemoMedicalOverrides>('medicalOverrides', { ...current, [id]: { ...current[id], ...patch } });
+}
+
 export function useMedicals() {
   const { user } = useApp();
   const isEmployer = user?.role === 'employer';
@@ -317,9 +325,11 @@ export function useMedicals() {
     () => mockData.medicals,
   );
   const data = useMemo(() => {
+    const overrides = isDemoMode ? readDemoState<DemoMedicalOverrides>('medicalOverrides', () => ({})) : {};
+    const withOverrides = allMedicals.map((m) => (overrides[m.id] ? { ...m, ...overrides[m.id] } : m));
     const scoped = user?.role === 'employee'
-      ? allMedicals.filter((m) => !!user.linkedEmployeeId && m.employeeId === user.linkedEmployeeId)
-      : allMedicals;
+      ? withOverrides.filter((m) => !!user.linkedEmployeeId && m.employeeId === user.linkedEmployeeId)
+      : withOverrides;
     return can(user, 'clinical.view') ? scoped : scoped.map((m) => ({ ...m, result: '', notes: '' }));
   }, [allMedicals, user]);
   const logAudit = useLogAuditEvent();

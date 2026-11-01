@@ -1,3 +1,5 @@
+import type { MedicalType } from '@/types';
+
 export type MedicalAssessmentType = 'Pre-employment' | 'Periodic' | 'Transfer';
 
 export type QuestionnaireStatus = 'not_sent' | 'sent' | 'completed';
@@ -67,6 +69,18 @@ export const MEDICAL_ASSESSMENT_STEPS: MedicalAssessmentStep[] = [
   { id: 'certificate', title: 'Certificate or outcome pack issued', responsible: 'Clinician', channel: 'In app' },
   { id: 'notified', title: 'Authorised parties notified', responsible: 'Coordinator', channel: 'Integration not connected' },
 ];
+
+export const MEDICAL_RECORD_TYPE_FOR: Record<MedicalAssessmentType, MedicalType> = {
+  'Pre-employment': 'Pre-Employment',
+  Periodic: 'Annual Occupational',
+  Transfer: 'Transfer',
+};
+
+export const MEDICAL_RESULT_FOR_OUTCOME: Record<Exclude<FitnessOutcome, 'not_recorded'>, string> = {
+  fit: 'Fit for duty',
+  fit_with_restrictions: 'Fit with Restrictions',
+  not_fit_pending_review: 'Pending further assessment',
+};
 
 export const MEDICAL_ASSESSMENT_GUIDANCE: Record<string, { requiredInfo: string; nextStep: string }> = {
   work_order: { requiredInfo: 'An approved onboarding work order linked to this assessment.', nextStep: 'Approve the work order in onboarding, then link it here.' },

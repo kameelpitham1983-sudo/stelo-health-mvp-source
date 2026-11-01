@@ -84,7 +84,8 @@ export type MedicalType =
   | 'Drug & Alcohol Screen'
   | 'Audiometry'
   | 'Spirometry'
-  | 'Vision Test';
+  | 'Vision Test'
+  | 'Transfer';
 
 export type MedicalStatus = 'Completed' | 'Scheduled' | 'In Progress' | 'Overdue' | 'Cancelled';
 

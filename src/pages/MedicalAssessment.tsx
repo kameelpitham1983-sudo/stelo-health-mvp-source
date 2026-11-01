@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { ArrowLeft, CheckCircle2, Circle, ClipboardCheck, Plus } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
-import { isDemoMode, useCases, useEmployees, useMedicals } from '@/hooks/useSupabaseData';
+import { isDemoMode, saveDemoMedicalOverride, useCases, useEmployees, useMedicals } from '@/hooks/useSupabaseData';
 import { useOnboardingCases } from '@/hooks/useOnboardingCases';
 import { useMedicalAssessments, type MedicalAssessmentPatch } from '@/hooks/useMedicalAssessments';
 import { MedicalAssessmentStagePanel } from '@/components/MedicalAssessmentStagePanel';
 import {
   MEDICAL_ASSESSMENT_NOTICE,
   MEDICAL_ASSESSMENT_STEPS,
+  MEDICAL_RECORD_TYPE_FOR,
+  MEDICAL_RESULT_FOR_OUTCOME,
   getMedicalAssessmentStatusLabel,
   getMedicalAssessmentStepId,
   type MedicalAssessmentType,
@@ -20,7 +22,7 @@ const ASSESSMENT_TYPES: MedicalAssessmentType[] = ['Pre-employment', 'Periodic',
 export function MedicalAssessment() {
   const { user } = useApp();
   const { data: employees } = useEmployees();
-  const { data: medicals } = useMedicals();
+  const { data: medicals, updateMedical } = useMedicals();
   const { data: cases } = useCases();
   const { cases: onboardingCases } = useOnboardingCases();
   const { records, error, createRecord, updateRecord } = useMedicalAssessments();
@@ -37,7 +39,7 @@ export function MedicalAssessment() {
   const canClinical = can(user, 'medicalAssessment.outcome');
   const selected = records.find((r) => r.id === selectedId) ?? null;
   const chosenEmployee = employees.find((e) => e.id === employeeId) ?? null;
-  const employeeMedicals = medicals.filter((m) => m.employeeId === employeeId);
+  const employeeMedicals = medicals.filter((m) => m.employeeId === employeeId && m.type === MEDICAL_RECORD_TYPE_FOR[assessmentType]);
   const chosenMedical = employeeMedicals.find((m) => m.id === medicalId) ?? null;
   const approvedWorkOrders = onboardingCases.filter((c) => c.data.workOrderStatus === 'approved' && c.companyName === chosenEmployee?.companyName);
   const chosenWorkOrder = approvedWorkOrders.find((c) => c.id === onboardingCaseId) ?? null;
@@ -77,11 +79,25 @@ export function MedicalAssessment() {
   const handleUpdate = async (patch: MedicalAssessmentPatch, action: string, permission: PermissionAction) => {
     if (!selected) return;
     await updateRecord(selected.id, patch, action, permission);
+    const outcome = patch.fitnessOutcome;
+    if (!outcome || outcome === 'not_recorded') return;
+    const findings = patch.findings ?? selected.findings;
+    const restrictions = patch.restrictions ?? selected.restrictions;
+    const medicalPatch = {
+      result: MEDICAL_RESULT_FOR_OUTCOME[outcome],
+      status: 'Completed' as const,
+      notes: `Findings: ${findings || 'None recorded'}. Restrictions: ${restrictions || 'None recorded'}.`,
+    };
+    if (isDemoMode) {
+      saveDemoMedicalOverride(selected.medicalId, medicalPatch);
+    } else {
+      await updateMedical(selected.medicalId, medicalPatch);
+    }
   };
 
   const modeBanner = isDemoMode
-    ? 'Demo Mode: simulated records held in this browser session. Nothing is saved to the live database.'
-    : 'Live: medical assessment storage is not connected yet. See the message below.';
+    ? 'Demo Mode: simulated records held in this browser session. Nothing is saved to the live database. Recorded outcomes update the linked Medical record in this session only.'
+    : 'Live: recording an approved outcome also updates the linked Medical record.';
 
   const currentStepId = selected ? getMedicalAssessmentStepId(selected) : null;
   const currentIndex = MEDICAL_ASSESSMENT_STEPS.findIndex((s) => s.id === currentStepId);

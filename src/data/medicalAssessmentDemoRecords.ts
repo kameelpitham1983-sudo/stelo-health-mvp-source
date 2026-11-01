@@ -54,5 +54,23 @@ export function createDemoMedicalAssessments(): MedicalAssessmentRecord[] {
       worksiteRequirements: `${DEMO_NOTE} Annual occupational review, no change in duties.`,
       auditTrail: [{ action: 'Demo journey seeded', actorName: 'Demo', actorRole: 'admin', at: '2026-10-27T09:00:00.000Z' }],
     },
+    {
+      ...createEmptyMedicalAssessment({
+        employeeId: 'e1',
+        employeeName: 'Michael Torres',
+        companyId: 'c1',
+        companyName: 'Meridian Global Logistics',
+        assessmentType: 'Transfer',
+        medicalId: 'm12',
+        medicalRecordType: 'Transfer',
+        onboardingCaseId: 'demo-work-order-approved',
+        workOrderApproved: true,
+        mode: 'demo',
+        caseId: null,
+        caseReference: '',
+      }),
+      worksiteRequirements: `${DEMO_NOTE} Transfer to a new site. Site requirements to be confirmed.`,
+      auditTrail: [{ action: 'Demo journey seeded', actorName: 'Demo', actorRole: 'admin', at: '2026-10-27T09:00:00.000Z' }],
+    },
   ];
 }
