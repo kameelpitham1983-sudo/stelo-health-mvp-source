@@ -1,25 +1,27 @@
 import { useState } from 'react';
 import { CheckCircle2, Lock } from 'lucide-react';
 import { useProviders } from '@/hooks/useSupabaseData';
-import type { PermissionAction } from '@/lib/permissions';
+import type { MedicalAssessmentPatch } from '@/hooks/useMedicalAssessments';
 import {
   MEDICAL_ASSESSMENT_GUIDANCE,
   MEDICAL_ASSESSMENT_STEPS,
   OUTCOME_LABELS,
   getMedicalAssessmentStepId,
   getOutcomeGateBlocker,
+  labsRequested,
   type FitnessOutcome,
   type MedicalAssessmentRecord,
   type QuestionnaireStatus,
 } from '@/lib/medicalAssessmentWorkflow';
-import type { MedicalAssessmentPatch } from '@/hooks/useMedicalAssessments';
 
 interface Props {
   record: MedicalAssessmentRecord;
   canManage: boolean;
   canClinical: boolean;
-  onUpdate: (patch: MedicalAssessmentPatch, action: string, permission: PermissionAction) => Promise<void>;
+  onUpdate: (patch: MedicalAssessmentPatch, action: string) => Promise<void>;
 }
+
+const CLINICAL_STAGES = ['history', 'clinician_review', 'additional_review', 'outcome'];
 
 const QUESTIONNAIRE_OPTIONS: { value: QuestionnaireStatus; label: string }[] = [
   { value: 'not_sent', label: 'Not sent' },
@@ -40,11 +42,11 @@ export function MedicalAssessmentStagePanel({ record, canManage, canClinical, on
 
   const value = (key: string, fallback: string) => draft[key] ?? fallback;
 
-  const run = async (patch: MedicalAssessmentPatch, action: string, permission: PermissionAction) => {
+  const run = async (patch: MedicalAssessmentPatch, action: string) => {
     setSaving(true);
     setError(null);
     try {
-      await onUpdate(patch, action, permission);
+      await onUpdate(patch, action);
       setDraft({});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The change could not be saved.');
@@ -56,6 +58,7 @@ export function MedicalAssessmentStagePanel({ record, canManage, canClinical, on
   const outcomeBlocker = getOutcomeGateBlocker(record);
   const clinicalDisabled = !canClinical || saving;
   const manageDisabled = !canManage || saving;
+  const isClinicalStage = stepId !== null && CLINICAL_STAGES.includes(stepId);
 
   const renderForm = () => {
     switch (stepId) {
@@ -65,25 +68,28 @@ export function MedicalAssessmentStagePanel({ record, canManage, canClinical, on
         return (
           <div className="space-y-2">
             <textarea className="input w-full min-h-[96px]" disabled={manageDisabled} placeholder="Worksite and job requirements" value={value('details', record.worksiteRequirements)} onChange={(e) => setDraft({ ...draft, details: e.target.value })} />
-            <button className="btn-primary" disabled={manageDisabled || value('details', record.worksiteRequirements).trim() === ''} onClick={() => run({ worksiteRequirements: value('details', record.worksiteRequirements) }, 'Worksite requirements recorded', 'medicalAssessment.manage')}>Save requirements</button>
+            <button className="btn-primary" disabled={manageDisabled || value('details', record.worksiteRequirements).trim() === ''} onClick={() => run({ worksiteRequirements: value('details', record.worksiteRequirements) }, 'Worksite requirements recorded')}>Save requirements</button>
           </div>
         );
       case 'consent':
         return (
           <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled} checked={record.consentRecorded} onChange={(e) => run({ consentRecorded: e.target.checked }, e.target.checked ? 'Employee consent recorded' : 'Employee consent withdrawn', 'medicalAssessment.manage')} /> Employee consent recorded</label>
-            <select className="input w-full" disabled={manageDisabled} value={record.questionnaireStatus} onChange={(e) => run({ questionnaireStatus: e.target.value as QuestionnaireStatus }, 'Questionnaire status updated', 'medicalAssessment.manage')}>
+            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled} checked={record.consentRecorded} onChange={(e) => run({ consentRecorded: e.target.checked }, e.target.checked ? 'Employee consent recorded' : 'Employee consent withdrawn')} /> Employee consent recorded</label>
+            <select className="input w-full" disabled={manageDisabled} value={record.questionnaireStatus} onChange={(e) => run({ questionnaireStatus: e.target.value as QuestionnaireStatus }, 'Questionnaire status updated')}>
               {QUESTIONNAIRE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         );
       case 'history':
-        return <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={clinicalDisabled} checked={record.historyReviewed} onChange={(e) => run({ historyReviewed: e.target.checked }, 'Medical history marked as reviewed', 'medicalAssessment.outcome')} /> Medical history reviewed</label>;
+        return <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={clinicalDisabled} checked={record.historyReviewed} onChange={(e) => run({ historyReviewed: e.target.checked }, 'Medical history marked as reviewed')} /> Medical history reviewed</label>;
       case 'investigations':
         return (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <textarea className="input w-full min-h-[96px]" disabled={manageDisabled} placeholder="Investigations requested, or 'None required'" value={value('investigations', record.investigationsRequested)} onChange={(e) => setDraft({ ...draft, investigations: e.target.value })} />
-            <button className="btn-primary" disabled={manageDisabled || value('investigations', record.investigationsRequested).trim() === ''} onClick={() => run({ investigationsRequested: value('investigations', record.investigationsRequested) }, 'Investigations recorded', 'medicalAssessment.manage')}>Save investigations</button>
+            <button className="btn-primary" disabled={manageDisabled || value('investigations', record.investigationsRequested).trim() === ''} onClick={() => run({ investigationsRequested: value('investigations', record.investigationsRequested) }, 'Investigations recorded')}>Save investigations</button>
+            {labsRequested(record) && (
+              <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled} checked={record.labResultReceived} onChange={(e) => run({ labResultReceived: e.target.checked }, e.target.checked ? 'Laboratory result received' : 'Laboratory result marked as outstanding')} /> Laboratory result received</label>
+            )}
           </div>
         );
       case 'appointment':
@@ -91,14 +97,14 @@ export function MedicalAssessmentStagePanel({ record, canManage, canClinical, on
           <div className="space-y-3">
             <select className="input w-full" disabled={manageDisabled} value={record.providerName} onChange={(e) => {
               const p = providers.find((x) => x.name === e.target.value);
-              run({ providerId: p?.id ?? null, providerName: e.target.value }, 'Provider selected', 'medicalAssessment.manage');
+              run({ providerId: p?.id ?? null, providerName: e.target.value }, 'Provider selected');
             }}>
               <option value="">Select a provider</option>
               {providers.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
             </select>
-            <p className="text-xs text-ink-500">Labworks is a laboratory account and is not listed in the Provider Network yet. Provider availability is not checked by the app.</p>
-            <input type="date" className="input w-full" disabled={manageDisabled} value={record.appointmentDate} onChange={(e) => run({ appointmentDate: e.target.value }, 'Appointment date recorded', 'medicalAssessment.manage')} />
-            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled || record.providerName === '' || record.appointmentDate === ''} checked={record.appointmentConfirmed} onChange={(e) => run({ appointmentConfirmed: e.target.checked }, e.target.checked ? 'Appointment confirmed with provider' : 'Appointment confirmation removed', 'medicalAssessment.manage')} /> Appointment confirmed and employee notified</label>
+            <p className="text-xs text-ink-500">Labworks is a laboratory service, not a clinician, and is not part of the Provider Network. Provider availability is not checked by the app.</p>
+            <input type="date" className="input w-full" disabled={manageDisabled} value={record.appointmentDate} onChange={(e) => run({ appointmentDate: e.target.value }, 'Appointment date recorded')} />
+            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled || record.providerName === '' || record.appointmentDate === ''} checked={record.appointmentConfirmed} onChange={(e) => run({ appointmentConfirmed: e.target.checked }, e.target.checked ? 'Appointment confirmed with provider' : 'Appointment confirmation removed')} /> Appointment confirmed with the provider</label>
           </div>
         );
       case 'clinician_review':
@@ -107,23 +113,23 @@ export function MedicalAssessmentStagePanel({ record, canManage, canClinical, on
             <input className="input w-full" disabled={clinicalDisabled} placeholder="Reviewing clinician name" value={value('clinician', record.clinicianName)} onChange={(e) => setDraft({ ...draft, clinician: e.target.value })} />
             <textarea className="input w-full min-h-[96px]" disabled={clinicalDisabled} placeholder="Findings (entered by the clinician)" value={value('findings', record.findings)} onChange={(e) => setDraft({ ...draft, findings: e.target.value })} />
             <textarea className="input w-full min-h-[72px]" disabled={clinicalDisabled} placeholder="Restrictions, if any" value={value('restrictions', record.restrictions)} onChange={(e) => setDraft({ ...draft, restrictions: e.target.value })} />
-            <button className="btn-secondary" disabled={clinicalDisabled || value('clinician', record.clinicianName).trim() === ''} onClick={() => run({ clinicianName: value('clinician', record.clinicianName), findings: value('findings', record.findings), restrictions: value('restrictions', record.restrictions) }, 'Clinician findings saved', 'medicalAssessment.outcome')}>Save findings</button>
-            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={clinicalDisabled || record.clinicianName === ''} checked={record.clinicianReviewed} onChange={(e) => run({ clinicianReviewed: e.target.checked }, e.target.checked ? 'Clinician review completed' : 'Clinician review reopened', 'medicalAssessment.outcome')} /> Clinician review completed</label>
+            <button className="btn-secondary" disabled={clinicalDisabled || value('clinician', record.clinicianName).trim() === ''} onClick={() => run({ clinicianName: value('clinician', record.clinicianName), findings: value('findings', record.findings), restrictions: value('restrictions', record.restrictions) }, 'Clinician findings saved')}>Save findings</button>
+            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={clinicalDisabled || record.clinicianName === ''} checked={record.clinicianReviewed} onChange={(e) => run({ clinicianReviewed: e.target.checked }, e.target.checked ? 'Clinician review completed' : 'Clinician review reopened')} /> Clinician review completed</label>
           </div>
         );
       case 'additional_review':
         return (
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={clinicalDisabled} checked={record.additionalReviewRequired} onChange={(e) => run({ additionalReviewRequired: e.target.checked }, 'Additional review requirement set', 'medicalAssessment.outcome')} /> Additional clinical review required</label>
+            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={clinicalDisabled} checked={record.additionalReviewRequired} onChange={(e) => run({ additionalReviewRequired: e.target.checked }, 'Additional review requirement set')} /> Additional clinical review required</label>
             <textarea className="input w-full min-h-[72px]" disabled={clinicalDisabled} placeholder="Reason and clinician completing the review" value={value('additional', record.additionalReviewNote)} onChange={(e) => setDraft({ ...draft, additional: e.target.value })} />
-            <button className="btn-secondary" disabled={clinicalDisabled || value('additional', record.additionalReviewNote).trim() === ''} onClick={() => run({ additionalReviewNote: value('additional', record.additionalReviewNote) }, 'Additional review recorded', 'medicalAssessment.outcome')}>Save review note</button>
+            <button className="btn-secondary" disabled={clinicalDisabled || value('additional', record.additionalReviewNote).trim() === ''} onClick={() => run({ additionalReviewNote: value('additional', record.additionalReviewNote) }, 'Additional review recorded')}>Save review note</button>
           </div>
         );
       case 'outcome':
         return (
           <div className="space-y-2">
             {outcomeBlocker && <p className="flex items-start gap-2 text-sm text-warning-600 bg-warning-50 rounded-lg p-3"><Lock size={16} className="mt-0.5 shrink-0" /> {outcomeBlocker} The outcome cannot be recorded yet.</p>}
-            <select className="input w-full" disabled={clinicalDisabled || outcomeBlocker !== null} value={record.fitnessOutcome} onChange={(e) => run({ fitnessOutcome: e.target.value as FitnessOutcome }, `Clinician outcome recorded: ${OUTCOME_LABELS[e.target.value as FitnessOutcome]}`, 'medicalAssessment.outcome')}>
+            <select className="input w-full" disabled={clinicalDisabled || outcomeBlocker !== null} value={record.fitnessOutcome} onChange={(e) => run({ fitnessOutcome: e.target.value as FitnessOutcome }, `Clinician outcome recorded: ${OUTCOME_LABELS[e.target.value as FitnessOutcome]}`)}>
               <option value="not_recorded">Select outcome</option>
               {OUTCOME_OPTIONS.map((o) => <option key={o} value={o}>{OUTCOME_LABELS[o]}</option>)}
             </select>
@@ -134,14 +140,14 @@ export function MedicalAssessmentStagePanel({ record, canManage, canClinical, on
         return (
           <div className="space-y-2">
             <p className="text-xs text-ink-500">Confirms that the certificate or outcome pack was issued. The app does not generate certificates from this step.</p>
-            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled} checked={record.certificateIssued} onChange={(e) => run({ certificateIssued: e.target.checked }, 'Certificate or outcome pack confirmed', 'medicalAssessment.manage')} /> Certificate or outcome pack issued</label>
+            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled} checked={record.certificateIssued} onChange={(e) => run({ certificateIssued: e.target.checked }, 'Certificate or outcome pack confirmed')} /> Certificate or outcome pack issued</label>
           </div>
         );
       case 'notified':
         return (
           <div className="space-y-2">
             <p className="text-xs text-ink-500">No email or messaging is connected. Record here once you have notified the employer and employee yourself.</p>
-            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled} checked={record.completionNotified} onChange={(e) => run({ completionNotified: e.target.checked }, 'Authorised parties notified', 'medicalAssessment.manage')} /> Authorised parties notified</label>
+            <label className="flex items-center gap-2 text-sm text-ink-800"><input type="checkbox" disabled={manageDisabled} checked={record.completionNotified} onChange={(e) => run({ completionNotified: e.target.checked }, 'Authorised parties notified')} /> Authorised parties notified</label>
           </div>
         );
       default:
@@ -170,6 +176,7 @@ export function MedicalAssessmentStagePanel({ record, canManage, canClinical, on
       )}
       {error && <p className="text-sm text-red-700">{error}</p>}
       {!canManage && !canClinical && <p className="text-xs text-ink-500">View only for your role.</p>}
+      {isClinicalStage && !canClinical && <p className="text-xs text-ink-500">Clinical sections are recorded by an authorised provider clinician. Your role can view and coordinate this stage only.</p>}
       {renderForm()}
     </div>
   );

@@ -249,6 +249,8 @@ export const medicals: Medical[] = [
   { id: 'm10', employeeName: 'Robert Klein', employeeId: 'e5', companyName: 'Meridian Global Logistics', type: 'Annual Occupational', status: 'Completed', date: '2025-09-28', providerName: 'Dr. Sarah Chen', result: 'Fit for duty', notes: 'Routine annual check — no concerns.' },
   { id: 'm11', employeeName: 'Wei Zhang', employeeId: 'e13', companyName: 'BlueWave Maritime Services', type: 'Deployment Readiness', status: 'In Progress', date: '2025-10-20', providerName: 'Dr. Aisha Bello', result: 'Pending', notes: 'Deployment readiness triage questionnaire in progress — pending clinician review before vessel deployment.' },
   { id: 'm12', employeeName: 'Michael Torres', employeeId: 'e1', companyName: 'Meridian Global Logistics', type: 'Transfer', status: 'Scheduled', date: '2026-11-15', providerName: 'Dr. Sarah Chen', result: 'Pending', notes: '[Demo] Simulated transfer medical. Not a clinical record.' },
+  { id: 'm13', employeeName: 'Hannah Forbes', employeeId: 'e8', companyName: 'Northwind Energy plc', type: 'Annual Occupational', status: 'Scheduled', date: '2026-11-20', providerName: 'Dr. James Holt', result: 'Pending', notes: '[Demo] Simulated annual occupational medical. Not a clinical record.' },
+  { id: 'm14', employeeName: 'Liam MacKenzie', employeeId: 'e9', companyName: 'Northwind Energy plc', type: 'Pre-Employment', status: 'Scheduled', date: '2026-11-25', providerName: 'Dr. James Holt', result: 'Pending', notes: '[Demo] Simulated pre-employment medical. Not a clinical record.' },
 ];
 
 export const appointments: Appointment[] = [

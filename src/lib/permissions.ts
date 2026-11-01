@@ -57,7 +57,7 @@ const ACTION_ROLES = {
   'screening.review': ['admin', 'provider'],
   'medicalAssessment.view': ['admin', 'coordinator', 'provider'],
   'medicalAssessment.manage': ['admin', 'coordinator', 'provider'],
-  'medicalAssessment.outcome': ['admin', 'provider'],
+  'medicalAssessment.outcome': ['provider'],
   'clinical.view': ['admin', 'coordinator', 'provider', 'employee'],
   'confidential_note.view': ['admin', 'coordinator', 'provider'],
   'confidential_note.create': ['admin', 'provider'],

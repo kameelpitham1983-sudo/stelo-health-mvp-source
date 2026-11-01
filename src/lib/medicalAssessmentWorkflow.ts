@@ -31,6 +31,7 @@ export interface MedicalAssessmentRecord {
   questionnaireStatus: QuestionnaireStatus;
   historyReviewed: boolean;
   investigationsRequested: string;
+  labResultReceived: boolean;
   providerId: string | null;
   providerName: string;
   appointmentDate: string;
@@ -53,7 +54,7 @@ export interface MedicalAssessmentStep {
   id: string;
   title: string;
   responsible: string;
-  channel: 'In app' | 'Manual outside the app' | 'Integration not connected';
+  channel: 'In app' | 'Manual outside the app';
 }
 
 export const MEDICAL_ASSESSMENT_STEPS: MedicalAssessmentStep[] = [
@@ -62,12 +63,12 @@ export const MEDICAL_ASSESSMENT_STEPS: MedicalAssessmentStep[] = [
   { id: 'consent', title: 'Employee consent and questionnaire', responsible: 'Employee, coordinator', channel: 'In app' },
   { id: 'history', title: 'Medical history reviewed for clinician', responsible: 'Clinician', channel: 'In app' },
   { id: 'investigations', title: 'Investigations and laboratory requests', responsible: 'Coordinator', channel: 'Manual outside the app' },
-  { id: 'appointment', title: 'Provider appointment confirmed', responsible: 'Coordinator', channel: 'Integration not connected' },
+  { id: 'appointment', title: 'Provider appointment confirmed', responsible: 'Coordinator', channel: 'Manual outside the app' },
   { id: 'clinician_review', title: 'Clinician review and findings', responsible: 'Authorised clinician', channel: 'In app' },
   { id: 'additional_review', title: 'Additional clinical review (if required)', responsible: 'Authorised clinician', channel: 'In app' },
   { id: 'outcome', title: 'Clinician-authorised fitness outcome', responsible: 'Authorised clinician', channel: 'In app' },
   { id: 'certificate', title: 'Certificate or outcome pack issued', responsible: 'Clinician', channel: 'In app' },
-  { id: 'notified', title: 'Authorised parties notified', responsible: 'Coordinator', channel: 'Integration not connected' },
+  { id: 'notified', title: 'Authorised parties notified', responsible: 'Coordinator', channel: 'Manual outside the app' },
 ];
 
 export const MEDICAL_RECORD_TYPE_FOR: Record<MedicalAssessmentType, MedicalType> = {
@@ -87,7 +88,7 @@ export const MEDICAL_ASSESSMENT_GUIDANCE: Record<string, { requiredInfo: string;
   details: { requiredInfo: 'Assessment type and worksite or job requirements.', nextStep: 'Describe the worksite requirements, then move to consent.' },
   consent: { requiredInfo: 'Employee consent recorded and the medical questionnaire completed.', nextStep: 'Record consent and the questionnaire status. Consent is never assumed.' },
   history: { requiredInfo: 'Questionnaire responses reviewed for the clinician.', nextStep: 'Mark the medical history as reviewed for the clinician.' },
-  investigations: { requiredInfo: 'Investigations and laboratory requests, or a note that none are needed.', nextStep: 'Record the requests. Laboratory forms are prepared outside the app.' },
+  investigations: { requiredInfo: 'Investigations and laboratory requests, or "None required". Laboratory results must be received before clinician review when labs are requested.', nextStep: 'Record the requests. Laboratory forms are prepared outside the app. Tick when the laboratory result is received.' },
   appointment: { requiredInfo: 'A provider from the Provider Network and a confirmed appointment date.', nextStep: 'Confirm the appointment and tell the employee. Availability is not checked by the app.' },
   clinician_review: { requiredInfo: 'Clinician name, findings and any restrictions.', nextStep: 'The authorised clinician records findings and marks the review complete.' },
   additional_review: { requiredInfo: 'Reason for additional clinical review.', nextStep: 'Record the additional review requirement and the clinician who will complete it.' },
@@ -106,11 +107,21 @@ export const OUTCOME_LABELS: Record<FitnessOutcome, string> = {
 export const MEDICAL_ASSESSMENT_NOTICE =
   'Clinical decisions, restrictions and fitness outcomes are recorded by an authorised clinician. The app does not determine fitness and does not approve clinical content.';
 
+export function labsRequested(r: Pick<MedicalAssessmentRecord, 'investigationsRequested'>): boolean {
+  const requested = r.investigationsRequested.trim();
+  return requested !== '' && requested.toLowerCase() !== 'none required';
+}
+
 export function getOutcomeGateBlocker(r: MedicalAssessmentRecord): string | null {
   if (!r.workOrderApproved) return 'The onboarding work order has not been approved.';
+  if (r.worksiteRequirements.trim() === '') return 'The worksite requirements have not been recorded.';
   if (!r.consentRecorded) return 'Employee consent has not been recorded.';
   if (r.questionnaireStatus !== 'completed') return 'The medical questionnaire has not been completed.';
-  if (!r.clinicianReviewed) return 'A clinician has not reviewed the findings.';
+  if (!r.historyReviewed) return 'The medical history has not been reviewed for the clinician.';
+  if (r.investigationsRequested.trim() === '') return 'Investigations have not been recorded (enter "None required" if none).';
+  if (!r.appointmentConfirmed) return 'The provider appointment has not been confirmed.';
+  if (labsRequested(r) && !r.labResultReceived) return 'The requested laboratory result has not been received.';
+  if (!r.clinicianReviewed || r.clinicianName.trim() === '') return 'A named clinician has not completed the review of the findings.';
   if (r.additionalReviewRequired && r.additionalReviewNote.trim() === '') return 'Additional review is required but has not been recorded.';
   return null;
 }
@@ -121,6 +132,7 @@ export function getMedicalAssessmentStepId(r: MedicalAssessmentRecord): string |
   if (!r.consentRecorded || r.questionnaireStatus !== 'completed') return 'consent';
   if (!r.historyReviewed) return 'history';
   if (r.investigationsRequested.trim() === '') return 'investigations';
+  if (labsRequested(r) && !r.labResultReceived) return 'investigations';
   if (!r.appointmentConfirmed) return 'appointment';
   if (!r.clinicianReviewed) return 'clinician_review';
   if (r.additionalReviewRequired && r.additionalReviewNote.trim() === '') return 'additional_review';
@@ -137,7 +149,7 @@ export function getMedicalAssessmentStatusLabel(r: MedicalAssessmentRecord): str
     case 'details': return 'Awaiting assessment details';
     case 'consent': return 'Awaiting consent and questionnaire';
     case 'history': return 'Awaiting history review';
-    case 'investigations': return 'Awaiting investigation requests';
+    case 'investigations': return labsRequested(r) && !r.labResultReceived ? 'Awaiting laboratory result' : 'Awaiting investigation requests';
     case 'appointment': return 'Awaiting appointment confirmation';
     case 'clinician_review': return 'Awaiting clinician review';
     case 'additional_review': return 'Additional clinical review required';
@@ -165,6 +177,7 @@ export function createEmptyMedicalAssessment(
     questionnaireStatus: 'not_sent',
     historyReviewed: false,
     investigationsRequested: '',
+    labResultReceived: false,
     providerName: '',
     appointmentDate: '',
     appointmentConfirmed: false,

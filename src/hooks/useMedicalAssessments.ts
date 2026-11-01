@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { isDemoMode } from '@/hooks/useSupabaseData';
-import { assertCan, can, type PermissionAction } from '@/lib/permissions';
+import { assertCan, can } from '@/lib/permissions';
 import { readDemoState, writeDemoState } from '@/lib/demoStore';
 import {
   createEmptyMedicalAssessment,
@@ -12,6 +12,17 @@ import {
 import { createDemoMedicalAssessments } from '@/data/medicalAssessmentDemoRecords';
 
 export type MedicalAssessmentPatch = Partial<Omit<MedicalAssessmentRecord, 'id' | 'mode' | 'auditTrail' | 'createdAt'>>;
+
+const CLINICAL_FIELDS: (keyof MedicalAssessmentPatch)[] = [
+  'historyReviewed',
+  'clinicianName',
+  'findings',
+  'restrictions',
+  'clinicianReviewed',
+  'additionalReviewRequired',
+  'additionalReviewNote',
+  'fitnessOutcome',
+];
 
 export type NewMedicalAssessmentInput = Omit<Parameters<typeof createEmptyMedicalAssessment>[0], 'mode'>;
 
@@ -49,14 +60,16 @@ export function useMedicalAssessments() {
     id: string,
     patch: MedicalAssessmentPatch,
     action: string,
-    permission: PermissionAction,
   ): Promise<void> => {
-    assertCan(user, permission);
+    const touchesClinical = (Object.keys(patch) as (keyof MedicalAssessmentPatch)[]).some((key) => CLINICAL_FIELDS.includes(key));
+    assertCan(user, touchesClinical ? 'medicalAssessment.outcome' : 'medicalAssessment.manage');
     if (!isDemoMode) throw new Error(LIVE_UNAVAILABLE);
     const target = records.find((r) => r.id === id);
     if (!target) throw new Error('This medical assessment could not be found.');
+    if (touchesClinical && target.fitnessOutcome !== 'not_recorded') {
+      throw new Error('The clinical record is locked because an outcome has already been recorded.');
+    }
     const next = { ...target, ...patch };
-    if (patch.fitnessOutcome !== undefined) assertCan(user, 'medicalAssessment.outcome');
     if (patch.fitnessOutcome && patch.fitnessOutcome !== 'not_recorded') {
       const blocker = getOutcomeGateBlocker(next);
       if (blocker) throw new Error(blocker);

@@ -11,11 +11,11 @@ import {
   MEDICAL_ASSESSMENT_STEPS,
   MEDICAL_RECORD_TYPE_FOR,
   MEDICAL_RESULT_FOR_OUTCOME,
+  OUTCOME_LABELS,
   getMedicalAssessmentStatusLabel,
   getMedicalAssessmentStepId,
   type MedicalAssessmentType,
 } from '@/lib/medicalAssessmentWorkflow';
-import type { PermissionAction } from '@/lib/permissions';
 
 const ASSESSMENT_TYPES: MedicalAssessmentType[] = ['Pre-employment', 'Periodic', 'Transfer'];
 
@@ -76,17 +76,19 @@ export function MedicalAssessment() {
     }
   };
 
-  const handleUpdate = async (patch: MedicalAssessmentPatch, action: string, permission: PermissionAction) => {
+  const handleUpdate = async (patch: MedicalAssessmentPatch, action: string) => {
     if (!selected) return;
-    await updateRecord(selected.id, patch, action, permission);
+    await updateRecord(selected.id, patch, action);
     const outcome = patch.fitnessOutcome;
     if (!outcome || outcome === 'not_recorded') return;
+    const linked = medicals.find((m) => m.id === selected.medicalId);
     const findings = patch.findings ?? selected.findings;
     const restrictions = patch.restrictions ?? selected.restrictions;
+    const outcomeNote = `[${selected.assessmentType} assessment, ${new Date().toISOString().slice(0, 10)}] Outcome: ${OUTCOME_LABELS[outcome]}. Restrictions: ${restrictions || 'None recorded'}. Findings: ${findings || 'None recorded'}. Recorded by ${user?.name ?? 'Unknown'}.`;
     const medicalPatch = {
       result: MEDICAL_RESULT_FOR_OUTCOME[outcome],
       status: 'Completed' as const,
-      notes: `Findings: ${findings || 'None recorded'}. Restrictions: ${restrictions || 'None recorded'}.`,
+      notes: [linked?.notes, outcomeNote].filter(Boolean).join('\n'),
     };
     if (isDemoMode) {
       saveDemoMedicalOverride(selected.medicalId, medicalPatch);
@@ -187,10 +189,11 @@ export function MedicalAssessment() {
               const done = currentStepId === null || index < currentIndex;
               const current = index === currentIndex;
               return (
-                <li key={step.id} className={`flex items-center gap-2 text-sm ${current ? 'text-ink-900 font-medium' : done ? 'text-ink-600' : 'text-ink-400'}`}>
+                <li key={step.id} className={`flex flex-wrap items-center gap-2 text-sm ${current ? 'text-ink-900 font-medium' : done ? 'text-ink-600' : 'text-ink-400'}`}>
                   {done ? <CheckCircle2 size={16} className="text-success-600" /> : <Circle size={16} />}
                   <span>{step.title}</span>
-                  <span className="ml-auto text-xs text-ink-500">{step.channel}</span>
+                  <span className="text-xs text-ink-500">· {step.responsible}</span>
+                  <span className="ml-auto text-xs text-ink-500">{done ? 'Completed' : current ? 'Current' : 'Outstanding'} · {step.channel}</span>
                 </li>
               );
             })}
