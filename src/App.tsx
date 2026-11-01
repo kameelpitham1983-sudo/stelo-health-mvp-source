@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { Login } from '@/pages/Login';
 import { Layout } from '@/components/Layout';
-import { Dashboard } from '@/pages/Dashboard';
+import { RoleDashboard } from '@/pages/RoleDashboard';
 import { Companies } from '@/pages/Companies';
 import { Employees } from '@/pages/Employees';
 import { Medicals } from '@/pages/Medicals';
@@ -34,7 +34,7 @@ function AppContent() {
   if (!user) return <Login />;
 
   const pages: Record<string, React.ReactNode> = {
-    dashboard: <Dashboard />,
+    dashboard: <RoleDashboard />,
     workflows: <Workflows />,
     synopsis: <Synopsis />,
     certificates: <Certificates />,
@@ -60,7 +60,7 @@ function AppContent() {
   const allowed = canAccessPage(user.role, currentPage);
   return (
     <Layout>
-      {allowed ? pages[currentPage] : <Dashboard />}
+      {allowed ? pages[currentPage] : <RoleDashboard />}
       {showOnboarding && <GuidedOnboarding onComplete={completeOnboarding} onOpenPage={setPage} />}
     </Layout>
   );

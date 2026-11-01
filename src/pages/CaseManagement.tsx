@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useCases, useCompanies, useEmployees } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import type { CaseRecord, CaseType, CaseStatus, CasePriority } from '@/types';
 
@@ -168,7 +169,7 @@ export function CaseManagement({ onOpenCase }: CaseManagementProps) {
     return <div className="card p-6 text-center"><AlertCircle size={24} className="text-danger-500 mx-auto mb-2" /><p className="text-sm text-ink-600">Failed to load cases: {error}</p></div>;
   }
 
-  const canCreate = user?.role === 'admin' || user?.role === 'coordinator';
+  const canCreate = can(user, 'case.create');
 
   return (
     <div className="space-y-6">

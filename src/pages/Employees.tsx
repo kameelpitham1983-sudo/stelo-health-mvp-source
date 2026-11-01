@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useEmployees, useCompanies, useMedicals } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import type { Employee } from '@/types';
@@ -232,9 +233,11 @@ export function Employees() {
           <h2 className="text-xl font-display font-bold text-ink-900">Employees</h2>
           <p className="text-sm text-ink-500">{filtered.length} of {employees.length} employees</p>
         </div>
+        {can(user, 'employee.create') && (
         <button className="btn-primary" onClick={() => { setFormData(emptyForm); setShowAddForm(true); }}>
           <Plus size={16} /> Register Employee
         </button>
+        )}
       </div>
 
       {showAddForm && (

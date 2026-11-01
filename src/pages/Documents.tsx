@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { FileText, Search, Download, FileCheck2, Clock, XCircle, FileEdit, ChevronDown, X, AlertCircle, Plus, CalendarClock, AlertTriangle, ArrowLeft, Link2, User, Building2, Stethoscope, Calendar, Workflow, History, Lock, Replace } from 'lucide-react';
 import { useDocuments, useCompanies, useEmployees, useMedicals, useAppointments, useDocumentVersions, useLogAuditEvent } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
-import type { DocumentType, DocumentStatus, DocumentRecord } from '@/types';
+import type { DocumentType, DocumentStatus, DocumentRecord, User as AppUser } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'ink'> = {
   Verified: 'success',
@@ -298,7 +299,7 @@ export function Documents() {
           <h2 className="text-xl font-display font-bold text-ink-900">Documents</h2>
           <p className="text-sm text-ink-500">{filtered.length} documents</p>
         </div>
-        <button className="btn-primary" onClick={() => { setFormData(emptyForm); setEditingId(null); setShowForm(true); }}><FileText size={16} /> Upload Document</button>
+        {can(user, 'document.upload') && <button className="btn-primary" onClick={() => { setFormData(emptyForm); setEditingId(null); setShowForm(true); }}><FileText size={16} /> Upload Document</button>}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -402,6 +403,7 @@ export function Documents() {
                     <select
                       className="text-xs border border-ink-200 rounded-lg px-2 py-1 bg-white cursor-pointer focus:outline-none focus:border-brand-500"
                       value={doc.status}
+                      disabled={!can(user, 'document.verify')}
                       onChange={(e) => { e.stopPropagation(); handleStatusChange(doc.id, e.target.value as DocumentStatus); }}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -447,7 +449,7 @@ function DocumentDetail({
   appointments: { id: string; employeeName: string; type: string; date: string; providerName: string }[];
   employees: { id: string; name: string; jobTitle: string; companyName: string }[];
   companies: { id: string; name: string }[];
-  user: { name: string; role: string } | null;
+  user: AppUser | null;
 }) {
   const { data: versions, loading: versionsLoading } = useDocumentVersions(doc.id);
   const expiry = getExpiryStatus(doc.expiryDate);
@@ -458,7 +460,7 @@ function DocumentDetail({
   const [replaceNotes, setReplaceNotes] = useState('');
   const [replacing, setReplacing] = useState(false);
   const [replaceError, setReplaceError] = useState<string | null>(null);
-  const canReplace = user?.role === 'admin' || user?.role === 'coordinator' || user?.role === 'provider';
+  const canReplace = can(user, 'document.upload');
 
   const linkedEmployee = doc.employeeId ? employees.find((e) => e.id === doc.employeeId) : null;
   const linkedCompany = companies.find((c) => c.name === doc.companyName);
@@ -502,6 +504,7 @@ function DocumentDetail({
                 <select
                   className="input text-sm"
                   value={doc.status}
+                  disabled={!can(user, 'document.verify')}
                   onChange={(e) => onStatusChange(doc.id, e.target.value as DocumentStatus)}
                 >
                   <option>Draft</option>

@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import {
   Search,
   Plus,
@@ -71,6 +73,7 @@ const emptyForm: Partial<GOP> = {
 };
 
 export function GOPs() {
+  const { user } = useApp();
   const { data: gops, loading, addGOP, updateGOP, addGOPAuditEntry, addGOPInvoice, updateGOPInvoice } = useGOPs();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -326,9 +329,11 @@ export function GOPs() {
           <h2 className="text-xl font-display font-bold text-ink-900">Guarantees of Payment</h2>
           <p className="text-sm text-ink-500">{loading ? 'Loading...' : `${filtered.length} GOPs across all statuses`}</p>
         </div>
+        {can(user, 'gop.create') && (
         <button className="btn-primary" onClick={() => { setFormData(emptyForm); setShowForm(true); }}>
           <Plus size={16} /> Create GOP
         </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

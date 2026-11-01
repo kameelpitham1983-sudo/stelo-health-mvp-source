@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import {
   Plane,
   MapPin,
@@ -68,6 +70,7 @@ const allConsultationStatuses: TravelConsultationStatus[] = [
 ];
 
 export function TravelHealth() {
+  const { user } = useApp();
   const { data: travelHealth, loading, error } = useTravelHealth();
   const { data: employees } = useEmployees();
 
@@ -301,9 +304,11 @@ export function TravelHealth() {
           <h2 className="text-xl font-display font-bold text-ink-900">Travel Health</h2>
           <p className="text-sm text-ink-500">Pre-deployment travel risk assessments, consultations, and vaccine tracking</p>
         </div>
+        {can(user, 'medical.create') && (
         <button className="btn-primary" onClick={() => setShowCreateForm(true)}>
           <Plus size={16} /> New Consultation
         </button>
+        )}
       </div>
 
       {/* Stats */}

@@ -22,6 +22,7 @@ import {
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { isDemoMode, useHotels, useHotelBookings } from '@/hooks/useSupabaseData';
 import type { Hotel, HotelBooking, AccommodationCategory, AccommodationStatus } from '@/types';
 
@@ -248,7 +249,7 @@ export function Accommodation() {
               Bookings
             </button>
           </div>
-          {tab === 'directory' && (
+          {tab === 'directory' && can(user, 'provider.edit') && (
             <button className="btn-primary" onClick={() => { setFormData(emptyHotelForm); setShowForm(true); }}>
               <Plus size={16} /> Add Hotel
             </button>

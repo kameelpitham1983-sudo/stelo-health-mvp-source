@@ -3,6 +3,7 @@ import { Search, Building2, MapPin, Users, Calendar, Mail, Phone, ArrowLeft, Plu
 import { useCompanies } from '@/hooks/useSupabaseData';
 import { useEmployees, useMedicals } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import type { Company } from '@/types';
@@ -117,10 +118,12 @@ export function Companies() {
             <ArrowLeft size={16} />
             Back to Companies
           </button>
+          {can(user, 'company.edit') && (
           <button onClick={startEdit} className="btn-primary">
             <Edit3 size={16} />
             Edit Company
           </button>
+          )}
         </div>
 
         {showEditForm && (

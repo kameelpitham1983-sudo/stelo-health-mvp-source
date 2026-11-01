@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { isDemoMode, useProviders, useMedicals, useAppointments } from '@/hooks/useSupabaseData';
 import { providers as demoProviders, medicals as mockMedicals, appointments as mockAppointments } from '@/data/mockData';
 import { NotesPanel } from '@/components/NotesPanel';
@@ -239,7 +240,7 @@ export function Providers() {
           <h2 className="text-xl font-display font-bold text-ink-900">Provider Network</h2>
           <p className="text-sm text-ink-500">{filtered.length} providers across South Africa</p>
         </div>
-        {isAdmin && (
+        {can(user, 'provider.edit') && (
           <button className="btn-primary" onClick={() => { setFormData(emptyForm); setShowForm(true); }}>
             <Plus size={16} /> Add Provider
           </button>
@@ -666,7 +667,7 @@ function ProviderDetail({
       {/* Site visits tab */}
       {activeTab === 'siteVisits' && (
         <div className="space-y-4">
-          {isAdmin && !showSiteVisitForm && (
+          {can(user, 'provider.edit') && !showSiteVisitForm && (
             <button className="btn-primary" onClick={() => setShowSiteVisitForm(true)}><Plus size={16} /> Record Site Visit</button>
           )}
 

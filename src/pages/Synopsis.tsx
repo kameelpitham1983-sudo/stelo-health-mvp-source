@@ -16,6 +16,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import {
   useEmployees,
   useMedicals,
@@ -276,7 +277,7 @@ export function Synopsis() {
           <h3 className="font-display font-bold text-ink-900 mb-3 flex items-center gap-2"><StickyNote size={16} /> Meeting Notes</h3>
           <div className="flex gap-2 mb-4">
             <input className="input flex-1" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Add a meeting note..." onKeyDown={(e) => e.key === 'Enter' && handleAddNote()} />
-            <button onClick={handleAddNote} className="btn-primary"><Plus size={16} /> Add</button>
+            {can(user, 'medical.clinical_review') && <button onClick={handleAddNote} className="btn-primary"><Plus size={16} /> Add</button>}
           </div>
           <div className="space-y-2">
             {notes.map((n) => (
@@ -405,7 +406,7 @@ export function Synopsis() {
                     </Badge>
                   )}
                   {!isEditing ? (
-                    <button onClick={() => setIsEditing(true)} className="btn-secondary text-sm py-1.5"><Edit3 size={14} /> Edit</button>
+                    can(user, 'medical.clinical_review') ? <button onClick={() => setIsEditing(true)} className="btn-secondary text-sm py-1.5"><Edit3 size={14} /> Edit</button> : null
                   ) : (
                     <button onClick={() => setIsEditing(false)} className="btn-secondary text-sm py-1.5"><Check size={14} /> Done</button>
                   )}
@@ -463,7 +464,7 @@ export function Synopsis() {
                 <h3 className="font-display font-bold text-ink-900 mb-3 flex items-center gap-2"><StickyNote size={16} /> Meeting Notes</h3>
                 <div className="flex gap-2 mb-3">
                   <input className="input flex-1 text-sm" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Add note..." onKeyDown={(e) => e.key === 'Enter' && handleAddNote()} />
-                  <button onClick={handleAddNote} className="btn-secondary text-sm py-1.5"><Plus size={14} /></button>
+                  {can(user, 'medical.clinical_review') && <button onClick={handleAddNote} className="btn-secondary text-sm py-1.5"><Plus size={14} /></button>}
                 </div>
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
                   {notes.map((n) => (
@@ -484,7 +485,7 @@ export function Synopsis() {
                     <input className="input flex-1 text-sm" value={fuPerson} onChange={(e) => setFuPerson(e.target.value)} placeholder="Responsible person" />
                     <input className="input w-36 text-sm" type="date" value={fuDue} onChange={(e) => setFuDue(e.target.value)} />
                   </div>
-                  <button onClick={handleAddFollowUp} className="btn-secondary text-sm py-1.5 w-full"><Plus size={14} /> Add Action</button>
+                  {can(user, 'medical.clinical_review') && <button onClick={handleAddFollowUp} className="btn-secondary text-sm py-1.5 w-full"><Plus size={14} /> Add Action</button>}
                 </div>
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
                   {followUps.map((f) => (

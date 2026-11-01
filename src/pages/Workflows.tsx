@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useWorkflowDefinitions, useWorkflowInstances, useEmployees, useCompanies, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import type {
   WorkflowDefinition,
@@ -101,7 +102,7 @@ export function Workflows() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const canLaunch = user?.role === 'admin' || user?.role === 'coordinator' || user?.role === 'master_admin';
+  const canLaunch = can(user, 'case.edit');
   const canAdvance = canLaunch || user?.role === 'provider';
 
   const categories = useMemo(() => {

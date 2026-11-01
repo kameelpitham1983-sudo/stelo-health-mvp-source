@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useCases, useCaseActivity, useCompanies, useEmployees, useMedicals, useAppointments, useDocuments, useWorkflowInstances, useProviders, useAuditLog, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import type { CaseRecord, CaseType, CaseStatus, CasePriority } from '@/types';
@@ -100,7 +101,7 @@ export function CaseDetail({ caseId, onBack }: CaseDetailProps) {
     );
   }
 
-  const canEdit = user?.role === 'admin' || user?.role === 'coordinator';
+  const canEdit = can(user, 'case.edit');
   const sc = statusConfig[caseRecord.status];
   const isOverdue = caseRecord.status === 'overdue' || (caseRecord.targetCompletionDate && new Date(caseRecord.targetCompletionDate) < new Date() && caseRecord.status !== 'completed' && caseRecord.status !== 'cancelled');
 

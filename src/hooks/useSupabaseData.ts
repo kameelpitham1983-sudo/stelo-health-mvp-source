@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { useApp } from '@/context/AppContext';
+import { assertCan } from '@/lib/permissions';
 import * as mockData from '@/data/mockData';
 import type {
   Company,
@@ -82,11 +83,7 @@ function useSupabaseQuery<T>(
       setError(err.message);
     } else {
       const transformed = (rows as Record<string, unknown>[]).map(transform);
-      if (transformed.length === 0 && demoFallback) {
-        setData(demoFallback());
-      } else {
-        setData(transformed);
-      }
+      setData(transformed);
     }
     setLoading(false);
     loadedRef.current = true;
@@ -122,6 +119,7 @@ function transformCompany(row: Record<string, unknown>): Company {
 }
 
 export function useCompanies() {
+  const { user } = useApp();
   const { data, loading, error, refetch } = useSupabaseQuery<Company>(
     'companies',
     transformCompany,
@@ -132,6 +130,7 @@ export function useCompanies() {
 
   const addCompany = useCallback(async (company: Partial<Company>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'company.create');
     const { data: row, error: err } = await supabase
       .from('companies')
       .insert({
@@ -156,6 +155,7 @@ export function useCompanies() {
 
   const updateCompany = useCallback(async (id: string, updates: Partial<Company>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'company.edit');
     const { error: err } = await supabase
       .from('companies')
       .update({
@@ -202,6 +202,7 @@ function transformEmployee(row: Record<string, unknown>): Employee {
 }
 
 export function useEmployees() {
+  const { user } = useApp();
   const [data, setData] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -227,7 +228,7 @@ export function useEmployees() {
         emp.companyName = companyData?.name as string;
         return emp;
       });
-      setData(transformed.length > 0 ? transformed : mockData.employees);
+      setData(transformed);
     }
     setLoading(false);
   }, []);
@@ -238,6 +239,7 @@ export function useEmployees() {
 
   const addEmployee = useCallback(async (employee: Partial<Employee>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'employee.create');
     const nameParts = (employee.name || '').split(' ');    
     const firstName = nameParts[0] || '';
     const surname = nameParts.slice(1).join(' ') || '';
@@ -269,6 +271,8 @@ export function useEmployees() {
     nextAssessmentDue: string | null,
     restrictions?: string,
   ) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.clinical_review');
     const updateData: Record<string, unknown> = {
       fitness_outcome: fitnessOutcome,
       last_assessment_date: lastAssessmentDate || null,
@@ -316,6 +320,7 @@ export function useMedicals() {
 
   const addMedical = useCallback(async (medical: Partial<Medical>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.create');
     const { data: row, error: err } = await supabase
       .from('medicals')
       .insert({
@@ -349,6 +354,7 @@ export function useMedicals() {
 
   const updateMedical = useCallback(async (id: string, updates: Partial<Medical>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.edit');
     const prev = data.find((m) => m.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -408,6 +414,7 @@ export function useAppointments() {
 
   const addAppointment = useCallback(async (appt: Partial<Appointment>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'appointment.create');
     const { data: row, error: err } = await supabase
       .from('appointments')
       .insert({
@@ -442,6 +449,7 @@ export function useAppointments() {
 
   const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'appointment.edit');
     const prev = data.find((a) => a.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -542,6 +550,7 @@ export function useDocuments() {
 
   const addDocument = useCallback(async (doc: Partial<DocumentRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'document.upload');
     const { data: row, error: err } = await supabase
       .from('documents')
       .insert({
@@ -584,6 +593,7 @@ export function useDocuments() {
 
   const updateDocument = useCallback(async (id: string, updates: Partial<DocumentRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'document.verify');
     const prev = data.find((d) => d.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -610,6 +620,7 @@ export function useDocuments() {
 
   const replaceDocument = useCallback(async (id: string, replacement: Partial<DocumentRecord> & { versionNotes?: string }) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'document.upload');
     const prev = data.find((d) => d.id === id);
     if (!prev) throw new Error('Document not found');
 
@@ -928,6 +939,7 @@ export function useSicknessCases() {
 
   const addCase = useCallback(async (caseData: Partial<SicknessAbsenceCase>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.create');
     const { data: row, error: err } = await supabase
       .from('sickness_absence_cases')
       .insert({
@@ -967,6 +979,7 @@ export function useSicknessCases() {
 
   const updateCase = useCallback(async (id: string, updates: Partial<SicknessAbsenceCase>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.edit');
     const prev = data.find((c) => c.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.caseStatus !== undefined) updateData.case_status = updates.caseStatus;
@@ -1014,6 +1027,7 @@ function transformRiskAssessment(row: Record<string, unknown>): SicknessRiskAsse
 }
 
 export function useRiskAssessments(caseId: string | null) {
+  const { user } = useApp();
   const [data, setData] = useState<SicknessRiskAssessment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1040,6 +1054,7 @@ export function useRiskAssessments(caseId: string | null) {
 
   const addAssessment = useCallback(async (assessment: Partial<SicknessRiskAssessment>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.edit');
     const { error: err } = await supabase
       .from('sickness_risk_assessments')
       .insert({
@@ -1074,6 +1089,7 @@ function transformSynopsis(row: Record<string, unknown>): Synopsis {
 }
 
 export function useSynopses() {
+  const { user } = useApp();
   const { data, loading, error, refetch } = useSupabaseQuery<Synopsis>(
     'synopses',
     transformSynopsis,
@@ -1083,6 +1099,7 @@ export function useSynopses() {
 
   const addSynopsis = useCallback(async (syn: Partial<Synopsis>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.clinical_review');
     const { data: row, error: err } = await supabase
       .from('synopses')
       .insert({
@@ -1102,6 +1119,7 @@ export function useSynopses() {
 
   const updateSynopsis = useCallback(async (id: string, updates: Partial<Synopsis>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.clinical_review');
     const updateData: Record<string, unknown> = {};
     if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -1117,6 +1135,7 @@ export function useSynopses() {
 // --- Synopsis Meeting Notes ---
 
 export function useSynopsisNotes(synopsisId: string | null) {
+  const { user } = useApp();
   const [data, setData] = useState<SynopsisMeetingNote[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -1148,6 +1167,7 @@ export function useSynopsisNotes(synopsisId: string | null) {
 
   const addNote = useCallback(async (note: string, createdBy: string) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.clinical_review');
     const { error: err } = await supabase
       .from('synopsis_meeting_notes')
       .insert({ synopsis_id: synopsisId, note, created_by: createdBy });
@@ -1161,6 +1181,7 @@ export function useSynopsisNotes(synopsisId: string | null) {
 // --- Synopsis Follow-ups ---
 
 export function useSynopsisFollowUps(synopsisId: string | null) {
+  const { user } = useApp();
   const [data, setData] = useState<SynopsisFollowUp[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -1193,6 +1214,7 @@ export function useSynopsisFollowUps(synopsisId: string | null) {
 
   const addFollowUp = useCallback(async (action: string, responsiblePerson: string, dueDate: string | null) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.clinical_review');
     const { error: err } = await supabase
       .from('synopsis_follow_ups')
       .insert({ synopsis_id: synopsisId, action, responsible_person: responsiblePerson, due_date: dueDate });
@@ -1202,6 +1224,7 @@ export function useSynopsisFollowUps(synopsisId: string | null) {
 
   const toggleFollowUp = useCallback(async (id: string, completed: boolean) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.clinical_review');
     const { error: err } = await supabase
       .from('synopsis_follow_ups')
       .update({ completed: !completed })
@@ -1247,6 +1270,7 @@ function transformWorkflowDefinition(row: Record<string, unknown>): WorkflowDefi
 }
 
 export function useWorkflowDefinitions() {
+  const { user } = useApp();
   const [data, setData] = useState<WorkflowDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1265,10 +1289,10 @@ export function useWorkflowDefinitions() {
       .order('name', { ascending: true });
     if (err) {
       setError(err.message);
-      setData(mockData.workflowDefinitions);
+      setData([]);
     } else {
       const defs = (rows as Record<string, unknown>[]).map(transformWorkflowDefinition);
-      setData(defs.length > 0 ? defs : mockData.workflowDefinitions);
+      setData(defs);
     }
     setLoading(false);
   }, []);
@@ -1281,6 +1305,8 @@ export function useWorkflowDefinitions() {
     },
   ) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'workflow.edit');
+    assertCan(user, 'workflow.edit');
     const { data: row, error: err } = await supabase
       .from('workflow_definitions')
       .insert({
@@ -1320,6 +1346,7 @@ export function useWorkflowDefinitions() {
 
   const updateWorkflowDefinition = useCallback(async (id: string, updates: Partial<WorkflowDefinition>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'workflow.edit');
     const updateData: Record<string, unknown> = {};
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.category !== undefined) updateData.category = updates.category;
@@ -1396,10 +1423,10 @@ export function useWorkflowInstances() {
       .order('created_at', { ascending: false });
     if (err) {
       setError(err.message);
-      setData(mockData.workflowInstances);
+      setData([]);
     } else {
       const instances = (rows as Record<string, unknown>[]).map(transformWorkflowInstance);
-      setData(instances.length > 0 ? instances : mockData.workflowInstances);
+      setData(instances);
     }
     setLoading(false);
   }, []);
@@ -1415,6 +1442,7 @@ export function useWorkflowInstances() {
     notes: string,
   ) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.edit');
     const now = new Date();
     const catPrefix = (def.category || 'WF').split(' ')[0].toUpperCase().slice(0, 3);
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
@@ -1482,6 +1510,7 @@ export function useWorkflowInstances() {
     updates: Partial<Pick<WorkflowInstance, 'status' | 'currentStep' | 'notes' | 'assignedTo'>>,
   ) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.edit');
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.currentStep !== undefined) updateData.current_step = updates.currentStep;
@@ -1519,6 +1548,7 @@ export function useWorkflowInstances() {
     currentStep?: number,
   ) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.edit');
     const now = new Date().toISOString();
     const stepUpdate: Record<string, unknown> = {};
     if (updates.status !== undefined) {
@@ -1607,10 +1637,10 @@ export function useDigitalCertificates() {
       .order('created_at', { ascending: false });
     if (err) {
       setError(err.message);
-      setData(mockData.digitalCertificates);
+      setData([]);
     } else {
       const certs = (rows as Record<string, unknown>[]).map(transformCertificate);
-      setData(certs.length > 0 ? certs : mockData.digitalCertificates);
+      setData(certs);
     }
     setLoading(false);
   }, []);
@@ -1674,6 +1704,7 @@ export function useDigitalCertificates() {
 
   const updateCertificate = useCallback(async (id: string, updates: Partial<DigitalCertificate>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'certificate.issue');
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.title !== undefined) updateData.title = updates.title;
@@ -1690,6 +1721,7 @@ export function useDigitalCertificates() {
 
   const revokeCertificate = useCallback(async (id: string, reason: string) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'certificate.revoke');
     const now = new Date().toISOString();
     const { error: err } = await supabase
       .from('digital_certificates')
@@ -1705,6 +1737,7 @@ export function useDigitalCertificates() {
 
   const suspendCertificate = useCallback(async (id: string) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'certificate.suspend');
     const { error: err } = await supabase
       .from('digital_certificates')
       .update({ status: 'Suspended' })
@@ -1715,6 +1748,7 @@ export function useDigitalCertificates() {
 
   const reactivateCertificate = useCallback(async (id: string) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'certificate.revoke');
     const { error: err } = await supabase
       .from('digital_certificates')
       .update({ status: 'Active', revoked_reason: '', revoked_at: null })
@@ -1742,6 +1776,7 @@ function transformRecordNote(row: Record<string, unknown>): RecordNote {
 }
 
 export function useRecordNotes(recordType: string | null, recordId: string | null) {
+  const { user } = useApp();
   const [data, setData] = useState<RecordNote[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1775,6 +1810,7 @@ export function useRecordNotes(recordType: string | null, recordId: string | nul
 
   const addNote = useCallback(async (note: string, noteType: string, authorName: string, isConfidential: boolean) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    if (isConfidential) assertCan(user, 'confidential_note.view');
     const { error: err } = await supabase
       .from('record_notes')
       .insert({ record_type: recordType, record_id: recordId, note, note_type: noteType, author_name: authorName, is_confidential: isConfidential });
@@ -1826,6 +1862,7 @@ function transformProvider(row: Record<string, unknown>): Provider {
 }
 
 export function useProviders() {
+  const { user } = useApp();
   const [data, setData] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1844,10 +1881,10 @@ export function useProviders() {
       .order('name', { ascending: true });
     if (err) {
       setError(err.message);
-      setData(mockData.providers);
+      setData([]);
     } else {
       const providers = (rows as Record<string, unknown>[]).map(transformProvider);
-      setData(providers.length > 0 ? providers : mockData.providers);
+      setData(providers);
     }
     setLoading(false);
   }, []);
@@ -1856,6 +1893,7 @@ export function useProviders() {
 
   const addProvider = useCallback(async (provider: Partial<Provider>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'provider.edit');
     const { data: row, error: err } = await supabase
       .from('providers')
       .insert({
@@ -1896,6 +1934,7 @@ export function useProviders() {
 
   const updateProvider = useCallback(async (id: string, updates: Partial<Provider>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'provider.edit');
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.tier !== undefined) updateData.tier = updates.tier;
@@ -2009,6 +2048,7 @@ export function useCases() {
 
   const addCase = useCallback(async (caseData: Partial<CaseRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.create');
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
     const { data: existing } = await supabase
@@ -2082,6 +2122,7 @@ export function useCases() {
 
   const updateCase = useCallback(async (id: string, updates: Partial<CaseRecord>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, updates.assignedCoordinator !== undefined ? 'case.assign' : 'case.edit');
     const prev = data.find((c) => c.id === id);
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
@@ -2304,6 +2345,7 @@ export function useGOPs() {
 
   const addGOP = useCallback(async (gopData: Partial<GOP>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'gop.create');
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
     const { data: existing } = await supabase
@@ -2360,6 +2402,7 @@ export function useGOPs() {
 
   const updateGOP = useCallback(async (id: string, updates: Partial<GOP>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, updates.status === 'Approved' ? 'gop.approve' : 'gop.issue');
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.recipientType !== undefined) updateData.recipient_type = updates.recipientType;
@@ -2402,6 +2445,7 @@ export function useGOPs() {
 
   const addGOPInvoice = useCallback(async (gopId: string, invoice: Partial<GOPInvoice>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'gop.issue');
     const { data: row, error: err } = await supabase
       .from('gop_invoices')
       .insert({
@@ -2424,6 +2468,7 @@ export function useGOPs() {
 
   const updateGOPInvoice = useCallback(async (invoiceId: string, updates: Partial<GOPInvoice>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'gop.issue');
     const updateData: Record<string, unknown> = {};
     if (updates.invoiceNumber !== undefined) updateData.invoice_number = updates.invoiceNumber;
     if (updates.invoiceDate !== undefined) updateData.invoice_date = updates.invoiceDate || null;
@@ -2490,6 +2535,7 @@ function transformHotelBooking(row: Record<string, unknown>): HotelBooking {
 }
 
 export function useHotels() {
+  const { user } = useApp();
   const { data, loading, error, refetch } = useSupabaseQuery<Hotel>(
     'hotels',
     transformHotel,
@@ -2500,6 +2546,7 @@ export function useHotels() {
 
   const addHotel = useCallback(async (hotelData: Partial<Hotel>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'provider.edit');
     const { data: row, error: err } = await supabase
       .from('hotels')
       .insert({
@@ -2528,6 +2575,7 @@ export function useHotels() {
 
   const updateHotel = useCallback(async (id: string, updates: Partial<Hotel>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'provider.edit');
     const updateData: Record<string, unknown> = {};
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.category !== undefined) updateData.category = updates.category;
@@ -2553,6 +2601,7 @@ export function useHotels() {
 }
 
 export function useHotelBookings() {
+  const { user } = useApp();
   const [data, setData] = useState<HotelBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2583,6 +2632,7 @@ export function useHotelBookings() {
 
   const addBooking = useCallback(async (bookingData: Partial<HotelBooking>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'gop.issue');
     const { data: row, error: err } = await supabase
       .from('hotel_bookings')
       .insert({
@@ -2613,6 +2663,7 @@ export function useHotelBookings() {
 
   const updateBooking = useCallback(async (id: string, updates: Partial<HotelBooking>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'gop.issue');
     const updateData: Record<string, unknown> = {};
     if (updates.hotelId !== undefined) updateData.hotel_id = updates.hotelId || null;
     if (updates.hotelName !== undefined) updateData.hotel_name = updates.hotelName;
@@ -2731,6 +2782,7 @@ export function useVisaMedicalCases() {
 
   const addVisaMedicalCase = useCallback(async (caseData: Partial<VisaMedicalCase>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.create');
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
     const { data: existing } = await supabase
@@ -2787,6 +2839,7 @@ export function useVisaMedicalCases() {
 
   const updateVisaMedicalCase = useCallback(async (id: string, updates: Partial<VisaMedicalCase>) => {
     if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'case.edit');
     const updateData: Record<string, unknown> = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.appointmentId !== undefined) updateData.appointment_id = updates.appointmentId || null;

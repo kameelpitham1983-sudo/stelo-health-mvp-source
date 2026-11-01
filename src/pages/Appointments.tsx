@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2, Search, Stethoscope, ArrowRight } from 'lucide-react';
 import { useAppointments, useEmployees, useCompanies, useMedicals, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import type { Appointment, AppointmentType, AppointmentMode, AppointmentStatus } from '@/types';
@@ -484,9 +485,11 @@ export function Appointments() {
           <h2 className="text-xl font-display font-bold text-ink-900">Appointments</h2>
           <p className="text-sm text-ink-500">{upcoming.length} upcoming · {appointments.length} total</p>
         </div>
+        {can(user, 'appointment.create') && (
         <button className="btn-primary" onClick={() => { setFormData(emptyForm); setEditingId(null); setShowForm(true); }}>
           <Plus size={16} /> Book Appointment
         </button>
+        )}
       </div>
 
       <div className="flex gap-2">

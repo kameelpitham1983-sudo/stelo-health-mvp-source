@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { isDemoMode, useVisaMedicalCases } from '@/hooks/useSupabaseData';
 import { visaCountryRequirements } from '@/data/mockData';
 import type {
@@ -376,7 +377,7 @@ export function VisaMedicals() {
           <button className="btn-secondary" onClick={() => setShowRequirements(true)}>
             <Info size={16} /> Country Requirements
           </button>
-          {isProvider && (
+          {can(user, 'case.create') && (
             <button className="btn-primary" onClick={() => { setFormData(emptyForm); setShowForm(true); }}>
               <Plus size={16} /> New Visa Medical
             </button>

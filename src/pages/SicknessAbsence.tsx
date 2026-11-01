@@ -18,6 +18,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import {
   useSicknessCases,
   useRiskAssessments,
@@ -553,7 +554,7 @@ export function SicknessAbsence() {
               <textarea className="input w-full min-h-[60px] resize-y" value={riskNotes} onChange={(e) => setRiskNotes(e.target.value)} placeholder="Explanatory notes..." />
             </div>
           </div>
-          <button onClick={handleAddRisk} className="btn-secondary"><Plus size={16} /> Add Risk Assessment</button>
+          {can(user, 'case.edit') && <button onClick={handleAddRisk} className="btn-secondary"><Plus size={16} /> Add Risk Assessment</button>}
 
           {/* Existing risk assessments */}
           {currentRiskAssessments.length > 0 && (
@@ -665,7 +666,7 @@ export function SicknessAbsence() {
                 <textarea className="input w-full min-h-[60px] resize-y" value={formData.jobDuties || ''} onChange={(e) => setFormData({ ...formData, jobDuties: e.target.value })} placeholder="Relevant work duties and physical demands" />
               </div>
             </div>
-            <button type="submit" disabled={submitting} className="btn-primary">
+            <button type="submit" disabled={submitting || !can(user, 'case.create')} className="btn-primary">
               {submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Plus size={16} /> Create Case</>}
             </button>
           </form>

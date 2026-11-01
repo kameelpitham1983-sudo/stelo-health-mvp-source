@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp, type NavContext } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck, ClipboardList, Lock } from 'lucide-react';
 import { useMedicals, useEmployees, useCompanies } from '@/hooks/useSupabaseData';
 import { isDemoMode } from '@/hooks/useSupabaseData';
@@ -204,9 +205,11 @@ export function Medicals() {
             <button onClick={() => setPageWithContext('appointments', { employeeId: med.employeeId, employeeName: med.employeeName, companyName: med.companyName, medicalId: med.id })} className="btn-secondary">
               <Calendar size={16} /> Book Appointment
             </button>
+            {can(user, 'clinical.view') && (
             <button onClick={() => setShowQuestionnaire(true)} className="btn-secondary">
               <ClipboardList size={16} /> Questionnaire
             </button>
+            )}
             {isProvider && (
               <button onClick={() => startEdit(med)} className="btn-primary">
                 <Edit3 size={16} />
@@ -306,9 +309,11 @@ export function Medicals() {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-bold text-ink-900 flex items-center gap-2"><ClipboardList size={18} className="text-brand-600" /> Medical Questionnaire</h3>
+            {can(user, 'clinical.view') && (
             <button onClick={() => setShowQuestionnaire(true)} className="btn-secondary text-sm">
               <ClipboardList size={14} /> Open Questionnaire
             </button>
+            )}
           </div>
           <QuestionnaireStatusBadge medicalId={med.id} version={questionnaireVersion} />
         </div>
@@ -429,7 +434,7 @@ export function Medicals() {
           <h2 className="text-xl font-display font-bold text-ink-900">Medicals</h2>
           <p className="text-sm text-ink-500">{filtered.length} medical assessments</p>
         </div>
-        {isProvider && (
+        {can(user, 'medical.create') && (
           <button className="btn-primary" onClick={() => { setFormData(emptyForm); setEditingId(null); setShowForm(true); }}>
             <Plus size={16} /> New Assessment
           </button>

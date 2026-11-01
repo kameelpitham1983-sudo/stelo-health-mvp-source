@@ -25,6 +25,7 @@ import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import { QRCode } from '@/components/QRCode';
 import { useApp } from '@/context/AppContext';
+import { can } from '@/lib/permissions';
 import { isDemoMode, useDigitalCertificates, useEmployees } from '@/hooks/useSupabaseData';
 import type { DigitalCertificate, CertificateType, CertificateStatus } from '@/types';
 
@@ -361,19 +362,21 @@ export function Certificates() {
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {selected.status === 'Active' && (
+                    {selected.status === 'Active' && can(user, 'certificate.suspend') && (
                       <button onClick={handleSuspend} disabled={busy} className="btn-secondary text-sm">
                         {busy ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />} Suspend
                       </button>
                     )}
-                    {selected.status === 'Suspended' && (
+                    {selected.status === 'Suspended' && can(user, 'certificate.revoke') && (
                       <button onClick={handleReactivate} disabled={busy} className="btn-secondary text-sm">
                         {busy ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />} Reactivate
                       </button>
                     )}
+                    {can(user, 'certificate.revoke') && (
                     <button onClick={() => setShowRevokeForm(true)} disabled={busy} className="btn-secondary text-sm">
                       <Ban size={14} /> Revoke Certificate
                     </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -424,7 +427,7 @@ export function Certificates() {
             {loading ? 'Loading...' : 'Membership cards, medical alert cards, and fitness certificates with QR verification'}
           </p>
         </div>
-        {canManage && (
+        {can(user, 'certificate.issue') && (
           <button className="btn-primary" onClick={() => { setFormData(emptyForm); setShowForm(true); }}>
             <Plus size={16} /> Issue Certificate
           </button>
