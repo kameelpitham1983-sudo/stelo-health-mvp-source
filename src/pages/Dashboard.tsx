@@ -30,8 +30,10 @@ import {
   useDocuments,
   useActivityEvents,
   useWorkflowInstances,
+  useVisaMedicalCases,
+  useProviders,
 } from '@/hooks/useSupabaseData';
-import { visaMedicalCases, travelConsultations, providers as demoProviders, workflowInstances as demoWorkflowInstances } from '@/data/mockData';
+import { travelConsultations, workflowInstances as demoWorkflowInstances } from '@/data/mockData';
 
 const activityIcons: Record<string, typeof ActivityIcon> = {
   medical: Stethoscope,
@@ -63,6 +65,8 @@ export function Dashboard() {
   const { data: documents } = useDocuments();
   const { data: activityFeed } = useActivityEvents();
   const { data: liveWorkflowInstances } = useWorkflowInstances();
+  const { data: visaCases } = useVisaMedicalCases();
+  const { data: providers } = useProviders();
 
   if (!user) return null;
 
@@ -76,14 +80,14 @@ export function Dashboard() {
   const travelActionsRequired = travelHealth.filter((t) => t.status === 'Action Required').length;
   const documentsPending = documents.filter((d) => d.status === 'Pending Review').length;
 
-  // Visa medicals & travel consultation stats (demo data)
-  const visaAwaitingDocs = visaMedicalCases.filter((v) => v.status === 'Awaiting Documents').length;
-  const visaQuestionnairePending = visaMedicalCases.filter(
+  // Visa medicals — live hook (falls back to mock data when DB is empty)
+  const visaAwaitingDocs = visaCases.filter((v) => v.status === 'Awaiting Documents').length;
+  const visaQuestionnairePending = visaCases.filter(
     (v) => v.status === 'Questionnaire Pending' || v.questionnaireStatus === 'Not Started' || v.questionnaireStatus === 'Draft',
   ).length;
-  const visaAwaitingReview = visaMedicalCases.filter((v) => v.status === 'Awaiting Clinician Review').length;
-  const visaCompleted = visaMedicalCases.filter((v) => v.status === 'Completed').length;
-  const visaFollowUps = visaMedicalCases.filter((v) => v.status === 'Follow-up Required').length;
+  const visaAwaitingReview = visaCases.filter((v) => v.status === 'Awaiting Clinician Review').length;
+  const visaCompleted = visaCases.filter((v) => v.status === 'Completed').length;
+  const visaFollowUps = visaCases.filter((v) => v.status === 'Follow-up Required').length;
   const upcomingTravelConsultations = travelConsultations.filter(
     (c) => c.status === 'Not Scheduled' || c.status === 'Scheduled',
   ).length;
@@ -91,13 +95,13 @@ export function Dashboard() {
     (c) => c.status === 'Post-Travel Review Required',
   ).length;
 
-  // Provider Network stats (demo data)
-  const providerTotal = demoProviders.length;
-  const providerVerified = demoProviders.filter((p) => p.status === 'Verified').length;
-  const providerPreferred = demoProviders.filter((p) => p.tier === 'Preferred').length;
-  const providerOnboarding = demoProviders.filter((p) => p.status === 'Onboarding' || p.status === 'Pending Verification').length;
-  const providerUnverified = demoProviders.filter((p) => p.status === 'Unverified').length;
-  const providerMobile = demoProviders.filter((p) => p.mobileServiceAvailable).length;
+  // Provider Network — live hook (falls back to mock data when DB is empty)
+  const providerTotal = providers.length;
+  const providerVerified = providers.filter((p) => p.status === 'Verified').length;
+  const providerPreferred = providers.filter((p) => p.tier === 'Preferred').length;
+  const providerOnboarding = providers.filter((p) => p.status === 'Onboarding' || p.status === 'Pending Verification').length;
+  const providerUnverified = providers.filter((p) => p.status === 'Unverified').length;
+  const providerMobile = providers.filter((p) => p.mobileServiceAvailable).length;
 
   const allWorkflowInstances = liveWorkflowInstances.length > 0 ? liveWorkflowInstances : demoWorkflowInstances;
   const activeWorkflows = allWorkflowInstances.filter((w) => w.status === 'In Progress').length;
@@ -384,9 +388,8 @@ export function Dashboard() {
             <VisaStatCard icon={Stethoscope} label="Awaiting Review" value={visaAwaitingReview} color="brand" />
             <VisaStatCard icon={ShieldCheck} label="Completed" value={visaCompleted} color="success" />
             <VisaStatCard icon={AlertCircle} label="Follow-ups Due" value={visaFollowUps} color="danger" />
-            <VisaStatCard icon={CalendarDays} label="Upcoming Appts" value={visaMedicalCases.filter((v) => v.appointmentDate).length} color="brand" />
+            <VisaStatCard icon={CalendarDays} label="Upcoming Appts" value={visaCases.filter((v) => v.appointmentDate).length} color="brand" />
           </div>
-          <p className="text-xs text-ink-400 mt-3">Demo data — visa medical cases are fictional sample records.</p>
         </div>
 
         {/* Travel Health consultations summary */}
@@ -407,7 +410,6 @@ export function Dashboard() {
             <VisaStatCard icon={Stethoscope} label="In Progress" value={travelHealth.filter((t) => t.status === 'In Progress').length} color="brand" />
             <VisaStatCard icon={ShieldCheck} label="Cleared" value={travelHealth.filter((t) => t.status === 'Cleared').length} color="success" />
           </div>
-          <p className="text-xs text-ink-400 mt-3">Demo data — travel consultations are fictional sample records.</p>
         </div>
       </div>
 
@@ -429,7 +431,6 @@ export function Dashboard() {
           <VisaStatCard icon={AlertCircle} label="Unverified" value={providerUnverified} color="danger" />
           <VisaStatCard icon={Truck} label="Mobile Units" value={providerMobile} color="brand" />
         </div>
-        <p className="text-xs text-ink-400 mt-3">Demo data — provider records are fictional with unverified placeholder fields.</p>
       </div>
 
       {/* Workflow Centre overview */}
