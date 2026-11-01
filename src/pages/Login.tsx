@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Lock, Mail, ArrowRight, HeartPulse, CheckCircle2, Globe, AlertCircle, UserPlus, Crown, Stethoscope, Building2, User, ClipboardList, FlaskConical } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowRight, HeartPulse, CheckCircle2, Globe, AlertCircle, UserPlus, Crown, Stethoscope, Building2, User, ClipboardList, FlaskConical, Info, X, ChevronRight } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useApp } from '@/context/AppContext';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
@@ -23,6 +23,7 @@ export function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [signUpRole, setSignUpRole] = useState<UserRole>('employee');
   const [demoRole, setDemoRole] = useState<UserRole>('admin');
+  const [showHelp, setShowHelp] = useState(false);
 
   const inferDemoRole = (address: string): UserRole => {
     if (address.includes('admin')) return 'admin';
@@ -65,6 +66,56 @@ export function Login() {
   };
 
   return <div className="min-h-screen flex">
+    {showHelp && (
+      <>
+        <div className="fixed inset-0 bg-ink-950/40 backdrop-blur-sm z-[90]" onClick={() => setShowHelp(false)} />
+        <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[95] flex flex-col animate-slide-in-right">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100 bg-brand-50/50">
+            <div className="flex items-center gap-2"><Info size={18} className="text-brand-600" /><h3 className="text-sm font-bold text-ink-900">Sign In — Help</h3></div>
+            <button onClick={() => setShowHelp(false)} className="btn-ghost p-1.5 -mr-1.5"><X size={18} /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            <section>
+              <h4 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1.5">Purpose</h4>
+              <p className="text-sm text-ink-700 leading-relaxed">Sign in to STelo Health or create a new account. If this is your first visit, use the sign-up form to register.</p>
+            </section>
+            <section>
+              <h4 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">Information Required</h4>
+              <ul className="space-y-1.5">
+                <li className="flex items-start gap-2 text-sm text-ink-700"><ChevronRight size={14} className="text-ink-300 shrink-0 mt-0.5" /><span>A valid email address</span></li>
+                <li className="flex items-start gap-2 text-sm text-ink-700"><ChevronRight size={14} className="text-ink-300 shrink-0 mt-0.5" /><span>A password of at least 6 characters</span></li>
+                <li className="flex items-start gap-2 text-sm text-ink-700"><ChevronRight size={14} className="text-ink-300 shrink-0 mt-0.5" /><span>For sign-up: an account type (Admin, Coordinator, Provider, Employer, Employee, or Lab/Specialist)</span></li>
+              </ul>
+            </section>
+            <section>
+              <h4 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">How to Complete</h4>
+              <ol className="space-y-2">
+                <li className="flex items-start gap-2.5 text-sm text-ink-700"><span className="h-5 w-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</span><span className="leading-relaxed">Enter your email address in the email field.</span></li>
+                <li className="flex items-start gap-2.5 text-sm text-ink-700"><span className="h-5 w-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</span><span className="leading-relaxed">Enter your password. The password is masked for security.</span></li>
+                <li className="flex items-start gap-2.5 text-sm text-ink-700"><span className="h-5 w-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</span><span className="leading-relaxed">If you are new, click "Sign up" and choose an account type. The first account registered becomes the admin; subsequent sign-ups default to Employee.</span></li>
+                <li className="flex items-start gap-2.5 text-sm text-ink-700"><span className="h-5 w-5 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">4</span><span className="leading-relaxed">Click "Sign In to Stelo Health" to access the platform.</span></li>
+              </ol>
+            </section>
+            <section className="p-3.5 bg-ink-50 rounded-lg">
+              <h4 className="text-xs font-bold text-ink-400 uppercase tracking-wider mb-1.5">Example</h4>
+              <p className="text-sm text-ink-700 leading-relaxed font-mono text-xs">Email: you@company.com · Password: at least 6 characters · Account type: Employer (for sign-up)</p>
+            </section>
+            <section className="p-3.5 bg-brand-50/50 rounded-lg border border-brand-100">
+              <h4 className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1.5 flex items-center gap-1"><CheckCircle2 size={12} /> What Happens Next</h4>
+              <p className="text-sm text-ink-700 leading-relaxed">After signing in, you will see the Dashboard. If this is your first login, a guided tour will appear automatically. You can revisit the Learning Centre anytime from the sidebar.</p>
+            </section>
+            <section>
+              <h4 className="text-xs font-bold text-warning-600 uppercase tracking-wider mb-2">Tips</h4>
+              <ul className="space-y-1.5">
+                <li className="flex items-start gap-2 text-sm text-ink-600"><Info size={12} className="text-warning-500 shrink-0 mt-1" /><span className="leading-relaxed">Privileged roles (Admin, Coordinator, Provider, Employer) are only assigned if no admin exists yet. Once an admin is registered, all new sign-ups receive Employee access and must be upgraded by an administrator.</span></li>
+                <li className="flex items-start gap-2 text-sm text-ink-600"><Info size={12} className="text-warning-500 shrink-0 mt-1" /><span className="leading-relaxed">If you see an error message, check your email and password and try again. Real Supabase error messages are shown.</span></li>
+              </ul>
+            </section>
+          </div>
+        </div>
+      </>
+    )}
+    <button onClick={() => setShowHelp(true)} className="fixed top-4 right-4 z-[80] btn-ghost p-2 bg-white/80 backdrop-blur-md rounded-full shadow-md" title="Help with sign in" aria-label="Help with sign in"><Info size={18} /></button>
     <div className="hidden lg:flex lg:w-[48%] xl:w-[52%] bg-gradient-to-br from-brand-900 via-brand-800 to-brand-950 relative overflow-hidden">
       <div className="absolute inset-0 bg-grid opacity-20" /><div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl" /><div className="absolute bottom-0 left-0 w-80 h-80 bg-brand-400/20 rounded-full blur-3xl" />
       <div className="relative flex flex-col justify-between p-12 xl:p-16 text-white w-full"><Logo size="lg" variant="dark" /><div className="max-w-md"><div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full mb-6"><HeartPulse size={14} className="text-teal-300" /><span className="text-xs font-semibold tracking-wide">AI-ENABLED HEALTH PLATFORM</span></div><h1 className="text-3xl xl:text-4xl font-display font-extrabold leading-tight mb-4">Occupational & travel health, managed with intelligence.</h1><p className="text-white/70 text-base leading-relaxed mb-8">Stelo Health unifies workforce medical records, travel risk assessments, and clinical appointments into one secure platform — powered by AI insights.</p><div className="space-y-3">{['Compliant occupational health screening at scale','Pre-travel risk intelligence with vaccine tracking','AI-assisted clinical decision support'].map((feature) => <div key={feature} className="flex items-center gap-3"><CheckCircle2 size={18} className="text-teal-300 shrink-0" /><span className="text-sm text-white/80">{feature}</span></div>)}</div></div><div className="flex items-center gap-6 text-white/50 text-xs"><div className="flex items-center gap-2"><Globe size={14} /><span>SOC 2 Type II</span></div><div className="flex items-center gap-2"><Lock size={14} /><span>End-to-end encrypted</span></div><div className="flex items-center gap-2"><ShieldCheck size={14} /><span>GDPR & HIPAA aligned</span></div></div></div>

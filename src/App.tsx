@@ -23,9 +23,11 @@ import { Certificates } from '@/pages/Certificates';
 import { AuditLog } from '@/pages/AuditLog';
 import { CaseManagement } from '@/pages/CaseManagement';
 import { CaseDetail } from '@/pages/CaseDetail';
+import { LearningCentre } from '@/pages/LearningCentre';
+import { GuidedOnboarding } from '@/components/GuidedOnboarding';
 
 function AppContent() {
-  const { user, currentPage, authReady, setPage } = useApp();
+  const { user, currentPage, authReady, setPage, showOnboarding, startOnboarding, completeOnboarding } = useApp();
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   if (!authReady) return <div className="min-h-screen flex items-center justify-center bg-ink-50"><div className="w-8 h-8 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
   if (!user) return <Login />;
@@ -52,8 +54,14 @@ function AppContent() {
     audit: <AuditLog />,
     cases: <CaseManagement onOpenCase={(id) => { setSelectedCaseId(id); setPage('caseDetail'); }} />,
     caseDetail: selectedCaseId ? <CaseDetail caseId={selectedCaseId} onBack={() => setPage('cases')} /> : null,
+    learning: <LearningCentre onStartOnboarding={startOnboarding} onboardingCompleted={!showOnboarding} />,
   };
-  return <Layout>{pages[currentPage]}</Layout>;
+  return (
+    <Layout>
+      {pages[currentPage]}
+      {showOnboarding && <GuidedOnboarding onComplete={completeOnboarding} onOpenPage={setPage} />}
+    </Layout>
+  );
 }
 
 function App() { return <AppProvider><AppContent /></AppProvider>; }

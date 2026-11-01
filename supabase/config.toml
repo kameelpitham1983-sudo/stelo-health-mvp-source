@@ -1,0 +1,3 @@
+[functions.invite-user]
+verify_jwt = true
+entrypoint = "./functions/invite-user/index.ts"

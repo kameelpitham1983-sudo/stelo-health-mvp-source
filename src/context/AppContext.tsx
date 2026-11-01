@@ -3,7 +3,7 @@ import type { UserRole, User } from '@/types';
 import { users } from '@/data/mockData';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
-export type PageId = 'dashboard' | 'workflows' | 'companies' | 'employees' | 'medicals' | 'appointments' | 'sickness' | 'travel' | 'visa' | 'providers' | 'gops' | 'accommodation' | 'documents' | 'reports' | 'ai' | 'settings' | 'synopsis' | 'certificates' | 'audit' | 'cases' | 'caseDetail';
+export type PageId = 'dashboard' | 'workflows' | 'companies' | 'employees' | 'medicals' | 'appointments' | 'sickness' | 'travel' | 'visa' | 'providers' | 'gops' | 'accommodation' | 'documents' | 'reports' | 'ai' | 'settings' | 'synopsis' | 'certificates' | 'audit' | 'cases' | 'caseDetail' | 'learning' | 'userManagement';
 
 interface AppContextValue {
   user: User | null;
@@ -14,6 +14,9 @@ interface AppContextValue {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   authReady: boolean;
+  showOnboarding: boolean;
+  startOnboarding: () => void;
+  completeOnboarding: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -23,6 +26,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [onboardingShown, setOnboardingShown] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const loadSessionUser = useCallback(async (session: { user: { id: string; email?: string } } | null) => {
     if (!session?.user) {
@@ -66,6 +71,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const login = useCallback((role: UserRole) => {
     setUser(users[role]);
     setCurrentPage('dashboard');
+    setShowOnboarding(true);
   }, []);
 
   const logout = useCallback(async () => {
@@ -79,7 +85,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSidebarOpen(false);
   }, []);
 
-  return <AppContext.Provider value={{ user, login, logout, currentPage, setPage, sidebarOpen, setSidebarOpen, authReady }}>{children}</AppContext.Provider>;
+  const startOnboarding = useCallback(() => {
+    setShowOnboarding(true);
+  }, []);
+
+  // Show onboarding when a user logs in via Supabase auth (first session)
+  useEffect(() => {
+    if (user && !onboardingShown) {
+      const key = `stelo_onboarding_${user.id}`;
+      if (!localStorage.getItem(key)) {
+        setShowOnboarding(true);
+      } else {
+        setOnboardingShown(true);
+      }
+    }
+  }, [user, onboardingShown]);
+
+  const completeOnboarding = useCallback(() => {
+    setShowOnboarding(false);
+    setOnboardingShown(true);
+    if (user) localStorage.setItem(`stelo_onboarding_${user.id}`, '1');
+  }, [user]);
+
+  return <AppContext.Provider value={{ user, login, logout, currentPage, setPage, sidebarOpen, setSidebarOpen, authReady, showOnboarding, startOnboarding, completeOnboarding }}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {

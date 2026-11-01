@@ -3,6 +3,7 @@ import { useApp, type PageId } from '@/context/AppContext';
 import { roles } from '@/data/mockData';
 import { useState, useRef, useEffect } from 'react';
 import { useEmployees, useCompanies } from '@/hooks/useSupabaseData';
+import { PageHelpButton } from '@/components/PageHelpButton';
 
 const pageTitles: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -135,6 +136,8 @@ export function Topbar() {
         <Bell size={18} />
         <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full" />
       </button>
+
+      <PageHelpButton />
 
       <div className="relative" ref={menuRef}>
         <button
