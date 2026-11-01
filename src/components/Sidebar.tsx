@@ -21,6 +21,7 @@ import {
   Award,
   History,
   Briefcase,
+  UserCheck,
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
@@ -35,6 +36,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'cases', label: 'Case Management', icon: Briefcase },
+  { id: 'onboarding', label: 'Onboarding', icon: UserCheck },
   { id: 'workflows', label: 'Workflow Centre', icon: Workflow },
   { id: 'synopsis', label: 'Synopsis', icon: ClipboardList },
   { id: 'certificates', label: 'Digital Identity', icon: Award },
