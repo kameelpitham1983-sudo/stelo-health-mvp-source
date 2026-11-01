@@ -20,6 +20,7 @@ import {
   Workflow,
   Award,
   History,
+  Briefcase,
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
@@ -34,6 +35,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'cases', label: 'Case Management', icon: Briefcase, roles: ['admin', 'coordinator', 'provider', 'employer'] },
   { id: 'workflows', label: 'Workflow Centre', icon: Workflow, roles: ['admin', 'coordinator', 'provider'] },
   { id: 'synopsis', label: 'Synopsis', icon: ClipboardList, roles: ['admin', 'provider'] },
   { id: 'certificates', label: 'Digital Identity', icon: Award, roles: ['admin', 'coordinator', 'provider', 'employer', 'employee'] },
