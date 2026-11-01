@@ -22,6 +22,8 @@ import type {
   WorkflowInstance,
   DigitalCertificate,
   RecordNote,
+  CaseRecord,
+  CaseActivityEntry,
 } from '@/types';
 
 // Demo data fallback: when the database is empty or unreachable, pages show
@@ -1378,4 +1380,255 @@ export function useRecordNotes(recordType: string | null, recordId: string | nul
   }, [recordType, recordId, refetch]);
 
   return { data, loading, refetch, addNote };
+}
+
+// --- Central Case Management ---
+
+function transformCase(row: Record<string, unknown>): CaseRecord {
+  return {
+    id: row.id as string,
+    caseReference: (row.case_reference as string) || '',
+    caseType: (row.case_type as string) as CaseRecord['caseType'],
+    title: (row.title as string) || '',
+    description: (row.description as string) || '',
+    companyId: (row.company_id as string) || null,
+    companyName: (row.company_name as string) || '',
+    employeeId: (row.employee_id as string) || null,
+    employeeName: (row.employee_name as string) || null,
+    assignedCoordinator: (row.assigned_coordinator as string) || '',
+    caseOwner: (row.case_owner as string) || '',
+    dateOpened: (row.date_opened as string) || '',
+    targetCompletionDate: (row.target_completion_date as string) || null,
+    priority: (row.priority as string) as CaseRecord['priority'],
+    status: (row.status as string) as CaseRecord['status'],
+    nextAction: (row.next_action as string) || null,
+    nextActionDueDate: (row.next_action_due_date as string) || null,
+    linkedMedicalId: (row.linked_medical_id as string) || null,
+    linkedAppointmentId: (row.linked_appointment_id as string) || null,
+    linkedTravelId: (row.linked_travel_id as string) || null,
+    linkedSicknessId: (row.linked_sickness_id as string) || null,
+    linkedWorkflowInstanceId: (row.linked_workflow_instance_id as string) || null,
+    providerId: (row.provider_id as string) || null,
+    providerName: (row.provider_name as string) || null,
+    laboratoryName: (row.laboratory_name as string) || null,
+    specialistName: (row.specialist_name as string) || null,
+    linkedDocumentIds: (row.linked_document_ids as string[]) || [],
+    closureNotes: (row.closure_notes as string) || null,
+    closureDate: (row.closure_date as string) || null,
+    createdBy: (row.created_by as string) || '',
+    createdAt: (row.created_at as string) || '',
+    updatedAt: (row.updated_at as string) || '',
+  };
+}
+
+function transformCaseActivity(row: Record<string, unknown>): CaseActivityEntry {
+  return {
+    id: row.id as string,
+    caseId: (row.case_id as string) || '',
+    activityType: (row.activity_type as string) as CaseActivityEntry['activityType'],
+    title: (row.title as string) || '',
+    description: (row.description as string) || null,
+    actorName: (row.actor_name as string) || '',
+    actorRole: (row.actor_role as string) || '',
+    metadata: (row.metadata as Record<string, unknown>) || null,
+    createdAt: (row.created_at as string) || '',
+  };
+}
+
+export function useCases() {
+  const { user } = useApp();
+  const [data, setData] = useState<CaseRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const logAudit = useLogAuditEvent();
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) { setData([]); setLoading(false); return; }
+    const { data: rows, error: err } = await supabase
+      .from('cases')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (err) { setError(err.message); }
+    else { setData((rows as Record<string, unknown>[]).map(transformCase)); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addCase = useCallback(async (caseData: Partial<CaseRecord>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const { data: existing } = await supabase
+      .from('cases')
+      .select('case_reference')
+      .like('case_reference', `STELO-${dateStr}-%`)
+      .order('case_reference', { ascending: false })
+      .limit(1);
+    const seqNum = existing && existing.length > 0
+      ? parseInt((existing[0] as Record<string, unknown>).case_reference as string, 10) + 1 || 1
+      : 1;
+    const caseReference = `STELO-${dateStr}-${String(seqNum).padStart(4, '0')}`;
+
+    const { data: row, error: err } = await supabase
+      .from('cases')
+      .insert({
+        case_reference: caseReference,
+        case_type: caseData.caseType || 'other',
+        title: caseData.title || '',
+        description: caseData.description || '',
+        company_id: caseData.companyId || null,
+        company_name: caseData.companyName || '',
+        employee_id: caseData.employeeId || null,
+        employee_name: caseData.employeeName || null,
+        assigned_coordinator: caseData.assignedCoordinator || '',
+        case_owner: caseData.caseOwner || '',
+        date_opened: caseData.dateOpened || new Date().toISOString().slice(0, 10),
+        target_completion_date: caseData.targetCompletionDate || null,
+        priority: caseData.priority || 'medium',
+        status: caseData.status || 'new',
+        next_action: caseData.nextAction || null,
+        next_action_due_date: caseData.nextActionDueDate || null,
+        linked_medical_id: caseData.linkedMedicalId || null,
+        linked_appointment_id: caseData.linkedAppointmentId || null,
+        linked_travel_id: caseData.linkedTravelId || null,
+        linked_sickness_id: caseData.linkedSicknessId || null,
+        linked_workflow_instance_id: caseData.linkedWorkflowInstanceId || null,
+        provider_id: caseData.providerId || null,
+        provider_name: caseData.providerName || null,
+        laboratory_name: caseData.laboratoryName || null,
+        specialist_name: caseData.specialistName || null,
+        created_by: user?.name || 'Unknown',
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    const created = transformCase(row as Record<string, unknown>);
+
+    await supabase.from('case_activity').insert({
+      case_id: created.id,
+      activity_type: 'created',
+      title: `Case ${created.caseReference} opened`,
+      description: created.title,
+      actor_name: user?.name || 'Unknown',
+      actor_role: user?.role || 'admin',
+    });
+
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'case',
+      recordId: created.id,
+      recordReference: created.caseReference,
+      action: 'create',
+      toStatus: created.status,
+      details: `Case created: ${created.title} (${created.caseType})`,
+    });
+    await refetch();
+    return created;
+  }, [refetch, user, logAudit]);
+
+  const updateCase = useCallback(async (id: string, updates: Partial<CaseRecord>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const prev = data.find((c) => c.id === id);
+    const updateData: Record<string, unknown> = {};
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.priority !== undefined) updateData.priority = updates.priority;
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.assignedCoordinator !== undefined) updateData.assigned_coordinator = updates.assignedCoordinator;
+    if (updates.caseOwner !== undefined) updateData.case_owner = updates.caseOwner;
+    if (updates.targetCompletionDate !== undefined) updateData.target_completion_date = updates.targetCompletionDate || null;
+    if (updates.nextAction !== undefined) updateData.next_action = updates.nextAction;
+    if (updates.nextActionDueDate !== undefined) updateData.next_action_due_date = updates.nextActionDueDate || null;
+    if (updates.linkedMedicalId !== undefined) updateData.linked_medical_id = updates.linkedMedicalId || null;
+    if (updates.linkedAppointmentId !== undefined) updateData.linked_appointment_id = updates.linkedAppointmentId || null;
+    if (updates.linkedTravelId !== undefined) updateData.linked_travel_id = updates.linkedTravelId || null;
+    if (updates.linkedSicknessId !== undefined) updateData.linked_sickness_id = updates.linkedSicknessId || null;
+    if (updates.linkedWorkflowInstanceId !== undefined) updateData.linked_workflow_instance_id = updates.linkedWorkflowInstanceId || null;
+    if (updates.providerId !== undefined) updateData.provider_id = updates.providerId || null;
+    if (updates.providerName !== undefined) updateData.provider_name = updates.providerName || null;
+    if (updates.laboratoryName !== undefined) updateData.laboratory_name = updates.laboratoryName || null;
+    if (updates.specialistName !== undefined) updateData.specialist_name = updates.specialistName || null;
+    if (updates.closureNotes !== undefined) updateData.closure_notes = updates.closureNotes;
+    if (updates.closureDate !== undefined) updateData.closure_date = updates.closureDate;
+
+    const { error: err } = await supabase.from('cases').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+
+    if (updates.status && prev && prev.status !== updates.status) {
+      await supabase.from('case_activity').insert({
+        case_id: id,
+        activity_type: 'status_change',
+        title: `Status changed from ${prev.status} to ${updates.status}`,
+        description: updates.nextAction || undefined,
+        actor_name: user?.name || 'Unknown',
+        actor_role: user?.role || 'admin',
+        metadata: { from_status: prev.status, to_status: updates.status },
+      });
+    }
+
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'case',
+      recordId: id,
+      recordReference: prev?.caseReference || id,
+      action: 'update',
+      fromStatus: prev?.status,
+      toStatus: updates.status,
+      details: updates.status ? `Case status changed to ${updates.status}` : 'Case updated',
+    });
+    await refetch();
+  }, [refetch, data, user, logAudit]);
+
+  return { data, loading, error, refetch, addCase, updateCase };
+}
+
+export function useCaseActivity(caseId: string | null) {
+  const { user } = useApp();
+  const [data, setData] = useState<CaseActivityEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    if (!caseId) return;
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) { setData([]); setLoading(false); return; }
+    const { data: rows, error: err } = await supabase
+      .from('case_activity')
+      .select('*')
+      .eq('case_id', caseId)
+      .order('created_at', { ascending: false });
+    if (err) { setError(err.message); }
+    else { setData((rows as Record<string, unknown>[]).map(transformCaseActivity)); }
+    setLoading(false);
+  }, [caseId]);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addActivity = useCallback(async (entry: {
+    activityType: CaseActivityEntry['activityType'];
+    title: string;
+    description?: string;
+    metadata?: Record<string, unknown>;
+  }) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { error: err } = await supabase.from('case_activity').insert({
+      case_id: caseId,
+      activity_type: entry.activityType,
+      title: entry.title,
+      description: entry.description || null,
+      actor_name: user?.name || 'Unknown',
+      actor_role: user?.role || 'admin',
+      metadata: entry.metadata || null,
+    });
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [caseId, refetch, user]);
+
+  return { data, loading, error, refetch, addActivity };
 }

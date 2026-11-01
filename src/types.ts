@@ -773,6 +773,96 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
+// --- Central Case Management types ---
+
+export type CaseType =
+  | 'pre_employment'
+  | 'periodical'
+  | 'transfer'
+  | 'travel_medical'
+  | 'visa_medical'
+  | 'lab_request'
+  | 'specialist_referral'
+  | 'sickness_absence'
+  | 'other';
+
+export type CaseStatus =
+  | 'new'
+  | 'active'
+  | 'awaiting_client_approval'
+  | 'awaiting_employee_info'
+  | 'awaiting_appointment'
+  | 'awaiting_provider'
+  | 'awaiting_clinical_review'
+  | 'awaiting_outcome'
+  | 'overdue'
+  | 'completed'
+  | 'on_hold'
+  | 'cancelled'
+  | 'exception';
+
+export type CasePriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export type CaseActivityType =
+  | 'created'
+  | 'status_change'
+  | 'note_added'
+  | 'document_uploaded'
+  | 'workflow_progress'
+  | 'appointment_scheduled'
+  | 'provider_update'
+  | 'clinical_review'
+  | 'completion'
+  | 'notification'
+  | 'assignment';
+
+export interface CaseRecord {
+  id: string;
+  caseReference: string;
+  caseType: CaseType;
+  title: string;
+  description: string;
+  companyId: string | null;
+  companyName: string;
+  employeeId: string | null;
+  employeeName: string | null;
+  assignedCoordinator: string;
+  caseOwner: string;
+  dateOpened: string;
+  targetCompletionDate: string | null;
+  priority: CasePriority;
+  status: CaseStatus;
+  nextAction: string | null;
+  nextActionDueDate: string | null;
+  linkedMedicalId: string | null;
+  linkedAppointmentId: string | null;
+  linkedTravelId: string | null;
+  linkedSicknessId: string | null;
+  linkedWorkflowInstanceId: string | null;
+  providerId: string | null;
+  providerName: string | null;
+  laboratoryName: string | null;
+  specialistName: string | null;
+  linkedDocumentIds: string[];
+  closureNotes: string | null;
+  closureDate: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CaseActivityEntry {
+  id: string;
+  caseId: string;
+  activityType: CaseActivityType;
+  title: string;
+  description: string | null;
+  actorName: string;
+  actorRole: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 // --- Notification types ---
 
 export interface AppNotification {
