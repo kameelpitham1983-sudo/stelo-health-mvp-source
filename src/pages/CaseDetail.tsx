@@ -4,7 +4,7 @@ import {
   FlaskConical, Globe, HeartPulse, Workflow, Clock, AlertCircle, CheckCircle2,
   ChevronDown, Save, X, Lock, Activity as ActivityIcon, History as HistoryIcon,
 } from 'lucide-react';
-import { useCases, useCaseActivity, useCompanies, useEmployees, useMedicals, useAppointments, useDocuments, useDocumentVersions, useWorkflowInstances, useProviders, useAuditLog, isDemoMode } from '@/hooks/useSupabaseData';
+import { useCases, useCaseActivity, useCompanies, useEmployees, useMedicals, useAppointments, useDocuments, useWorkflowInstances, useProviders, useAuditLog, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';

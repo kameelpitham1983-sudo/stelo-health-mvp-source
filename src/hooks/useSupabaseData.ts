@@ -24,6 +24,7 @@ import type {
   RecordNote,
   CaseRecord,
   CaseActivityEntry,
+  Provider,
 } from '@/types';
 
 // Demo data fallback: when the database is empty or unreachable, pages show
@@ -1380,6 +1381,56 @@ export function useRecordNotes(recordType: string | null, recordId: string | nul
   }, [recordType, recordId, refetch]);
 
   return { data, loading, refetch, addNote };
+}
+
+// --- Providers ---
+
+function transformProvider(row: Record<string, unknown>): Provider {
+  return {
+    id: row.id as string,
+    name: (row.name as string) || '',
+    providerCode: (row.provider_code as string) || '',
+    category: (row.category as string) as Provider['category'],
+    services: ((row.services as string[]) || []).map((s) => String(s)),
+    status: (row.status as string) as Provider['status'],
+    tier: (row.tier as string) as Provider['tier'],
+    contactPerson: (row.contact_person as string) || '',
+    phone: (row.phone as string) || '',
+    email: (row.email as string) || '',
+    physicalAddress: (row.physical_address as string) || '',
+    gpsCoordinates: (row.gps_coordinates as string) || null,
+    provincesServed: ((row.provinces_served as string[]) || []).map((s) => String(s)),
+    townsServed: ((row.towns_served as string[]) || []).map((s) => String(s)),
+    operatingHours: (row.operating_hours as string) || '',
+    bookingProcess: (row.booking_process as string) || '',
+    appointmentAvailability: (row.appointment_availability as string) || '',
+    indicativePricing: (row.indicative_pricing as string) || '',
+    commercialTerms: (row.commercial_terms as string) || '',
+    serviceCapacity: (row.service_capacity as number) || null,
+    mobileServiceAvailable: (row.mobile_service_available as boolean) || false,
+    travelCharges: (row.travel_charges as string) || '',
+    registrationNumber: (row.registration_number as string) || '',
+    licenceNumber: (row.licence_number as string) || '',
+    accreditationDetails: (row.accreditation_details as string) || '',
+    accreditationExpiryDate: row.accreditation_expiry_date ? (row.accreditation_expiry_date as string) : null,
+    lastVerificationDate: row.last_verification_date ? (row.last_verification_date as string) : null,
+    internalNotes: (row.internal_notes as string) || '',
+    documents: (row.documents as Provider['documents']) || [],
+    performanceMetrics: (row.performance_metrics as Provider['performanceMetrics']) || [],
+    siteVisits: (row.site_visits as Provider['siteVisits']) || [],
+    createdAt: (row.created_at as string) || '',
+    updatedAt: (row.updated_at as string) || '',
+  };
+}
+
+export function useProviders() {
+  return useSupabaseQuery<Provider>(
+    'providers',
+    transformProvider,
+    'name',
+    true,
+    () => [],
+  );
 }
 
 // --- Central Case Management ---

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { Login } from '@/pages/Login';
 import { Layout } from '@/components/Layout';
@@ -20,12 +21,38 @@ import { Accommodation } from '@/pages/Accommodation';
 import { Workflows } from '@/pages/Workflows';
 import { Certificates } from '@/pages/Certificates';
 import { AuditLog } from '@/pages/AuditLog';
+import { CaseManagement } from '@/pages/CaseManagement';
+import { CaseDetail } from '@/pages/CaseDetail';
 
 function AppContent() {
-  const { user, currentPage, authReady } = useApp();
+  const { user, currentPage, authReady, setPage } = useApp();
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   if (!authReady) return <div className="min-h-screen flex items-center justify-center bg-ink-50"><div className="w-8 h-8 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
   if (!user) return <Login />;
-  const pages: Record<string, React.ReactNode> = { dashboard: <Dashboard />, workflows: <Workflows />, synopsis: <Synopsis />, certificates: <Certificates />, companies: <Companies />, employees: <Employees />, medicals: <Medicals />, appointments: <Appointments />, sickness: <SicknessAbsence />, travel: <TravelHealth />, visa: <VisaMedicals />, providers: <Providers />, gops: <GOPs />, accommodation: <Accommodation />, documents: <Documents />, reports: <Reports />, ai: <SteloAI />, settings: <Settings />, audit: <AuditLog /> };
+
+  const pages: Record<string, React.ReactNode> = {
+    dashboard: <Dashboard />,
+    workflows: <Workflows />,
+    synopsis: <Synopsis />,
+    certificates: <Certificates />,
+    companies: <Companies />,
+    employees: <Employees />,
+    medicals: <Medicals />,
+    appointments: <Appointments />,
+    sickness: <SicknessAbsence />,
+    travel: <TravelHealth />,
+    visa: <VisaMedicals />,
+    providers: <Providers />,
+    gops: <GOPs />,
+    accommodation: <Accommodation />,
+    documents: <Documents />,
+    reports: <Reports />,
+    ai: <SteloAI />,
+    settings: <Settings />,
+    audit: <AuditLog />,
+    cases: <CaseManagement onOpenCase={(id) => { setSelectedCaseId(id); setPage('caseDetail'); }} />,
+    caseDetail: selectedCaseId ? <CaseDetail caseId={selectedCaseId} onBack={() => setPage('cases')} /> : null,
+  };
   return <Layout>{pages[currentPage]}</Layout>;
 }
 
