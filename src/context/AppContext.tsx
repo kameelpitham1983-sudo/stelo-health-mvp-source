@@ -9,6 +9,7 @@ interface AppContextValue {
   user: User | null;
   login: (role: UserRole) => void;
   logout: () => void;
+  switchRole: (role: UserRole) => void;
   currentPage: PageId;
   setPage: (page: PageId) => void;
   sidebarOpen: boolean;
@@ -74,6 +75,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setShowOnboarding(true);
   }, []);
 
+  const switchRole = useCallback((role: UserRole) => {
+    setUser(users[role]);
+  }, []);
+
   const logout = useCallback(async () => {
     if (supabaseConfigured) await supabase.auth.signOut();
     setUser(null);
@@ -107,7 +112,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (user) localStorage.setItem(`stelo_onboarding_${user.id}`, '1');
   }, [user]);
 
-  return <AppContext.Provider value={{ user, login, logout, currentPage, setPage, sidebarOpen, setSidebarOpen, authReady, showOnboarding, startOnboarding, completeOnboarding }}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={{ user, login, logout, switchRole, currentPage, setPage, sidebarOpen, setSidebarOpen, authReady, showOnboarding, startOnboarding, completeOnboarding }}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {

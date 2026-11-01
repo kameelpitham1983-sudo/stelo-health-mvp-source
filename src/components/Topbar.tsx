@@ -1,9 +1,10 @@
-import { Menu, Search, Bell, ChevronDown, X } from 'lucide-react';
+import { Menu, Search, Bell, ChevronDown, X, Users } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { roles } from '@/data/mockData';
 import { useState, useRef, useEffect } from 'react';
 import { useEmployees, useCompanies } from '@/hooks/useSupabaseData';
 import { PageHelpButton } from '@/components/PageHelpButton';
+import type { UserRole } from '@/types';
 
 const pageTitles: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -33,7 +34,7 @@ interface SearchResult {
 }
 
 export function Topbar() {
-  const { user, currentPage, setSidebarOpen, setPage, logout } = useApp();
+  const { user, currentPage, setSidebarOpen, setPage, logout, switchRole } = useApp();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -160,6 +161,25 @@ export function Topbar() {
               <p className="text-sm font-semibold text-ink-900">{user.name}</p>
               <p className="text-xs text-ink-400">{user.email}</p>
               <p className="text-xs text-brand-600 font-medium mt-1">{roleInfo?.label}</p>
+            </div>
+            <div className="py-1.5 border-b border-ink-100">
+              <p className="px-3 py-1 text-[10px] font-bold text-ink-300 uppercase tracking-wider flex items-center gap-1"><Users size={11} /> Switch Role (Demo)</p>
+              <div className="px-1.5 grid grid-cols-1 gap-0.5 mt-0.5 max-h-48 overflow-y-auto">
+                {roles.filter((r) => r.id !== 'ai').map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => { setMenuOpen(false); switchRole(r.id as UserRole); }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                      user.role === r.id
+                        ? 'bg-brand-50 text-brand-700 font-semibold'
+                        : 'text-ink-600 hover:bg-ink-50'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${user.role === r.id ? 'bg-brand-500' : 'bg-transparent'}`} />
+                    <span className="truncate">{r.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="py-1.5">
               <button
