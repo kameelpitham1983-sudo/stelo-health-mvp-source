@@ -28,6 +28,8 @@ export interface ScreeningRecord {
   companyId: string | null;
   companyName: string;
   screeningType: ScreeningType;
+  caseId: string | null;
+  caseReference: string;
   considerationNote: string;
   decision: ScreeningDecision;
   decisionNote: string;
@@ -186,11 +188,14 @@ export function getScreeningStatusLabel(r: ScreeningRecord): string {
 
 
 export function createEmptyScreeningRecord(
-  base: Pick<ScreeningRecord, 'employeeId' | 'employeeName' | 'companyId' | 'companyName' | 'screeningType' | 'mode'>,
+  base: Pick<ScreeningRecord, 'employeeId' | 'employeeName' | 'companyId' | 'companyName' | 'screeningType' | 'mode'> &
+    Partial<Pick<ScreeningRecord, 'caseId' | 'caseReference'>>,
 ): ScreeningRecord {
   return {
     ...base,
     id: crypto.randomUUID(),
+    caseId: base.caseId ?? null,
+    caseReference: base.caseReference ?? '',
     considerationNote: '',
     decision: 'not_recorded',
     decisionNote: '',

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { isDemoMode } from '@/hooks/useSupabaseData';
 import { supabase } from '@/lib/supabase';
+import { readDemoState, writeDemoState } from '@/lib/demoStore';
 import { assertCan, type PermissionAction } from '@/lib/permissions';
 import {
   createEmptyOnboardingData,
@@ -27,7 +28,12 @@ function transformCase(row: Record<string, unknown>): OnboardingCase {
 
 export function useOnboardingCases() {
   const { user } = useApp();
-  const [cases, setCases] = useState<OnboardingCase[]>([]);
+  const [cases, setCases] = useState<OnboardingCase[]>(() => readDemoState<OnboardingCase[]>('onboarding', () => []));
+
+  useEffect(() => {
+    if (isDemoMode) writeDemoState('onboarding', cases);
+  }, [cases]);
+
   const [loading, setLoading] = useState(!isDemoMode);
   const [error, setError] = useState<string | null>(null);
 

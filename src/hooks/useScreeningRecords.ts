@@ -10,6 +10,7 @@ import {
   type ScreeningType,
 } from '@/lib/screeningWorkflow';
 import { createDemoScreeningRecords } from '@/data/screeningDemoRecords';
+import { readDemoState, writeDemoState } from '@/lib/demoStore';
 
 export type ScreeningPatch = Partial<Omit<ScreeningRecord, 'id' | 'mode' | 'auditTrail' | 'createdAt'>>;
 
@@ -19,6 +20,8 @@ export interface NewScreeningInput {
   companyId: string | null;
   companyName: string;
   screeningType: ScreeningType;
+  caseId: string | null;
+  caseReference: string;
 }
 
 function transformRecord(row: Record<string, unknown>): ScreeningRecord {
@@ -46,7 +49,11 @@ function transformRecord(row: Record<string, unknown>): ScreeningRecord {
 export function useScreeningRecords() {
   const { user } = useApp();
   const allowed = can(user, 'screening.view');
-  const [records, setRecords] = useState<ScreeningRecord[]>(() => (isDemoMode ? createDemoScreeningRecords() : []));
+  const [records, setRecords] = useState<ScreeningRecord[]>(() => (isDemoMode ? readDemoState('screening', createDemoScreeningRecords) : []));
+
+  useEffect(() => {
+    if (isDemoMode) writeDemoState('screening', records);
+  }, [records]);
   const [loading, setLoading] = useState(!isDemoMode);
   const [error, setError] = useState<string | null>(null);
 
