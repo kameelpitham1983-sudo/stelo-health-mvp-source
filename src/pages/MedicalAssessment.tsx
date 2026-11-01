@@ -10,6 +10,7 @@ import {
   MEDICAL_ASSESSMENT_NOTICE,
   MEDICAL_ASSESSMENT_STEPS,
   MEDICAL_RECORD_TYPE_FOR,
+  HEALTH_STATUS_FOR_OUTCOME,
   MEDICAL_RESULT_FOR_OUTCOME,
   OUTCOME_LABELS,
   getMedicalAssessmentStatusLabel,
@@ -21,7 +22,7 @@ const ASSESSMENT_TYPES: MedicalAssessmentType[] = ['Pre-employment', 'Periodic',
 
 export function MedicalAssessment() {
   const { user } = useApp();
-  const { data: employees } = useEmployees();
+  const { data: employees, updateEmployeeFitness } = useEmployees();
   const { data: medicals, updateMedical } = useMedicals();
   const { data: cases } = useCases();
   const { cases: onboardingCases } = useOnboardingCases();
@@ -41,7 +42,7 @@ export function MedicalAssessment() {
   const chosenEmployee = employees.find((e) => e.id === employeeId) ?? null;
   const employeeMedicals = medicals.filter((m) => m.employeeId === employeeId && m.type === MEDICAL_RECORD_TYPE_FOR[assessmentType]);
   const chosenMedical = employeeMedicals.find((m) => m.id === medicalId) ?? null;
-  const approvedWorkOrders = onboardingCases.filter((c) => c.data.workOrderStatus === 'approved' && c.companyName === chosenEmployee?.companyName);
+  const approvedWorkOrders = onboardingCases.filter((c) => c.data.workOrderStatus === 'approved' && !!chosenEmployee?.companyId && c.companyId === chosenEmployee.companyId);
   const chosenWorkOrder = approvedWorkOrders.find((c) => c.id === onboardingCaseId) ?? null;
   const employeeCases = cases.filter((c) => c.employeeId !== null && c.employeeId === employeeId);
   const chosenCase = employeeCases.find((c) => c.id === caseId) ?? null;
@@ -94,6 +95,16 @@ export function MedicalAssessment() {
       saveDemoMedicalOverride(selected.medicalId, medicalPatch);
     } else {
       await updateMedical(selected.medicalId, medicalPatch);
+    }
+    const employee = employees.find((e) => e.id === selected.employeeId);
+    if (employee) {
+      await updateEmployeeFitness(
+        employee.id,
+        HEALTH_STATUS_FOR_OUTCOME[outcome],
+        new Date().toISOString().slice(0, 10),
+        employee.nextMedicalDue || null,
+        restrictions || undefined,
+      );
     }
   };
 

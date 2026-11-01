@@ -1,4 +1,4 @@
-import type { MedicalType } from '@/types';
+import type { HealthStatus, MedicalType } from '@/types';
 
 export type MedicalAssessmentType = 'Pre-employment' | 'Periodic' | 'Transfer';
 
@@ -81,6 +81,12 @@ export const MEDICAL_RESULT_FOR_OUTCOME: Record<Exclude<FitnessOutcome, 'not_rec
   fit: 'Fit for duty',
   fit_with_restrictions: 'Fit with Restrictions',
   not_fit_pending_review: 'Pending further assessment',
+};
+
+export const HEALTH_STATUS_FOR_OUTCOME: Record<Exclude<FitnessOutcome, 'not_recorded'>, HealthStatus> = {
+  fit: 'Fit',
+  fit_with_restrictions: 'Fit with Restrictions',
+  not_fit_pending_review: 'Pending Assessment',
 };
 
 export const MEDICAL_ASSESSMENT_GUIDANCE: Record<string, { requiredInfo: string; nextStep: string }> = {

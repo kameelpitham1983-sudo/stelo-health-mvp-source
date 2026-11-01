@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Plus, UserPlus, CheckCircle2, Circle, Lock } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
-import { isDemoMode } from '@/hooks/useSupabaseData';
+import { isDemoMode, useCompanies } from '@/hooks/useSupabaseData';
 import { useOnboardingCases } from '@/hooks/useOnboardingCases';
 import { OnboardingStagePanel } from '@/components/OnboardingStagePanel';
 import { DemoNotice } from '@/components/DemoNotice';
@@ -32,8 +32,9 @@ const statusLabel: Record<OnboardingCase['status'], string> = {
 export function Onboarding() {
   const { user } = useApp();
   const { cases, loading, error, createCase, updateCase } = useOnboardingCases();
+  const { data: companies } = useCompanies();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState('');
+  const [companyId, setCompanyId] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -44,13 +45,18 @@ export function Onboarding() {
   const selected = visibleCases.find((c) => c.id === selectedId) ?? null;
   const activeId = selected ? getActiveStageId(selected) : null;
   const activeStage = ONBOARDING_STAGES.find((s) => s.id === activeId) ?? null;
+  const startableCompanies = user?.role === 'employer' && user.companyId
+    ? companies.filter((c) => c.id === user.companyId)
+    : companies;
 
   const handleCreate = async () => {
+    const company = startableCompanies.find((c) => c.id === companyId);
+    if (!company) return;
     setCreating(true);
     setCreateError(null);
     try {
-      await createCase(companyName.trim());
-      setCompanyName('');
+      await createCase(company.id, company.name);
+      setCompanyId('');
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'The case could not be created.');
     } finally {
@@ -88,10 +94,13 @@ export function Onboarding() {
           {canStart && (
             <div className="card p-4 space-y-3">
               <h2 className="font-display font-bold text-ink-900 flex items-center gap-2"><UserPlus size={18} className="text-brand-600" /> Start an onboarding process</h2>
-              <p className="text-sm text-ink-600">Enter the client company name. The first step is identity verification for the employee.</p>
+              <p className="text-sm text-ink-600">Choose the client company. The first step is identity verification for the employee.</p>
               <div className="flex flex-col sm:flex-row gap-2">
-                <input className="input flex-1" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Client company name" />
-                <button className="btn-primary" disabled={creating || companyName.trim() === ''} onClick={handleCreate}><Plus size={16} /> Start process</button>
+                <select className="input flex-1" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+                  <option value="">Select client company</option>
+                  {startableCompanies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button className="btn-primary" disabled={creating || companyId === ''} onClick={handleCreate}><Plus size={16} /> Start process</button>
               </div>
               {createError && <p className="text-sm text-red-700">{createError}</p>}
             </div>

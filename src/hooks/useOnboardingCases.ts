@@ -64,14 +64,14 @@ export function useOnboardingCases() {
     at: new Date().toISOString(),
   });
 
-  const createCase = useCallback(async (companyName: string): Promise<void> => {
+  const createCase = useCallback(async (companyId: string, companyName: string): Promise<void> => {
     assertCan(user, 'onboarding.client_hr');
     const entry = makeAuditEntry('Onboarding process initiated');
     const data = createEmptyOnboardingData();
     if (isDemoMode) {
       const newCase: OnboardingCase = {
         id: crypto.randomUUID(),
-        companyId: user?.companyId ?? null,
+        companyId,
         companyName,
         status: 'open',
         closedReason: '',
@@ -84,7 +84,7 @@ export function useOnboardingCases() {
       return;
     }
     const { error: err } = await supabase.from('onboarding_cases').insert({
-      company_id: user?.companyId ?? null,
+      company_id: companyId,
       company_name: companyName,
       status: 'open',
       data,
