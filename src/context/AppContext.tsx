@@ -90,6 +90,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const switchRole = useCallback((role: UserRole) => {
+    if (supabaseConfigured) return;
     setUser(users[role]);
   }, []);
 

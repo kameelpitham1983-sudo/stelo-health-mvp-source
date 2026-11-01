@@ -24,35 +24,34 @@ import {
 } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { Logo } from '@/components/Logo';
-import type { UserRole } from '@/types';
+import { canAccessPage } from '@/lib/permissions';
 
 interface NavItem {
   id: PageId;
   label: string;
   icon: typeof LayoutDashboard;
-  roles?: UserRole[];
 }
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'cases', label: 'Case Management', icon: Briefcase, roles: ['admin', 'coordinator', 'provider', 'employer'] },
-  { id: 'workflows', label: 'Workflow Centre', icon: Workflow, roles: ['admin', 'coordinator', 'provider'] },
-  { id: 'synopsis', label: 'Synopsis', icon: ClipboardList, roles: ['admin', 'provider'] },
-  { id: 'certificates', label: 'Digital Identity', icon: Award, roles: ['admin', 'coordinator', 'provider', 'employer', 'employee'] },
-  { id: 'companies', label: 'Companies', icon: Building2, roles: ['admin', 'provider', 'coordinator'] },
-  { id: 'employees', label: 'Employees', icon: Users, roles: ['admin', 'employer', 'provider', 'coordinator'] },
-  { id: 'medicals', label: 'Medicals', icon: Stethoscope, roles: ['admin', 'employer', 'provider', 'coordinator'] },
-  { id: 'appointments', label: 'Appointments', icon: CalendarDays, roles: ['admin', 'employer', 'provider', 'coordinator', 'employee'] },
-  { id: 'sickness', label: 'Sickness Absence', icon: HeartPulse, roles: ['admin', 'employer', 'provider', 'coordinator'] },
-  { id: 'travel', label: 'Travel Health', icon: Plane, roles: ['admin', 'employer', 'provider', 'coordinator'] },
-  { id: 'visa', label: 'Visa Medicals', icon: Globe, roles: ['admin', 'employer', 'provider', 'coordinator'] },
-  { id: 'providers', label: 'Provider Network', icon: Network, roles: ['admin', 'provider', 'coordinator', 'lab'] },
-  { id: 'gops', label: 'Guarantees of Payment', icon: ShieldCheck, roles: ['admin', 'provider', 'coordinator'] },
-  { id: 'accommodation', label: 'Accommodation', icon: BedDouble, roles: ['admin', 'provider', 'coordinator'] },
-  { id: 'documents', label: 'Documents', icon: FileText, roles: ['admin', 'employer', 'provider', 'coordinator', 'employee'] },
-  { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employer', 'coordinator'] },
-  { id: 'audit', label: 'Audit Log', icon: History, roles: ['admin', 'coordinator'] },
-  { id: 'ai', label: 'Stelo AI', icon: Sparkles, roles: ['admin', 'provider', 'coordinator', 'employer'] },
+  { id: 'cases', label: 'Case Management', icon: Briefcase },
+  { id: 'workflows', label: 'Workflow Centre', icon: Workflow },
+  { id: 'synopsis', label: 'Synopsis', icon: ClipboardList },
+  { id: 'certificates', label: 'Digital Identity', icon: Award },
+  { id: 'companies', label: 'Companies', icon: Building2 },
+  { id: 'employees', label: 'Employees', icon: Users },
+  { id: 'medicals', label: 'Medicals', icon: Stethoscope },
+  { id: 'appointments', label: 'Appointments', icon: CalendarDays },
+  { id: 'sickness', label: 'Sickness Absence', icon: HeartPulse },
+  { id: 'travel', label: 'Travel Health', icon: Plane },
+  { id: 'visa', label: 'Visa Medicals', icon: Globe },
+  { id: 'providers', label: 'Provider Network', icon: Network },
+  { id: 'gops', label: 'Guarantees of Payment', icon: ShieldCheck },
+  { id: 'accommodation', label: 'Accommodation', icon: BedDouble },
+  { id: 'documents', label: 'Documents', icon: FileText },
+  { id: 'reports', label: 'Reports', icon: BarChart3 },
+  { id: 'audit', label: 'Audit Log', icon: History },
+  { id: 'ai', label: 'Stelo AI', icon: Sparkles },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -60,7 +59,7 @@ export function Sidebar() {
   const { user, currentPage, setPage, sidebarOpen, setSidebarOpen, logout } = useApp();
   if (!user) return null;
 
-  const visibleItems = navItems.filter((item) => !item.roles || item.roles.includes(user.role));
+  const visibleItems = navItems.filter((item) => canAccessPage(user.role, item.id));
 
   return (
     <>

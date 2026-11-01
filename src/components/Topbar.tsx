@@ -2,7 +2,7 @@ import { Menu, Search, Bell, ChevronDown, X, Users } from 'lucide-react';
 import { useApp, type PageId } from '@/context/AppContext';
 import { roles } from '@/data/mockData';
 import { useState, useRef, useEffect } from 'react';
-import { useEmployees, useCompanies } from '@/hooks/useSupabaseData';
+import { useEmployees, useCompanies, isDemoMode } from '@/hooks/useSupabaseData';
 import { PageHelpButton } from '@/components/PageHelpButton';
 import type { UserRole } from '@/types';
 
@@ -162,6 +162,7 @@ export function Topbar() {
               <p className="text-xs text-ink-400">{user.email}</p>
               <p className="text-xs text-brand-600 font-medium mt-1">{roleInfo?.label}</p>
             </div>
+            {isDemoMode && (
             <div className="py-1.5 border-b border-ink-100">
               <p className="px-3 py-1 text-[10px] font-bold text-ink-300 uppercase tracking-wider flex items-center gap-1"><Users size={11} /> Switch Role (Demo)</p>
               <div className="px-1.5 grid grid-cols-1 gap-0.5 mt-0.5 max-h-48 overflow-y-auto">
@@ -181,6 +182,7 @@ export function Topbar() {
                 ))}
               </div>
             </div>
+            )}
             <div className="py-1.5">
               <button
                 onClick={() => { setMenuOpen(false); logout(); }}

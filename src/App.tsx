@@ -25,6 +25,7 @@ import { CaseManagement } from '@/pages/CaseManagement';
 import { CaseDetail } from '@/pages/CaseDetail';
 import { LearningCentre } from '@/pages/LearningCentre';
 import { GuidedOnboarding } from '@/components/GuidedOnboarding';
+import { canAccessPage } from '@/lib/permissions';
 
 function AppContent() {
   const { user, currentPage, authReady, setPage, showOnboarding, startOnboarding, completeOnboarding } = useApp();
@@ -56,9 +57,10 @@ function AppContent() {
     caseDetail: selectedCaseId ? <CaseDetail caseId={selectedCaseId} onBack={() => setPage('cases')} /> : null,
     learning: <LearningCentre onStartOnboarding={startOnboarding} onboardingCompleted={!showOnboarding} />,
   };
+  const allowed = canAccessPage(user.role, currentPage);
   return (
     <Layout>
-      {pages[currentPage]}
+      {allowed ? pages[currentPage] : <Dashboard />}
       {showOnboarding && <GuidedOnboarding onComplete={completeOnboarding} onOpenPage={setPage} />}
     </Layout>
   );
