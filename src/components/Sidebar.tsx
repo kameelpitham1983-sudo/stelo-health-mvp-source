@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'cases', label: 'Case Management', icon: Briefcase },
   { id: 'onboarding', label: 'Onboarding', icon: UserCheck },
+  { id: 'screening', label: 'HPV & Colorectal Screening', icon: HeartPulse },
   { id: 'workflows', label: 'Workflow Centre', icon: Workflow },
   { id: 'synopsis', label: 'Synopsis', icon: ClipboardList },
   { id: 'certificates', label: 'Digital Identity', icon: Award },

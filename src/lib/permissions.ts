@@ -8,9 +8,9 @@ const effectiveRole = (role: Role): Exclude<UserRole, 'master_admin'> =>
 
 export const ROLE_PAGES: Record<UserRole, PageId[]> = {
   master_admin: ['dashboard', 'cases', 'caseDetail', 'workflows', 'synopsis', 'certificates', 'companies', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'providers', 'gops', 'accommodation', 'documents', 'reports', 'audit', 'ai', 'settings', 'learning'],
-  admin: ['dashboard', 'cases', 'caseDetail', 'workflows', 'synopsis', 'certificates', 'companies', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'providers', 'gops', 'accommodation', 'documents', 'reports', 'audit', 'ai', 'settings', 'learning', 'onboarding'],
-  coordinator: ['dashboard', 'cases', 'caseDetail', 'workflows', 'certificates', 'companies', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'providers', 'gops', 'accommodation', 'documents', 'reports', 'audit', 'ai', 'settings', 'learning', 'onboarding'],
-  provider: ['dashboard', 'cases', 'caseDetail', 'workflows', 'synopsis', 'certificates', 'companies', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'providers', 'gops', 'accommodation', 'documents', 'ai', 'settings', 'learning'],
+  admin: ['dashboard', 'cases', 'caseDetail', 'workflows', 'synopsis', 'certificates', 'companies', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'providers', 'gops', 'accommodation', 'documents', 'reports', 'audit', 'ai', 'settings', 'learning', 'onboarding', 'screening'],
+  coordinator: ['dashboard', 'cases', 'caseDetail', 'workflows', 'certificates', 'companies', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'providers', 'gops', 'accommodation', 'documents', 'reports', 'audit', 'ai', 'settings', 'learning', 'onboarding', 'screening'],
+  provider: ['dashboard', 'cases', 'caseDetail', 'workflows', 'synopsis', 'certificates', 'companies', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'providers', 'gops', 'accommodation', 'documents', 'ai', 'settings', 'learning', 'screening'],
   employer: ['dashboard', 'cases', 'caseDetail', 'certificates', 'employees', 'medicals', 'appointments', 'sickness', 'travel', 'visa', 'documents', 'reports', 'ai', 'settings', 'learning', 'onboarding'],
   employee: ['dashboard', 'certificates', 'medicals', 'appointments', 'documents', 'settings', 'learning', 'onboarding'],
   lab: ['dashboard', 'cases', 'caseDetail', 'providers', 'documents', 'settings', 'learning'],
@@ -52,6 +52,9 @@ const ACTION_ROLES = {
   'onboarding.client_hr': ['employer'],
   'onboarding.register': ['employee'],
   'onboarding.manage': ['admin', 'coordinator'],
+  'screening.view': ['admin', 'coordinator', 'provider'],
+  'screening.manage': ['admin', 'coordinator', 'provider'],
+  'screening.review': ['admin', 'provider'],
   'clinical.view': ['admin', 'coordinator', 'provider', 'employee'],
   'confidential_note.view': ['admin', 'coordinator', 'provider'],
   'confidential_note.create': ['admin', 'provider'],

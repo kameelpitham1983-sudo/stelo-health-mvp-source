@@ -3,7 +3,7 @@ import type { UserRole, User } from '@/types';
 import { users } from '@/data/mockData';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 
-export type PageId = 'dashboard' | 'workflows' | 'companies' | 'employees' | 'medicals' | 'appointments' | 'sickness' | 'travel' | 'visa' | 'providers' | 'gops' | 'accommodation' | 'documents' | 'reports' | 'ai' | 'settings' | 'synopsis' | 'certificates' | 'audit' | 'cases' | 'caseDetail' | 'learning' | 'userManagement' | 'onboarding';
+export type PageId = 'dashboard' | 'workflows' | 'companies' | 'employees' | 'medicals' | 'appointments' | 'sickness' | 'travel' | 'visa' | 'providers' | 'gops' | 'accommodation' | 'documents' | 'reports' | 'ai' | 'settings' | 'synopsis' | 'certificates' | 'audit' | 'cases' | 'caseDetail' | 'learning' | 'userManagement' | 'onboarding' | 'screening';
 
 export interface NavContext {
   employeeId?: string;
