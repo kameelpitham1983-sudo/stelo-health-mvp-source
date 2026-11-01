@@ -21,6 +21,7 @@ import type {
   WorkflowDefinition,
   WorkflowInstance,
   DigitalCertificate,
+  CertificateType,
   RecordNote,
   CaseRecord,
   CaseActivityEntry,
@@ -1587,13 +1588,142 @@ function transformCertificate(row: Record<string, unknown>): DigitalCertificate 
 }
 
 export function useDigitalCertificates() {
-  return useSupabaseQuery<DigitalCertificate>(
-    'digital_certificates',
-    transformCertificate,
-    'created_at',
-    false,
-    () => mockData.digitalCertificates,
-  );
+  const { user } = useApp();
+  const [data, setData] = useState<DigitalCertificate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.digitalCertificates);
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('digital_certificates')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (err) {
+      setError(err.message);
+      setData(mockData.digitalCertificates);
+    } else {
+      const certs = (rows as Record<string, unknown>[]).map(transformCertificate);
+      setData(certs.length > 0 ? certs : mockData.digitalCertificates);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const issueCertificate = useCallback(async (cert: {
+    certificateType: CertificateType;
+    employeeId: string | null;
+    employeeName: string;
+    companyName: string;
+    companyId?: string | null;
+    title: string;
+    description?: string;
+    expiryDate?: string | null;
+    linkedMedicalId?: string | null;
+    metadata?: Record<string, unknown>;
+  }) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const { data: existing } = await supabase
+      .from('digital_certificates')
+      .select('certificate_number')
+      .like('certificate_number', `STC-${dateStr}-%`)
+      .order('certificate_number', { ascending: false })
+      .limit(1);
+    const lastSeq = existing && existing.length > 0
+      ? parseInt(((existing[0] as Record<string, unknown>).certificate_number as string).split('-').pop() || '0', 10) || 0
+      : 0;
+    const certNum = `STC-${dateStr}-${String(lastSeq + 1).padStart(4, '0')}`;
+    const verificationCode = `${certNum}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+    const qrPayload = `stelo-health://verify/${verificationCode}`;
+
+    const { data: row, error: err } = await supabase
+      .from('digital_certificates')
+      .insert({
+        certificate_type: cert.certificateType,
+        certificate_number: certNum,
+        employee_id: cert.employeeId || null,
+        employee_name: cert.employeeName,
+        company_id: cert.companyId || null,
+        company_name: cert.companyName || '',
+        linked_medical_id: cert.linkedMedicalId || null,
+        title: cert.title,
+        description: cert.description || '',
+        status: 'Active',
+        issue_date: now.toISOString().slice(0, 10),
+        expiry_date: cert.expiryDate || null,
+        issued_by: user?.name || 'STelo Admin',
+        verification_code: verificationCode,
+        qr_payload: qrPayload,
+        metadata: cert.metadata || {},
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    await refetch();
+    return transformCertificate(row as Record<string, unknown>);
+  }, [refetch, user]);
+
+  const updateCertificate = useCallback(async (id: string, updates: Partial<DigitalCertificate>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.expiryDate !== undefined) updateData.expiry_date = updates.expiryDate || null;
+    if (updates.metadata !== undefined) updateData.metadata = updates.metadata;
+    if (updates.revokedReason !== undefined) updateData.revoked_reason = updates.revokedReason;
+    if (updates.revokedAt !== undefined) updateData.revoked_at = updates.revokedAt;
+    if (updates.replacedBy !== undefined) updateData.replaced_by = updates.replacedBy;
+    const { error: err } = await supabase.from('digital_certificates').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  const revokeCertificate = useCallback(async (id: string, reason: string) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const now = new Date().toISOString();
+    const { error: err } = await supabase
+      .from('digital_certificates')
+      .update({
+        status: 'Revoked',
+        revoked_reason: reason,
+        revoked_at: now,
+      })
+      .eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  const suspendCertificate = useCallback(async (id: string) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { error: err } = await supabase
+      .from('digital_certificates')
+      .update({ status: 'Suspended' })
+      .eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  const reactivateCertificate = useCallback(async (id: string) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { error: err } = await supabase
+      .from('digital_certificates')
+      .update({ status: 'Active', revoked_reason: '', revoked_at: null })
+      .eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, issueCertificate, updateCertificate, revokeCertificate, suspendCertificate, reactivateCertificate };
 }
 
 // --- Record Notes ---

@@ -1,4 +1,4 @@
-import { BarChart3, Download, TrendingUp, Users, Stethoscope, Plane, FileText, ShieldCheck, AlertCircle, Workflow } from 'lucide-react';
+import { BarChart3, Download, TrendingUp, Users, Stethoscope, Plane, FileText, ShieldCheck, AlertCircle, Workflow, Award, Building2, Globe, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import {
   useCompanies,
@@ -7,8 +7,12 @@ import {
   useTravelHealth,
   useDocuments,
   useWorkflowInstances,
+  useDigitalCertificates,
+  useProviders,
+  useGOPs,
+  useSicknessCases,
+  useVisaMedicalCases,
 } from '@/hooks/useSupabaseData';
-import { workflowInstances as demoWorkflowInstances } from '@/data/mockData';
 import { Badge } from '@/components/Badge';
 
 export function Reports() {
@@ -17,14 +21,23 @@ export function Reports() {
   const { data: medicals, loading: medLoading } = useMedicals();
   const { data: travelHealth, loading: travelLoading } = useTravelHealth();
   const { data: documents, loading: docLoading } = useDocuments();
-  const { data: liveWorkflowInstances } = useWorkflowInstances();
+  const { data: workflowInstances, loading: wfLoading } = useWorkflowInstances();
+  const { data: certificates } = useDigitalCertificates();
+  const { data: providers } = useProviders();
+  const { data: gops } = useGOPs();
+  const { data: sicknessCases } = useSicknessCases();
+  const { data: visaCases } = useVisaMedicalCases();
 
   const [exporting, setExporting] = useState(false);
 
-  const loading = coLoading || empLoading || medLoading || travelLoading || docLoading;
+  const loading = coLoading || empLoading || medLoading || travelLoading || docLoading || wfLoading;
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20"><span className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" /></div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-brand-600" />
+      </div>
+    );
   }
 
   // Build monthly medicals from real data
@@ -47,7 +60,7 @@ export function Reports() {
   const pendingCount = employees.filter((e) => e.healthStatus === 'Pending Assessment').length;
   const unfitCount = employees.filter((e) => e.healthStatus === 'Unfit').length;
 
-  const allWorkflowInstances = liveWorkflowInstances.length > 0 ? liveWorkflowInstances : demoWorkflowInstances;
+  const allWorkflowInstances = workflowInstances;
   const activeWorkflowCount = allWorkflowInstances.filter((w) => w.status === 'In Progress').length;
   const completedWorkflowCount = allWorkflowInstances.filter((w) => w.status === 'Completed').length;
   const onHoldWorkflowCount = allWorkflowInstances.filter((w) => w.status === 'On Hold').length;
@@ -68,6 +81,9 @@ export function Reports() {
     { title: 'Vaccination Coverage Report', description: 'Immunisation status across the workforce with gap analysis.', icon: FileText, color: 'bg-accent-50 text-accent-600' },
     { title: 'Employee Health Trends Report', description: 'Year-over-year trends in occupational health indicators.', icon: TrendingUp, color: 'bg-brand-50 text-brand-600' },
     { title: 'Workflow Performance Report', description: 'Active, completed, on-hold and exception-flagged workflow instances across the platform.', icon: Workflow, color: 'bg-accent-50 text-accent-600' },
+    { title: 'Digital Certificate Report', description: 'Active, suspended and revoked certificates with issuance summaries.', icon: Award, color: 'bg-brand-50 text-brand-600' },
+    { title: 'Provider Network Report', description: 'Verified, onboarding and unverified providers across the network.', icon: Building2, color: 'bg-teal-50 text-teal-600' },
+    { title: 'Visa Medical Report', description: 'Visa medical cases by destination country, status and completion rate.', icon: Globe, color: 'bg-warning-50 text-warning-600' },
   ];
 
   const handleExport = (reportTitle: string) => {
@@ -84,7 +100,6 @@ export function Reports() {
     rows.push(`Completed Medicals,${medicals.filter((m) => m.status === 'Completed').length}`);
     rows.push(`Scheduled Medicals,${medicals.filter((m) => m.status === 'Scheduled').length}`);
     rows.push(`Overdue Medicals,${medicals.filter((m) => m.status === 'Overdue').length}`);
-    rows.push(`Total Appointments,${travelHealth.length}`);
     rows.push(`Travel Records,${travelHealth.length}`);
     rows.push(`Documents,${documents.length}`);
     rows.push('');
@@ -100,6 +115,33 @@ export function Reports() {
     rows.push(`On Hold Workflows,${onHoldWorkflowCount}`);
     rows.push(`Exception-Flagged Workflows,${exceptionWorkflowCount}`);
     rows.push(`Total Workflow Instances,${allWorkflowInstances.length}`);
+    rows.push('');
+    rows.push('Digital Certificates');
+    rows.push(`Total Certificates,${certificates.length}`);
+    rows.push(`Active,${certificates.filter((c) => c.status === 'Active').length}`);
+    rows.push(`Suspended,${certificates.filter((c) => c.status === 'Suspended').length}`);
+    rows.push(`Revoked,${certificates.filter((c) => c.status === 'Revoked').length}`);
+    rows.push('');
+    rows.push('Provider Network');
+    rows.push(`Total Providers,${providers.length}`);
+    rows.push(`Verified,${providers.filter((p) => p.status === 'Verified').length}`);
+    rows.push(`Onboarding,${providers.filter((p) => p.status === 'Onboarding' || p.status === 'Pending Verification').length}`);
+    rows.push(`Unverified,${providers.filter((p) => p.status === 'Unverified').length}`);
+    rows.push('');
+    rows.push('GOPs');
+    rows.push(`Total GOPs,${gops.length}`);
+    rows.push(`Approved,${gops.filter((g) => g.status === 'Approved' || g.status === 'Issued').length}`);
+    rows.push(`Draft,${gops.filter((g) => g.status === 'Draft').length}`);
+    rows.push('');
+    rows.push('Sickness Absence');
+    rows.push(`Total Cases,${sicknessCases.length}`);
+    rows.push(`Active,${sicknessCases.filter((s) => s.status === 'Open' || s.status === 'Under Review').length}`);
+    rows.push(`Closed,${sicknessCases.filter((s) => s.status === 'Closed' || s.status === 'Resolved').length}`);
+    rows.push('');
+    rows.push('Visa Medicals');
+    rows.push(`Total Cases,${visaCases.length}`);
+    rows.push(`Completed,${visaCases.filter((v) => v.status === 'Completed').length}`);
+    rows.push(`In Progress,${visaCases.filter((v) => v.status !== 'Completed' && v.status !== 'Follow-up Required').length}`);
 
     const csv = rows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });

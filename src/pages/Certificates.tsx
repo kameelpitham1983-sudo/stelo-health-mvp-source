@@ -15,12 +15,17 @@ import {
   FileCheck2,
   ChevronRight,
   Fingerprint,
+  Plus,
+  X,
+  Loader2,
+  Ban,
+  PlayCircle,
 } from 'lucide-react';
-import { digitalCertificates } from '@/data/mockData';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
 import { QRCode } from '@/components/QRCode';
 import { useApp } from '@/context/AppContext';
+import { isDemoMode, useDigitalCertificates, useEmployees } from '@/hooks/useSupabaseData';
 import type { DigitalCertificate, CertificateType, CertificateStatus } from '@/types';
 
 const statusColors: Record<CertificateStatus, 'success' | 'warning' | 'danger' | 'ink'> = {
@@ -49,16 +54,34 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+const emptyForm = {
+  certificateType: 'fitness' as CertificateType,
+  employeeId: '',
+  title: '',
+  description: '',
+  expiryDate: '',
+};
+
 export function Certificates() {
   const { user } = useApp();
+  const { data: certs, loading, issueCertificate, revokeCertificate, suspendCertificate, reactivateCertificate } = useDigitalCertificates();
+  const { data: employees } = useEmployees();
   const [selected, setSelected] = useState<DigitalCertificate | null>(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState(emptyForm);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [showRevokeForm, setShowRevokeForm] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('');
 
-  const types = useMemo(() => ['all', ...Array.from(new Set(digitalCertificates.map((c) => c.certificateType)))], []);
+  const canManage = user?.role === 'admin' || user?.role === 'master_admin' || user?.role === 'coordinator' || user?.role === 'provider';
+
+  const types = useMemo(() => ['all', ...Array.from(new Set(certs.map((c) => c.certificateType)))], [certs]);
 
   const filtered = useMemo(() => {
-    return digitalCertificates.filter((cert) => {
+    return certs.filter((cert) => {
       const q = search.toLowerCase();
       const matchesSearch = !q ||
         cert.employeeName.toLowerCase().includes(q) ||
@@ -68,17 +91,91 @@ export function Certificates() {
       const matchesType = typeFilter === 'all' || cert.certificateType === typeFilter;
       return matchesSearch && matchesType;
     });
-  }, [search, typeFilter]);
+  }, [certs, search, typeFilter]);
 
   const stats = useMemo(() => {
     return {
-      total: digitalCertificates.length,
-      active: digitalCertificates.filter((c) => c.status === 'Active').length,
-      membership: digitalCertificates.filter((c) => c.certificateType === 'membership').length,
-      alerts: digitalCertificates.filter((c) => c.certificateType === 'medical_alert').length,
-      fitness: digitalCertificates.filter((c) => c.certificateType === 'fitness').length,
+      total: certs.length,
+      active: certs.filter((c) => c.status === 'Active').length,
+      membership: certs.filter((c) => c.certificateType === 'membership').length,
+      alerts: certs.filter((c) => c.certificateType === 'medical_alert').length,
+      fitness: certs.filter((c) => c.certificateType === 'fitness').length,
     };
-  }, []);
+  }, [certs]);
+
+  const handleIssue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError(null);
+    if (!formData.employeeId || !formData.title) {
+      setSubmitError('Employee and title are required.');
+      return;
+    }
+    const employee = employees.find((emp) => emp.id === formData.employeeId);
+    if (!employee) {
+      setSubmitError('Please select a valid employee.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await issueCertificate({
+        certificateType: formData.certificateType,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        companyName: employee.companyName,
+        companyId: employee.companyId,
+        title: formData.title,
+        description: formData.description,
+        expiryDate: formData.expiryDate || null,
+      });
+      setShowForm(false);
+      setFormData(emptyForm);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to issue certificate.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRevoke = async () => {
+    if (!selected || !revokeReason.trim()) return;
+    setBusy(true);
+    try {
+      await revokeCertificate(selected.id, revokeReason);
+      setSelected((prev) => prev ? { ...prev, status: 'Revoked', revokedReason: revokeReason, revokedAt: new Date().toISOString() } : prev);
+      setShowRevokeForm(false);
+      setRevokeReason('');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to revoke certificate.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSuspend = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await suspendCertificate(selected.id);
+      setSelected((prev) => prev ? { ...prev, status: 'Suspended' } : prev);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to suspend certificate.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await reactivateCertificate(selected.id);
+      setSelected((prev) => prev ? { ...prev, status: 'Active', revokedReason: '', revokedAt: null } : prev);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to reactivate certificate.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (selected) {
     const Icon = typeIcons[selected.certificateType];
@@ -102,11 +199,23 @@ export function Certificates() {
           </div>
         </div>
 
+        {isDemoMode && (
+          <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" />
+            Demo mode — certificates shown are sample data. Issued certificates are not saved as live records.
+          </div>
+        )}
+
+        {submitError && (
+          <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" /> {submitError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {/* Digital Card */}
             <div className={`relative rounded-2xl overflow-hidden bg-gradient-to-br ${cardGradient} p-6 text-white shadow-xl`}>
-              {/* Decorative pattern */}
               <div className="absolute top-0 right-0 w-64 h-64 opacity-10">
                 <div className="absolute inset-0 rounded-full border-2 border-white" />
                 <div className="absolute inset-8 rounded-full border-2 border-white" />
@@ -225,6 +334,41 @@ export function Certificates() {
                 </div>
               )}
             </div>
+
+            {/* Certificate management */}
+            {canManage && selected.status !== 'Revoked' && selected.status !== 'Replaced' && (
+              <div className="card p-5">
+                <h3 className="font-display font-bold text-ink-900 mb-4">Certificate Management</h3>
+                {showRevokeForm ? (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-ink-700 mb-1">Reason for Revocation *</label>
+                    <textarea className="input w-full" rows={2} value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)} placeholder="e.g. Issued in error, fraud detected, employee request..." />
+                    <div className="flex gap-2">
+                      <button onClick={handleRevoke} disabled={busy || !revokeReason.trim()} className="btn-primary">
+                        {busy ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />} Confirm Revocation
+                      </button>
+                      <button onClick={() => { setShowRevokeForm(false); setRevokeReason(''); }} className="btn-secondary">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {selected.status === 'Active' && (
+                      <button onClick={handleSuspend} disabled={busy} className="btn-secondary text-sm">
+                        {busy ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />} Suspend
+                      </button>
+                    )}
+                    {selected.status === 'Suspended' && (
+                      <button onClick={handleReactivate} disabled={busy} className="btn-secondary text-sm">
+                        {busy ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />} Reactivate
+                      </button>
+                    )}
+                    <button onClick={() => setShowRevokeForm(true)} disabled={busy} className="btn-secondary text-sm">
+                      <Ban size={14} /> Revoke Certificate
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* QR Code panel */}
@@ -264,9 +408,18 @@ export function Certificates() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-display font-bold text-ink-900">Digital Identity</h2>
-        <p className="text-sm text-ink-500">Membership cards, medical alert cards, and fitness certificates with QR verification</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-display font-bold text-ink-900">Digital Identity</h2>
+          <p className="text-sm text-ink-500">
+            {loading ? 'Loading...' : 'Membership cards, medical alert cards, and fitness certificates with QR verification'}
+          </p>
+        </div>
+        {canManage && (
+          <button className="btn-primary" onClick={() => { setFormData(emptyForm); setShowForm(true); }}>
+            <Plus size={16} /> Issue Certificate
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -308,6 +461,51 @@ export function Certificates() {
         </div>
       </div>
 
+      {/* Issue form */}
+      {showForm && (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-ink-900">Issue New Certificate</h3>
+            <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setFormData(emptyForm); }}><X size={16} /> Cancel</button>
+          </div>
+          {submitError && <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg">{submitError}</div>}
+          <form className="space-y-4" onSubmit={handleIssue}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Certificate Type *</label>
+                <select className="input w-full" value={formData.certificateType} onChange={(e) => setFormData({ ...formData, certificateType: e.target.value as CertificateType })} required>
+                  <option value="fitness">Fitness Certificate</option>
+                  <option value="membership">Membership Card</option>
+                  <option value="medical_alert">Medical Alert Card</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Employee *</label>
+                <select className="input w-full" value={formData.employeeId} onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })} required>
+                  <option value="">Select employee...</option>
+                  {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name} — {emp.companyName}</option>)}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Title *</label>
+                <input className="input w-full" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Fitness for Duty — Clearance Certificate" required />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Description</label>
+                <textarea className="input w-full" rows={2} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional description or notes" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-ink-700 mb-1">Expiry Date</label>
+                <input type="date" className="input w-full" value={formData.expiryDate} onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })} />
+              </div>
+            </div>
+            <button type="submit" disabled={busy} className="btn-primary">
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Award size={16} />} Issue Certificate
+            </button>
+          </form>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
@@ -330,10 +528,15 @@ export function Certificates() {
         </select>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="card p-12 text-center">
+          <Loader2 size={24} className="animate-spin text-brand-500 mx-auto mb-3" />
+          <p className="text-sm text-ink-500">Loading certificates...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card p-12 text-center">
           <Award size={32} className="text-ink-300 mx-auto mb-3" />
-          <p className="text-sm text-ink-500">No certificates found. Try adjusting your search.</p>
+          <p className="text-sm text-ink-500">No certificates found. {canManage && 'Click "Issue Certificate" to create one.'}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
