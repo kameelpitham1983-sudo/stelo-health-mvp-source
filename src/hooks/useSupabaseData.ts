@@ -1215,6 +1215,7 @@ export function useSynopsisFollowUps(synopsisId: string | null) {
 // --- Workflow Definitions ---
 
 function transformWorkflowDefinition(row: Record<string, unknown>): WorkflowDefinition {
+  const stepsRaw = (row.workflow_steps as Record<string, unknown>[]) || [];
   return {
     id: row.id as string,
     name: (row.name as string) || '',
@@ -1222,43 +1223,125 @@ function transformWorkflowDefinition(row: Record<string, unknown>): WorkflowDefi
     description: (row.description as string) || '',
     version: (row.version as number) || 1,
     active: (row.active as boolean) ?? true,
-    steps: ((row.steps as Record<string, unknown>[]) || []).map((s) => ({
-      id: s.id as string,
-      stepNumber: s.stepNumber as number,
-      stepName: s.stepName as string,
-      purpose: s.purpose as string,
-      instructions: s.instructions as string,
-      responsibleRole: s.responsibleRole as WorkflowDefinition['steps'][number]['responsibleRole'],
-      requiredInfo: (s.requiredInfo as string[]) || [],
-      requiredDocuments: (s.requiredDocuments as string[]) || [],
-      requiredApprovals: (s.requiredApprovals as string[]) || [],
-      systemActions: (s.systemActions as string[]) || [],
-      completionCriteria: s.completionCriteria as string,
-      escalationRules: s.escalationRules as string,
-      exceptionHandling: s.exceptionHandling as string,
-    })),
+    steps: stepsRaw
+      .map((s) => ({
+        id: s.id as string,
+        stepNumber: s.step_number as number,
+        stepName: (s.step_name as string) || '',
+        purpose: (s.purpose as string) || '',
+        instructions: (s.instructions as string) || '',
+        responsibleRole: s.responsible_role as WorkflowDefinition['steps'][number]['responsibleRole'],
+        requiredInfo: (s.required_info as string[]) || [],
+        requiredDocuments: (s.required_documents as string[]) || [],
+        requiredApprovals: (s.required_approvals as string[]) || [],
+        systemActions: (s.system_actions as string[]) || [],
+        completionCriteria: (s.completion_criteria as string) || '',
+        escalationRules: (s.escalation_rules as string) || '',
+        exceptionHandling: (s.exception_handling as string) || '',
+      }))
+      .sort((a, b) => a.stepNumber - b.stepNumber),
     createdAt: (row.created_at as string) || '',
     updatedAt: (row.updated_at as string) || '',
   };
 }
 
 export function useWorkflowDefinitions() {
-  return useSupabaseQuery<WorkflowDefinition>(
-    'workflow_definitions',
-    transformWorkflowDefinition,
-    'name',
-    true,
-    () => mockData.workflowDefinitions,
-  );
+  const [data, setData] = useState<WorkflowDefinition[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.workflowDefinitions);
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('workflow_definitions')
+      .select('*, workflow_steps(*)')
+      .order('name', { ascending: true });
+    if (err) {
+      setError(err.message);
+      setData(mockData.workflowDefinitions);
+    } else {
+      const defs = (rows as Record<string, unknown>[]).map(transformWorkflowDefinition);
+      setData(defs.length > 0 ? defs : mockData.workflowDefinitions);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addWorkflowDefinition = useCallback(async (
+    def: Partial<WorkflowDefinition> & {
+      steps?: Array<Partial<WorkflowDefinition['steps'][number]>>;
+    },
+  ) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { data: row, error: err } = await supabase
+      .from('workflow_definitions')
+      .insert({
+        name: def.name,
+        category: def.category || 'Occupational Medical',
+        description: def.description || '',
+        version: def.version || 1,
+        active: def.active ?? true,
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    const defId = (row as Record<string, unknown>).id as string;
+
+    if (def.steps && def.steps.length > 0) {
+      const stepInserts = def.steps.map((s, idx) => ({
+        workflow_definition_id: defId,
+        step_number: s.stepNumber || idx + 1,
+        step_name: s.stepName || '',
+        purpose: s.purpose || '',
+        instructions: s.instructions || '',
+        responsible_role: s.responsibleRole || 'admin',
+        required_info: s.requiredInfo || [],
+        required_documents: s.requiredDocuments || [],
+        required_approvals: s.requiredApprovals || [],
+        system_actions: s.systemActions || [],
+        completion_criteria: s.completionCriteria || '',
+        escalation_rules: s.escalationRules || '',
+        exception_handling: s.exceptionHandling || '',
+      }));
+      const { error: stepsErr } = await supabase.from('workflow_steps').insert(stepInserts);
+      if (stepsErr) throw new Error(stepsErr.message);
+    }
+    await refetch();
+    return transformWorkflowDefinition(row as Record<string, unknown>);
+  }, [refetch]);
+
+  const updateWorkflowDefinition = useCallback(async (id: string, updates: Partial<WorkflowDefinition>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.category !== undefined) updateData.category = updates.category;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.version !== undefined) updateData.version = updates.version;
+    if (updates.active !== undefined) updateData.active = updates.active;
+    const { error: err } = await supabase.from('workflow_definitions').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, addWorkflowDefinition, updateWorkflowDefinition };
 }
 
 // --- Workflow Instances ---
 
 function transformWorkflowInstance(row: Record<string, unknown>): WorkflowInstance {
+  const stepsRaw = (row.workflow_step_instances as Record<string, unknown>[]) || [];
+  const def = row.workflow_definitions as Record<string, unknown> | null;
   return {
     id: row.id as string,
     workflowDefinitionId: (row.workflow_definition_id as string) || '',
-    workflowName: (row.workflow_name as string) || '',
+    workflowName: (def?.name as string) || (row.workflow_name as string) || '',
     instanceReference: (row.instance_reference as string) || '',
     employeeName: (row.employee_name as string) || '',
     employeeId: (row.employee_id as string) || null,
@@ -1268,36 +1351,212 @@ function transformWorkflowInstance(row: Record<string, unknown>): WorkflowInstan
     linkedAppointmentId: (row.linked_appointment_id as string) || null,
     status: (row.status as string) as WorkflowInstance['status'],
     currentStep: (row.current_step as number) || 0,
-    totalSteps: (row.total_steps as number) || 0,
+    totalSteps: stepsRaw.length || 0,
     assignedTo: (row.assigned_to as string) || '',
     notes: (row.notes as string) || '',
-    stepInstances: ((row.step_instances as Record<string, unknown>[]) || []).map((s) => ({
-      id: s.id as string,
-      workflowInstanceId: (s.workflow_instance_id as string) || '',
-      stepNumber: s.stepNumber as number,
-      stepName: s.stepName as string,
-      status: s.status as WorkflowInstance['stepInstances'][number]['status'],
-      responsibleRole: s.responsibleRole as WorkflowInstance['stepInstances'][number]['responsibleRole'],
-      assignedPerson: (s.assignedPerson as string) || '',
-      startedAt: (s.startedAt as string) || null,
-      completedAt: (s.completedAt as string) || null,
-      notes: (s.notes as string) || '',
-      exceptionFlagged: (s.exceptionFlagged as boolean) || false,
-      exceptionReason: (s.exceptionReason as string) || '',
-    })),
+    stepInstances: stepsRaw
+      .map((s) => ({
+        id: s.id as string,
+        workflowInstanceId: (s.workflow_instance_id as string) || '',
+        stepNumber: s.step_number as number,
+        stepName: (s.step_name as string) || '',
+        status: s.status as WorkflowInstance['stepInstances'][number]['status'],
+        responsibleRole: s.responsible_role as WorkflowInstance['stepInstances'][number]['responsibleRole'],
+        assignedPerson: (s.assigned_person as string) || '',
+        startedAt: s.started_at ? String(s.started_at) : null,
+        completedAt: s.completed_at ? String(s.completed_at) : null,
+        notes: (s.notes as string) || '',
+        exceptionFlagged: (s.exception_flagged as boolean) || false,
+        exceptionReason: (s.exception_reason as string) || '',
+      }))
+      .sort((a, b) => a.stepNumber - b.stepNumber),
     createdAt: (row.created_at as string) || '',
     updatedAt: (row.updated_at as string) || '',
   };
 }
 
 export function useWorkflowInstances() {
-  return useSupabaseQuery<WorkflowInstance>(
-    'workflow_instances',
-    transformWorkflowInstance,
-    'created_at',
-    false,
-    () => mockData.workflowInstances,
-  );
+  const { user } = useApp();
+  const [data, setData] = useState<WorkflowInstance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.workflowInstances);
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('workflow_instances')
+      .select('*, workflow_step_instances(*), workflow_definitions!workflow_definition_id(name)')
+      .order('created_at', { ascending: false });
+    if (err) {
+      setError(err.message);
+      setData(mockData.workflowInstances);
+    } else {
+      const instances = (rows as Record<string, unknown>[]).map(transformWorkflowInstance);
+      setData(instances.length > 0 ? instances : mockData.workflowInstances);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addWorkflowInstance = useCallback(async (
+    def: WorkflowDefinition,
+    employeeName: string,
+    employeeId: string | null,
+    companyName: string,
+    companyId: string | null,
+    notes: string,
+  ) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const now = new Date();
+    const catPrefix = (def.category || 'WF').split(' ')[0].toUpperCase().slice(0, 3);
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const { data: existing } = await supabase
+      .from('workflow_instances')
+      .select('instance_reference')
+      .like('instance_reference', `WF-${catPrefix}-${dateStr}-%`)
+      .order('instance_reference', { ascending: false })
+      .limit(1);
+    const lastSeq = existing && existing.length > 0
+      ? parseInt(((existing[0] as Record<string, unknown>).instance_reference as string).split('-').pop() || '0', 10) || 0
+      : 0;
+    const instanceReference = `WF-${catPrefix}-${dateStr}-${String(lastSeq + 1).padStart(3, '0')}`;
+
+    const { data: instRow, error: instErr } = await supabase
+      .from('workflow_instances')
+      .insert({
+        workflow_definition_id: def.id,
+        instance_reference: instanceReference,
+        employee_name: employeeName,
+        employee_id: employeeId,
+        company_name: companyName,
+        company_id: companyId,
+        status: 'In Progress',
+        current_step: 1,
+        assigned_to: user?.name || 'Coordinator',
+        notes: notes || '',
+      })
+      .select()
+      .single();
+    if (instErr) throw new Error(instErr.message);
+    const instId = (instRow as Record<string, unknown>).id as string;
+
+    const stepInserts = def.steps.map((step) => ({
+      workflow_instance_id: instId,
+      step_number: step.stepNumber,
+      step_name: step.stepName,
+      status: step.stepNumber === 1 ? 'In Progress' : 'Pending',
+      responsible_role: step.responsibleRole,
+      assigned_person: step.stepNumber === 1 ? (user?.name || 'Coordinator') : '',
+      started_at: step.stepNumber === 1 ? now.toISOString() : null,
+      notes: '',
+      exception_flagged: false,
+      exception_reason: '',
+    }));
+    const { error: stepsErr } = await supabase.from('workflow_step_instances').insert(stepInserts);
+    if (stepsErr) throw new Error(stepsErr.message);
+
+    await supabase.from('workflow_audit_trail').insert({
+      workflow_instance_id: instId,
+      step_number: null,
+      action: 'Workflow instance created',
+      actor: user?.name || 'Coordinator',
+      from_status: '',
+      to_status: 'In Progress',
+      details: `Launched ${def.name} for ${employeeName}`,
+    });
+
+    await refetch();
+    return instanceReference;
+  }, [refetch, user]);
+
+  const updateWorkflowInstance = useCallback(async (
+    id: string,
+    updates: Partial<Pick<WorkflowInstance, 'status' | 'currentStep' | 'notes' | 'assignedTo'>>,
+  ) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.currentStep !== undefined) updateData.current_step = updates.currentStep;
+    if (updates.notes !== undefined) updateData.notes = updates.notes;
+    if (updates.assignedTo !== undefined) updateData.assigned_to = updates.assignedTo;
+    const { error: err } = await supabase.from('workflow_instances').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+
+    if (updates.status) {
+      await supabase.from('workflow_audit_trail').insert({
+        workflow_instance_id: id,
+        step_number: null,
+        action: `Instance status changed to ${updates.status}`,
+        actor: user?.name || 'Coordinator',
+        from_status: '',
+        to_status: updates.status,
+        details: '',
+      });
+    }
+    await refetch();
+  }, [refetch, user]);
+
+  const updateWorkflowStep = useCallback(async (
+    instanceId: string,
+    stepId: string,
+    stepNumber: number,
+    updates: {
+      status?: WorkflowInstance['stepInstances'][number]['status'];
+      assignedPerson?: string;
+      notes?: string;
+      exceptionFlagged?: boolean;
+      exceptionReason?: string;
+    },
+    instanceStatus?: WorkflowInstance['status'],
+    currentStep?: number,
+  ) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const now = new Date().toISOString();
+    const stepUpdate: Record<string, unknown> = {};
+    if (updates.status !== undefined) {
+      stepUpdate.status = updates.status;
+      if (updates.status === 'In Progress') stepUpdate.started_at = now;
+      if (updates.status === 'Completed') stepUpdate.completed_at = now;
+    }
+    if (updates.assignedPerson !== undefined) stepUpdate.assigned_person = updates.assignedPerson;
+    if (updates.notes !== undefined) stepUpdate.notes = updates.notes;
+    if (updates.exceptionFlagged !== undefined) stepUpdate.exception_flagged = updates.exceptionFlagged;
+    if (updates.exceptionReason !== undefined) stepUpdate.exception_reason = updates.exceptionReason;
+
+    const { error: stepErr } = await supabase
+      .from('workflow_step_instances')
+      .update(stepUpdate)
+      .eq('id', stepId);
+    if (stepErr) throw new Error(stepErr.message);
+
+    if (instanceStatus || currentStep !== undefined) {
+      const instUpdate: Record<string, unknown> = {};
+      if (instanceStatus) instUpdate.status = instanceStatus;
+      if (currentStep !== undefined) instUpdate.current_step = currentStep;
+      await supabase.from('workflow_instances').update(instUpdate).eq('id', instanceId);
+    }
+
+    await supabase.from('workflow_audit_trail').insert({
+      workflow_instance_id: instanceId,
+      step_number: stepNumber,
+      action: updates.status ? `Step ${stepNumber} status changed to ${updates.status}` : `Step ${stepNumber} updated`,
+      actor: user?.name || 'Coordinator',
+      from_status: '',
+      to_status: updates.status || '',
+      details: updates.notes || updates.exceptionReason || '',
+    });
+
+    await refetch();
+  }, [refetch, user]);
+
+  return { data, loading, error, refetch, addWorkflowInstance, updateWorkflowInstance, updateWorkflowStep };
 }
 
 // --- Digital Certificates ---
@@ -1437,13 +1696,110 @@ function transformProvider(row: Record<string, unknown>): Provider {
 }
 
 export function useProviders() {
-  return useSupabaseQuery<Provider>(
-    'providers',
-    transformProvider,
-    'name',
-    true,
-    () => [],
-  );
+  const [data, setData] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData(mockData.providers);
+      setLoading(false);
+      return;
+    }
+    const { data: rows, error: err } = await supabase
+      .from('providers')
+      .select('*')
+      .order('name', { ascending: true });
+    if (err) {
+      setError(err.message);
+      setData(mockData.providers);
+    } else {
+      const providers = (rows as Record<string, unknown>[]).map(transformProvider);
+      setData(providers.length > 0 ? providers : mockData.providers);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const addProvider = useCallback(async (provider: Partial<Provider>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { data: row, error: err } = await supabase
+      .from('providers')
+      .insert({
+        name: provider.name,
+        provider_code: provider.providerCode || `PR-NEW-${Date.now().toString().slice(-6)}`,
+        category: provider.category || 'Occupational Health Clinic',
+        services: provider.services || [],
+        status: 'Unverified',
+        tier: 'Not Rated',
+        contact_person: provider.contactPerson || 'To be confirmed',
+        phone: provider.phone || 'To be confirmed',
+        email: provider.email || 'To be confirmed',
+        physical_address: provider.physicalAddress || 'To be confirmed',
+        provinces_served: provider.provincesServed || [],
+        towns_served: [],
+        operating_hours: 'To be confirmed',
+        booking_process: 'To be confirmed — contact provider to establish booking procedure',
+        appointment_availability: 'Unknown — not yet assessed',
+        indicative_pricing: 'Not provided — quotation required',
+        commercial_terms: 'Not yet negotiated',
+        service_capacity: null,
+        mobile_service_available: false,
+        travel_charges: 'To be confirmed',
+        registration_number: 'To be verified',
+        licence_number: 'To be verified',
+        accreditation_details: 'To be verified',
+        internal_notes: 'Newly created record — all fields pending verification. Do not deploy employees until provider is verified.',
+        documents: [],
+        performance_metrics: [],
+        site_visits: [],
+      })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    await refetch();
+    return transformProvider(row as Record<string, unknown>);
+  }, [refetch]);
+
+  const updateProvider = useCallback(async (id: string, updates: Partial<Provider>) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const updateData: Record<string, unknown> = {};
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.tier !== undefined) updateData.tier = updates.tier;
+    if (updates.contactPerson !== undefined) updateData.contact_person = updates.contactPerson;
+    if (updates.phone !== undefined) updateData.phone = updates.phone;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.physicalAddress !== undefined) updateData.physical_address = updates.physicalAddress;
+    if (updates.gpsCoordinates !== undefined) updateData.gps_coordinates = updates.gpsCoordinates;
+    if (updates.provincesServed !== undefined) updateData.provinces_served = updates.provincesServed;
+    if (updates.townsServed !== undefined) updateData.towns_served = updates.townsServed;
+    if (updates.operatingHours !== undefined) updateData.operating_hours = updates.operatingHours;
+    if (updates.bookingProcess !== undefined) updateData.booking_process = updates.bookingProcess;
+    if (updates.appointmentAvailability !== undefined) updateData.appointment_availability = updates.appointmentAvailability;
+    if (updates.indicativePricing !== undefined) updateData.indicative_pricing = updates.indicativePricing;
+    if (updates.commercialTerms !== undefined) updateData.commercial_terms = updates.commercialTerms;
+    if (updates.serviceCapacity !== undefined) updateData.service_capacity = updates.serviceCapacity;
+    if (updates.mobileServiceAvailable !== undefined) updateData.mobile_service_available = updates.mobileServiceAvailable;
+    if (updates.travelCharges !== undefined) updateData.travel_charges = updates.travelCharges;
+    if (updates.registrationNumber !== undefined) updateData.registration_number = updates.registrationNumber;
+    if (updates.licenceNumber !== undefined) updateData.licence_number = updates.licenceNumber;
+    if (updates.accreditationDetails !== undefined) updateData.accreditation_details = updates.accreditationDetails;
+    if (updates.accreditationExpiryDate !== undefined) updateData.accreditation_expiry_date = updates.accreditationExpiryDate || null;
+    if (updates.lastVerificationDate !== undefined) updateData.last_verification_date = updates.lastVerificationDate || null;
+    if (updates.internalNotes !== undefined) updateData.internal_notes = updates.internalNotes;
+    if (updates.siteVisits !== undefined) updateData.site_visits = updates.siteVisits;
+    if (updates.documents !== undefined) updateData.documents = updates.documents;
+    if (updates.performanceMetrics !== undefined) updateData.performance_metrics = updates.performanceMetrics;
+    if (updates.services !== undefined) updateData.services = updates.services;
+    const { error: err } = await supabase.from('providers').update(updateData).eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, addProvider, updateProvider };
 }
 
 // --- Central Case Management ---

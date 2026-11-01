@@ -29,9 +29,8 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { useApp } from '@/context/AppContext';
-import { isDemoMode } from '@/hooks/useSupabaseData';
-import { providers as demoProviders } from '@/data/mockData';
-import { medicals, appointments } from '@/data/mockData';
+import { isDemoMode, useProviders, useMedicals, useAppointments } from '@/hooks/useSupabaseData';
+import { providers as demoProviders, medicals as mockMedicals, appointments as mockAppointments } from '@/data/mockData';
 import { NotesPanel } from '@/components/NotesPanel';
 import type {
   Provider,
@@ -92,7 +91,10 @@ const emptyForm: Partial<Provider> = {
 
 export function Providers() {
   const { user } = useApp();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'master_admin';
+  const { data: liveProviders, loading, addProvider, updateProvider } = useProviders();
+  const { data: liveMedicals } = useMedicals();
+  const { data: liveAppointments } = useAppointments();
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -103,15 +105,10 @@ export function Providers() {
   const [formData, setFormData] = useState(emptyForm);
   const [serviceInput, setServiceInput] = useState('');
   const [provinceInput, setProvinceInput] = useState('');
-  const [demoProvidersState, setDemoProvidersState] = useState<Provider[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const allProviders = useMemo(() => {
-    if (demoProvidersState.length === 0) return demoProviders;
-    const baseIds = new Set(demoProviders.map((p) => p.id));
-    const added = demoProvidersState.filter((p) => !baseIds.has(p.id));
-    return [...demoProviders, ...added];
-  }, [demoProvidersState]);
+  const allProviders = liveProviders;
 
   const filtered = allProviders.filter((p) => {
     const matchSearch =
@@ -133,93 +130,74 @@ export function Providers() {
     mobile: allProviders.filter((p) => p.mobileServiceAvailable).length,
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     if (!formData.name) {
       setSubmitError('Provider or organisation name is required.');
       return;
     }
-    const newProvider: Provider = {
-      id: `pr-demo-${Date.now()}`,
-      name: formData.name,
-      providerCode: `PR-NEW-${String(allProviders.length + 1).padStart(3, '0')}`,
-      category: (formData.category as ProviderCategory) || 'Other',
-      services: formData.services || [],
-      status: 'Unverified',
-      tier: 'Not Rated',
-      contactPerson: formData.contactPerson || 'To be confirmed',
-      phone: formData.phone || 'To be confirmed',
-      email: formData.email || 'To be confirmed',
-      physicalAddress: formData.physicalAddress || 'To be confirmed',
-      gpsCoordinates: null,
-      provincesServed: formData.provincesServed || [],
-      townsServed: [],
-      operatingHours: 'To be confirmed',
-      bookingProcess: 'To be confirmed — contact provider to establish booking procedure',
-      appointmentAvailability: 'Unknown — not yet assessed',
-      indicativePricing: 'Not provided — quotation required',
-      commercialTerms: 'Not yet negotiated',
-      serviceCapacity: null,
-      mobileServiceAvailable: false,
-      travelCharges: 'To be confirmed',
-      registrationNumber: 'To be verified',
-      licenceNumber: 'To be verified',
-      accreditationDetails: 'To be verified',
-      accreditationExpiryDate: null,
-      lastVerificationDate: null,
-      internalNotes: 'Newly created record — all fields pending verification. Do not deploy employees until provider is verified.',
-      documents: [],
-      performanceMetrics: [],
-      siteVisits: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setDemoProvidersState((prev) => [...prev, newProvider]);
-    setShowForm(false);
-    setFormData(emptyForm);
-  };
-
-  const updateProviderStatus = (id: string, newStatus: ProviderStatus) => {
-    const update = (p: Provider): Provider =>
-      p.id === id ? { ...p, status: newStatus, updatedAt: new Date().toISOString() } : p;
-    setDemoProvidersState((prev) => {
-      const existing = prev.find((p) => p.id === id);
-      if (existing) return prev.map(update);
-      const base = demoProviders.find((p) => p.id === id);
-      return base ? [...prev, update(base)] : prev;
-    });
-    if (selectedProvider?.id === id) {
-      setSelectedProvider((prev) => prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : prev);
+    setBusy(true);
+    try {
+      await addProvider({
+        name: formData.name,
+        category: (formData.category as ProviderCategory) || 'Other',
+        services: formData.services || [],
+        contactPerson: formData.contactPerson || 'To be confirmed',
+        phone: formData.phone || 'To be confirmed',
+        email: formData.email || 'To be confirmed',
+        physicalAddress: formData.physicalAddress || 'To be confirmed',
+        provincesServed: formData.provincesServed || [],
+      });
+      setShowForm(false);
+      setFormData(emptyForm);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create provider.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const updateProviderTier = (id: string, newTier: ProviderTier) => {
-    const update = (p: Provider): Provider =>
-      p.id === id ? { ...p, tier: newTier, updatedAt: new Date().toISOString() } : p;
-    setDemoProvidersState((prev) => {
-      const existing = prev.find((p) => p.id === id);
-      if (existing) return prev.map(update);
-      const base = demoProviders.find((p) => p.id === id);
-      return base ? [...prev, update(base)] : prev;
-    });
-    if (selectedProvider?.id === id) {
-      setSelectedProvider((prev) => prev ? { ...prev, tier: newTier, updatedAt: new Date().toISOString() } : prev);
+  const updateProviderStatus = async (id: string, newStatus: ProviderStatus) => {
+    setBusy(true);
+    try {
+      await updateProvider(id, { status: newStatus });
+      if (selectedProvider?.id === id) {
+        setSelectedProvider((prev) => prev ? { ...prev, status: newStatus } : prev);
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update provider status.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const addSiteVisit = (id: string, visit: Omit<ProviderSiteVisit, 'id'>) => {
+  const updateProviderTier = async (id: string, newTier: ProviderTier) => {
+    setBusy(true);
+    try {
+      await updateProvider(id, { tier: newTier });
+      if (selectedProvider?.id === id) {
+        setSelectedProvider((prev) => prev ? { ...prev, tier: newTier } : prev);
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update provider tier.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addSiteVisit = async (id: string, visit: Omit<ProviderSiteVisit, 'id'>) => {
+    const provider = allProviders.find((p) => p.id === id);
+    if (!provider) return;
     const newVisit: ProviderSiteVisit = { ...visit, id: `psv-${Date.now()}` };
-    const update = (p: Provider): Provider =>
-      p.id === id ? { ...p, siteVisits: [newVisit, ...p.siteVisits], updatedAt: new Date().toISOString() } : p;
-    setDemoProvidersState((prev) => {
-      const existing = prev.find((p) => p.id === id);
-      if (existing) return prev.map(update);
-      const base = demoProviders.find((p) => p.id === id);
-      return base ? [...prev, update(base)] : prev;
-    });
+    const updatedVisits = [newVisit, ...provider.siteVisits];
     if (selectedProvider?.id === id) {
-      setSelectedProvider((prev) => prev ? { ...prev, siteVisits: [newVisit, ...prev.siteVisits] } : prev);
+      setSelectedProvider((prev) => prev ? { ...prev, siteVisits: updatedVisits } : prev);
+    }
+    try {
+      await updateProvider(id, { siteVisits: updatedVisits });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to add site visit.');
     }
   };
 
@@ -228,8 +206,10 @@ export function Providers() {
     const p = selectedProvider;
     const CatIcon = categoryIcons[p.category] || Building2;
 
-    const linkedMedicals = medicals.filter((m) => m.providerName && p.name.includes(m.providerName.split('—')[0].trim()));
-    const linkedAppointments = appointments.filter((a) => a.providerName && p.name.includes(a.providerName.split('—')[0].trim()));
+    const medList = liveMedicals.length > 0 ? liveMedicals : mockMedicals;
+    const aptList = liveAppointments.length > 0 ? liveAppointments : mockAppointments;
+    const linkedMedicals = medList.filter((m) => m.providerName && p.name.includes(m.providerName.split('—')[0].trim()));
+    const linkedAppointments = aptList.filter((a) => a.providerName && p.name.includes(a.providerName.split('—')[0].trim()));
 
     return (
       <ProviderDetail

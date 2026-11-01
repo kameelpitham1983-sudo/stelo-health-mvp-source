@@ -17,8 +17,8 @@ import {
   Plus,
   X,
   Zap,
+  Loader2,
 } from 'lucide-react';
-import { workflowDefinitions, workflowInstances } from '@/data/mockData';
 import { useWorkflowDefinitions, useWorkflowInstances, useEmployees, useCompanies, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
 import { Badge } from '@/components/Badge';
@@ -27,6 +27,7 @@ import type {
   WorkflowInstance,
   WorkflowStepStatus,
   WorkflowInstanceStatus,
+  WorkflowStepInstance,
 } from '@/types';
 
 const instanceStatusColors: Record<WorkflowInstanceStatus, 'success' | 'warning' | 'danger' | 'brand' | 'ink'> = {
@@ -80,8 +81,8 @@ function formatDateTime(iso: string | null): string {
 
 export function Workflows() {
   const { user } = useApp();
-  const { data: liveDefs } = useWorkflowDefinitions();
-  const { data: liveInstances } = useWorkflowInstances();
+  const { data: allDefs, loading: defsLoading } = useWorkflowDefinitions();
+  const { data: allInstances, loading: instancesLoading, addWorkflowInstance, updateWorkflowInstance, updateWorkflowStep } = useWorkflowInstances();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
 
@@ -97,14 +98,11 @@ export function Workflows() {
   const [launchNotes, setLaunchNotes] = useState('');
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
-  const [localInstances, setLocalInstances] = useState<WorkflowInstance[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const allDefs = liveDefs.length > 0 ? liveDefs : workflowDefinitions;
-  const allInstances = useMemo(() => {
-    return [...localInstances, ...(liveInstances.length > 0 ? liveInstances : workflowInstances)];
-  }, [localInstances, liveInstances]);
-
-  const canLaunch = user?.role === 'admin' || user?.role === 'coordinator';
+  const canLaunch = user?.role === 'admin' || user?.role === 'coordinator' || user?.role === 'master_admin';
+  const canAdvance = canLaunch || user?.role === 'provider';
 
   const categories = useMemo(() => {
     const cats = new Set(allDefs.map((d) => d.category));
@@ -145,48 +143,21 @@ export function Workflows() {
       const employee = employees.find((emp) => emp.id === launchEmployeeId);
       const company = companies.find((c) => c.id === (launchCompanyId || employee?.companyId));
       if (!employee) throw new Error('Please select a valid employee');
-      const now = new Date();
-      const ref = `WF-${launchDef.category.split(' ')[0].toUpperCase().slice(0, 3)}-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(allInstances.length + 1).padStart(3, '0')}`;
-      const newInstance: WorkflowInstance = {
-        id: `wi-local-${Date.now()}`,
-        workflowDefinitionId: launchDef.id,
-        workflowName: launchDef.name,
-        instanceReference: ref,
-        employeeName: employee.name,
-        employeeId: employee.id,
-        companyName: company?.name || employee.companyName,
-        companyId: company?.id || employee.companyId,
-        linkedMedicalId: null,
-        linkedAppointmentId: null,
-        status: 'In Progress',
-        currentStep: 1,
-        totalSteps: launchDef.steps.length,
-        assignedTo: user?.name || 'Coordinator',
-        notes: launchNotes,
-        stepInstances: launchDef.steps.map((step) => ({
-          id: `wsi-${Date.now()}-${step.stepNumber}`,
-          workflowInstanceId: `wi-local-${Date.now()}`,
-          stepNumber: step.stepNumber,
-          stepName: step.stepName,
-          status: step.stepNumber === 1 ? 'In Progress' : 'Pending',
-          responsibleRole: step.responsibleRole,
-          assignedPerson: step.stepNumber === 1 ? (user?.name || 'Coordinator') : '',
-          startedAt: step.stepNumber === 1 ? new Date().toISOString() : null,
-          completedAt: null,
-          notes: '',
-          exceptionFlagged: false,
-          exceptionReason: '',
-        })),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setLocalInstances((prev) => [newInstance, ...prev]);
+      const ref = await addWorkflowInstance(
+        launchDef,
+        employee.name,
+        employee.id,
+        company?.name || employee.companyName,
+        company?.id || employee.companyId,
+        launchNotes,
+      );
       setShowLaunchForm(false);
       setLaunchDef(null);
       setLaunchEmployeeId('');
       setLaunchCompanyId('');
       setLaunchNotes('');
-      setSelectedInst(newInstance);
+      const created = allInstances.find((i) => i.instanceReference === ref);
+      if (created) setSelectedInst(created);
     } catch (err) {
       setLaunchError(err instanceof Error ? err.message : 'Failed to launch workflow');
     } finally {
@@ -194,8 +165,65 @@ export function Workflows() {
     }
   };
 
+  const advanceStep = async (inst: WorkflowInstance, step: WorkflowStepInstance, action: 'complete' | 'start' | 'skip' | 'flag') => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const nextStepNum = step.stepNumber + 1;
+      const isLastStep = step.stepNumber >= inst.totalSteps;
+
+      if (action === 'complete') {
+        await updateWorkflowStep(
+          inst.id,
+          step.id,
+          step.stepNumber,
+          { status: 'Completed' },
+          isLastStep ? 'Completed' : 'In Progress',
+          isLastStep ? inst.totalSteps : nextStepNum,
+        );
+        if (!isLastStep) {
+          const nextStep = inst.stepInstances.find((s) => s.stepNumber === nextStepNum);
+          if (nextStep) {
+            await updateWorkflowStep(
+              inst.id,
+              nextStep.id,
+              nextStep.stepNumber,
+              { status: 'In Progress', assignedPerson: user?.name || '' },
+            );
+          }
+        }
+      } else if (action === 'start') {
+        await updateWorkflowStep(inst.id, step.id, step.stepNumber, { status: 'In Progress', assignedPerson: user?.name || '' });
+      } else if (action === 'skip') {
+        await updateWorkflowStep(inst.id, step.id, step.stepNumber, { status: 'Skipped' });
+      } else if (action === 'flag') {
+        await updateWorkflowStep(inst.id, step.id, step.stepNumber, { status: 'Exception', exceptionFlagged: true, exceptionReason: 'Flagged for review' });
+      }
+
+      setSelectedInst((prev) => prev ? { ...prev, status: action === 'complete' && step.stepNumber >= inst.totalSteps ? 'Completed' : 'In Progress', currentStep: action === 'complete' && step.stepNumber < inst.totalSteps ? nextStepNum : prev.currentStep } : prev);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update workflow step');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelInstance = async (inst: WorkflowInstance) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await updateWorkflowInstance(inst.id, { status: 'Cancelled' });
+      setSelectedInst((prev) => prev ? { ...prev, status: 'Cancelled' } : prev);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to cancel workflow');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (selectedInst) {
-    const def = workflowDefinitions.find((d) => d.id === selectedInst.workflowDefinitionId);
+    const def = allDefs.find((d) => d.id === selectedInst.workflowDefinitionId);
+    const completedSteps = selectedInst.stepInstances.filter((s) => s.status === 'Completed').length;
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -204,6 +232,19 @@ export function Workflows() {
           </button>
           <Badge color={instanceStatusColors[selectedInst.status]} dot>{selectedInst.status}</Badge>
         </div>
+
+        {isDemoMode && (
+          <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" />
+            Demo mode — workflow instances shown are sample data. New instances are not saved as live records.
+          </div>
+        )}
+
+        {actionError && (
+          <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" /> {actionError}
+          </div>
+        )}
 
         <div className="card p-5 lg:p-6">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -227,7 +268,7 @@ export function Workflows() {
               </div>
               <div>
                 <p className="text-ink-400 text-xs uppercase tracking-wider">Progress</p>
-                <p className="font-semibold text-ink-900">{selectedInst.currentStep} / {selectedInst.totalSteps} steps</p>
+                <p className="font-semibold text-ink-900">{completedSteps} / {selectedInst.totalSteps} steps</p>
               </div>
             </div>
           </div>
@@ -242,10 +283,18 @@ export function Workflows() {
             <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-brand-500 rounded-full transition-all"
-                style={{ width: `${(selectedInst.currentStep / selectedInst.totalSteps) * 100}%` }}
+                style={{ width: `${selectedInst.totalSteps > 0 ? (completedSteps / selectedInst.totalSteps) * 100 : 0}%` }}
               />
             </div>
           </div>
+
+          {canAdvance && selectedInst.status !== 'Completed' && selectedInst.status !== 'Cancelled' && (
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => cancelInstance(selectedInst)} disabled={busy} className="btn-secondary text-sm">
+                Cancel Workflow
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="card p-5">
@@ -256,6 +305,7 @@ export function Workflows() {
             {selectedInst.stepInstances.map((step, idx) => {
               const StepIcon = stepStatusIcons[step.status];
               const isLast = idx === selectedInst.stepInstances.length - 1;
+              const isActiveStep = step.status === 'In Progress' || step.status === 'Pending';
               return (
                 <div key={step.id} className="relative">
                   {!isLast && (
@@ -299,6 +349,26 @@ export function Workflows() {
                       {step.exceptionFlagged && step.exceptionReason && (
                         <div className="mt-2 p-2.5 bg-warning-50 rounded-lg">
                           <p className="text-xs text-warning-700"><AlertCircle size={12} className="inline mr-1" /> {step.exceptionReason}</p>
+                        </div>
+                      )}
+                      {canAdvance && isActiveStep && selectedInst.status === 'In Progress' && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {step.status === 'Pending' && (
+                            <button onClick={() => advanceStep(selectedInst, step, 'start')} disabled={busy} className="btn-secondary text-xs">
+                              <PlayCircle size={13} /> Start Step
+                            </button>
+                          )}
+                          {step.status === 'In Progress' && (
+                            <button onClick={() => advanceStep(selectedInst, step, 'complete')} disabled={busy} className="btn-primary text-xs">
+                              {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Complete Step
+                            </button>
+                          )}
+                          <button onClick={() => advanceStep(selectedInst, step, 'skip')} disabled={busy} className="btn-ghost text-xs">
+                            <Lock size={13} /> Skip
+                          </button>
+                          <button onClick={() => advanceStep(selectedInst, step, 'flag')} disabled={busy} className="btn-ghost text-xs">
+                            <AlertCircle size={13} /> Flag Exception
+                          </button>
                         </div>
                       )}
                     </div>
@@ -359,7 +429,7 @@ export function Workflows() {
                 <textarea className="input w-full" rows={2} value={launchNotes} onChange={(e) => setLaunchNotes(e.target.value)} placeholder="Any initial notes for this workflow..." />
               </div>
               <button type="submit" disabled={launching} className="btn-primary">
-                {launching ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Zap size={16} /> Launch Workflow</>}
+                {launching ? <Loader2 size={16} className="animate-spin" /> : <><Zap size={16} /> Launch Workflow</>}
               </button>
             </form>
           </div>
@@ -463,7 +533,9 @@ export function Workflows() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Workflow Centre</h2>
-          <p className="text-sm text-ink-500">Manage process definitions and track live workflow instances</p>
+          <p className="text-sm text-ink-500">
+            {defsLoading || instancesLoading ? 'Loading...' : 'Manage process definitions and track live workflow instances'}
+          </p>
         </div>
         {canLaunch && (
           <button className="btn-primary" onClick={() => { setLaunchDef(null); setShowLaunchForm(true); }}>
@@ -511,7 +583,7 @@ export function Workflows() {
               <textarea className="input w-full" rows={2} value={launchNotes} onChange={(e) => setLaunchNotes(e.target.value)} placeholder="Any initial notes for this workflow..." />
             </div>
             <button type="submit" disabled={launching || !launchDef} className="btn-primary">
-              {launching ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Zap size={16} /> Launch Workflow</>}
+              {launching ? <Loader2 size={16} className="animate-spin" /> : <><Zap size={16} /> Launch Workflow</>}
             </button>
           </form>
         </div>
@@ -555,7 +627,12 @@ export function Workflows() {
       </div>
 
       {view === 'instances' && (
-        filteredInstances.length === 0 ? (
+        instancesLoading ? (
+          <div className="card p-12 text-center">
+            <Loader2 size={24} className="animate-spin text-brand-500 mx-auto mb-3" />
+            <p className="text-sm text-ink-500">Loading workflow instances...</p>
+          </div>
+        ) : filteredInstances.length === 0 ? (
           <div className="card p-12 text-center">
             <Workflow size={32} className="text-ink-300 mx-auto mb-3" />
             <p className="text-sm text-ink-500">No workflow instances found. Try adjusting your filters.</p>
@@ -563,7 +640,7 @@ export function Workflows() {
         ) : (
           <div className="space-y-3">
             {filteredInstances.map((inst) => {
-              const def = workflowDefinitions.find((d) => d.id === inst.workflowDefinitionId);
+              const def = allDefs.find((d) => d.id === inst.workflowDefinitionId);
               const completedSteps = inst.stepInstances.filter((s) => s.status === 'Completed').length;
               return (
                 <div
@@ -591,7 +668,7 @@ export function Workflows() {
                       <p className="text-xs text-ink-400">Progress</p>
                       <p className="font-semibold text-ink-900">{completedSteps} / {inst.totalSteps}</p>
                       <div className="w-24 h-1.5 bg-ink-100 rounded-full mt-1 overflow-hidden">
-                        <div className="h-full bg-brand-500 rounded-full" style={{ width: `${(completedSteps / inst.totalSteps) * 100}%` }} />
+                        <div className="h-full bg-brand-500 rounded-full" style={{ width: `${inst.totalSteps > 0 ? (completedSteps / inst.totalSteps) * 100 : 0}%` }} />
                       </div>
                     </div>
                     <ChevronRight size={20} className="text-ink-300 flex-shrink-0" />
@@ -604,7 +681,12 @@ export function Workflows() {
       )}
 
       {view === 'library' && (
-        filteredDefs.length === 0 ? (
+        defsLoading ? (
+          <div className="card p-12 text-center">
+            <Loader2 size={24} className="animate-spin text-brand-500 mx-auto mb-3" />
+            <p className="text-sm text-ink-500">Loading workflow definitions...</p>
+          </div>
+        ) : filteredDefs.length === 0 ? (
           <div className="card p-12 text-center">
             <Workflow size={32} className="text-ink-300 mx-auto mb-3" />
             <p className="text-sm text-ink-500">No workflow definitions found.</p>
