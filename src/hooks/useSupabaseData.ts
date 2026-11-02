@@ -185,7 +185,7 @@ export function useCompanies() {
       await refetch();
       return;
     }
-    const { error: err } = await supabase
+    const { data: rows, error: err } = await supabase
       .from('companies')
       .update({
         name: updates.name,
@@ -199,8 +199,10 @@ export function useCompanies() {
         contact_email: updates.contactEmail,
         contact_phone: updates.contactPhone,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (err) throw new Error(err.message);
+    if (!rows?.length) throw new Error('This company could not be saved. Your account may not have permission to edit it.');
     await refetch();
   }, [refetch]);
 
@@ -344,8 +346,9 @@ export function useEmployees() {
       if (updates.department !== undefined) updateData.department = updates.department;
       if (updates.status !== undefined) updateData.employment_status = updates.status;
       if (updates.travelReady !== undefined) updateData.international_travel_required = updates.travelReady;
-      const { error: err } = await supabase.from('employees').update(updateData).eq('id', employeeId);
+      const { data: rows, error: err } = await supabase.from('employees').update(updateData).eq('id', employeeId).select('id');
       if (err) throw new Error(err.message);
+      if (!rows?.length) throw new Error('This employee could not be saved. Your account may not have permission to edit it.');
       await refetch();
       return;
     }
