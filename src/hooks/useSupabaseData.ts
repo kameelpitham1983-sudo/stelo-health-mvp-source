@@ -330,7 +330,25 @@ export function useEmployees() {
 
   const updateEmployee = useCallback(async (employeeId: string, updates: Partial<Employee>) => {
     assertCan(user, 'employee.edit');
-    if (!isDemoMode) throw new Error('Editing employees is not yet connected to the live database.');
+    if (!isDemoMode) {
+      const updateData: Record<string, unknown> = {};
+      if (updates.name !== undefined) {
+        const nameParts = updates.name.trim().split(' ');
+        updateData.first_name = nameParts[0] || '';
+        updateData.surname = nameParts.slice(1).join(' ');
+      }
+      if (updates.email !== undefined) updateData.email = updates.email;
+      if (updates.phone !== undefined) updateData.phone = updates.phone;
+      if (updates.jobTitle !== undefined) updateData.job_title = updates.jobTitle;
+      if (updates.companyId !== undefined) updateData.company_id = updates.companyId || null;
+      if (updates.department !== undefined) updateData.department = updates.department;
+      if (updates.status !== undefined) updateData.employment_status = updates.status;
+      if (updates.travelReady !== undefined) updateData.international_travel_required = updates.travelReady;
+      const { error: err } = await supabase.from('employees').update(updateData).eq('id', employeeId);
+      if (err) throw new Error(err.message);
+      await refetch();
+      return;
+    }
     const patch: Partial<Employee> = { ...updates };
     const companyName = companyNameFor(updates.companyId);
     if (companyName) patch.companyName = companyName;
