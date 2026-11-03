@@ -49,6 +49,47 @@ export function Login() {
     } finally { setLoading(false); }
   };
 
+  const handleDemoLogin = async () => {
+    setError(''); setLoading(true);
+    try {
+      if (!supabaseConfigured) {
+        login(demoRole);
+        return;
+      }
+      if (!email || !password) {
+        setError('Enter the demo account email and password in the fields above, then click Launch Demo.');
+        return;
+      }
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) {
+        setError(authError.message === 'Invalid login credentials' ? 'Invalid email or password for the demo account.' : authError.message);
+        return;
+      }
+      if (!data.user) {
+        setError('Authentication succeeded but no user was returned.');
+        return;
+      }
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      if (profileError || !profile) {
+        await supabase.auth.signOut();
+        setError('No profile found for this account. Access denied.');
+        return;
+      }
+      if (profile.role !== demoRole) {
+        await supabase.auth.signOut();
+        setError(`This account has role "${profile.role}", not "${demoRole}". Use the correct credentials for the selected demo role.`);
+        return;
+      }
+      // Session established and role verified — onAuthStateChange in AppContext loads the profile.
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not launch demo. Please try again.');
+    } finally { setLoading(false); }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
@@ -170,8 +211,8 @@ export function Login() {
           </div>
         </div>
         {supabaseConfigured && (
-          <button type="button" onClick={() => { login(demoRole); }} className="btn-secondary w-full mt-3 py-2.5 text-sm">
-            Launch Demo as {roleOptions.find((r) => r.value === demoRole)?.label}
+          <button type="button" onClick={handleDemoLogin} disabled={loading} className="btn-secondary w-full mt-3 py-2.5 text-sm">
+            {loading ? 'Signing in...' : `Launch Demo as ${roleOptions.find((r) => r.value === demoRole)?.label}`}
           </button>
         )}
       </div>
