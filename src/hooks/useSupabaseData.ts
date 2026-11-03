@@ -2355,6 +2355,7 @@ export function useCases() {
     if (updates.specialistName !== undefined) updateData.specialist_name = updates.specialistName || null;
     if (updates.closureNotes !== undefined) updateData.closure_notes = updates.closureNotes;
     if (updates.closureDate !== undefined) updateData.closure_date = updates.closureDate;
+    if (updates.linkedDocumentIds !== undefined) updateData.linked_document_ids = updates.linkedDocumentIds;
 
     const { error: err } = await supabase.from('cases').update(updateData).eq('id', id);
     if (err) throw new Error(err.message);

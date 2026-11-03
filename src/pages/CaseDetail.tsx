@@ -3,13 +3,15 @@ import {
   ArrowLeft, Briefcase, Building2, User, Stethoscope, Calendar, FileText,
   FlaskConical, Globe, HeartPulse, Workflow, Clock, AlertCircle, CheckCircle2,
   ChevronDown, Save, X, Lock, Activity as ActivityIcon, History as HistoryIcon,
+  Upload, ChevronRight,
 } from 'lucide-react';
 import { useCases, useCaseActivity, useCompanies, useEmployees, useMedicals, useAppointments, useDocuments, useWorkflowInstances, useProviders, useAuditLog, isDemoMode } from '@/hooks/useSupabaseData';
+import { supabase } from '@/lib/supabase';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
-import type { CaseRecord, CaseType, CaseStatus, CasePriority } from '@/types';
+import type { CaseRecord, CaseType, CaseStatus, CasePriority, DocumentType, DocumentStatus } from '@/types';
 
 const caseTypeLabels: Record<CaseType, string> = {
   pre_employment: 'Pre-Employment Medical',
@@ -78,7 +80,7 @@ export function CaseDetail({ caseId, onBack }: CaseDetailProps) {
   const { data: employees } = useEmployees();
   const { data: medicals } = useMedicals();
   const { data: appointments } = useAppointments();
-  const { data: documents } = useDocuments();
+  const { data: documents, addDocument } = useDocuments();
   const { data: providers } = useProviders();
   const { data: workflowInstances } = useWorkflowInstances();
   const { data: activity, addActivity } = useCaseActivity(caseId);
@@ -88,6 +90,10 @@ export function CaseDetail({ caseId, onBack }: CaseDetailProps) {
   const [editData, setEditData] = useState<Partial<CaseRecord>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showDocForm, setShowDocForm] = useState(false);
+  const [docForm, setDocForm] = useState({ name: '', type: 'Medical Report' as DocumentType, status: 'Draft' as DocumentStatus, fileSize: '', expiryDate: '' });
+  const [docUploading, setDocUploading] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
 
   const caseRecord = cases.find((c) => c.id === caseId);
 
@@ -102,6 +108,8 @@ export function CaseDetail({ caseId, onBack }: CaseDetailProps) {
   }
 
   const canEdit = can(user, 'case.edit');
+  const canUploadDoc = can(user, 'document.upload');
+  const canVerifyDoc = can(user, 'document.verify');
   const sc = statusConfig[caseRecord.status];
   const isOverdue = caseRecord.status === 'overdue' || (caseRecord.targetCompletionDate && new Date(caseRecord.targetCompletionDate) < new Date() && caseRecord.status !== 'completed' && caseRecord.status !== 'cancelled');
 
@@ -147,6 +155,57 @@ export function CaseDetail({ caseId, onBack }: CaseDetailProps) {
       specialistName: caseRecord.specialistName,
     });
     setEditing(true);
+  };
+
+  const handleDocUpload = async () => {
+    if (!docForm.name.trim()) { setDocError('Document name is required.'); return; }
+    setDocError(null);
+    setDocUploading(true);
+    try {
+      const created = await addDocument({
+        name: docForm.name.trim(),
+        type: docForm.type,
+        status: docForm.status,
+        companyName: caseRecord.companyName,
+        employeeName: caseRecord.employeeName || undefined,
+        employeeId: caseRecord.employeeId || undefined,
+        medicalId: caseRecord.linkedMedicalId || undefined,
+        appointmentId: caseRecord.linkedAppointmentId || undefined,
+        uploadedBy: user?.name || 'Unknown',
+        uploadedDate: new Date().toISOString().slice(0, 10),
+        fileSize: docForm.fileSize || '—',
+        expiryDate: docForm.expiryDate || null,
+      });
+      const newDocIds = [...(caseRecord.linkedDocumentIds || []), created.id];
+      await updateCase(caseId, { linkedDocumentIds: newDocIds });
+      await addActivity({
+        activityType: 'document_uploaded',
+        title: `Document uploaded: ${created.name}`,
+        description: `${docForm.type} — registered by ${user?.name || 'Unknown'}`,
+      });
+      setShowDocForm(false);
+      setDocForm({ name: '', type: 'Medical Report', status: 'Draft', fileSize: '', expiryDate: '' });
+    } catch (err) {
+      setDocError(err instanceof Error ? err.message : 'Failed to upload document');
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const handleDocStatusChange = async (docId: string, status: DocumentStatus) => {
+    try {
+      const { data: rows, error } = await supabase
+        .from('documents').update({ status }).eq('id', docId).select('id');
+      if (error) throw new Error(error.message);
+      if (!rows?.length) throw new Error('Could not update document status.');
+      await addActivity({
+        activityType: 'document_uploaded',
+        title: `Document status changed to ${status}`,
+        description: `Updated by ${user?.name || 'Unknown'}`,
+      });
+    } catch (err) {
+      setDocError(err instanceof Error ? err.message : 'Failed to update document status');
+    }
   };
 
   return (
@@ -329,17 +388,103 @@ export function CaseDetail({ caseId, onBack }: CaseDetailProps) {
         </div>
       )}
 
-      {/* Section 7: Documents & Version History */}
-      {linkedDocs.length > 0 && (
-        <div className="card p-5">
-          <h3 className="font-display font-bold text-ink-900 mb-4 flex items-center gap-2"><FileText size={18} className="text-brand-600" /> Documents & Version History</h3>
+      {/* Section 7: Documents & Clearance Certificates */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-bold text-ink-900 flex items-center gap-2"><FileText size={18} className="text-brand-600" /> Documents & Clearance Certificates</h3>
+          {canUploadDoc && !showDocForm && (
+            <button onClick={() => setShowDocForm(true)} className="btn-secondary text-sm"><Upload size={14} /> Upload Document</button>
+          )}
+        </div>
+
+        {showDocForm && (
+          <div className="mb-4 p-4 bg-ink-50 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-ink-900">Register Document for this Case</h4>
+              <button onClick={() => { setShowDocForm(false); setDocError(null); }} className="btn-ghost text-sm"><X size={14} /> Cancel</button>
+            </div>
+            {docError && <p className="text-xs text-danger-600 flex items-center gap-1"><AlertCircle size={12} /> {docError}</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Document Name *</label>
+                <input className="input w-full text-sm" value={docForm.name} onChange={(e) => setDocForm({ ...docForm, name: e.target.value })} placeholder="e.g. Fitness Clearance Certificate.pdf" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Type</label>
+                <div className="relative">
+                  <select className="input w-full text-sm pr-8 appearance-none cursor-pointer" value={docForm.type} onChange={(e) => setDocForm({ ...docForm, type: e.target.value as DocumentType })}>
+                    <option>Medical Report</option>
+                    <option>Fitness Certificate</option>
+                    <option>Vaccination Record</option>
+                    <option>Compliance Certificate</option>
+                    <option>Drug Screen Result</option>
+                    <option>Travel Risk Assessment</option>
+                    <option>Company Contract</option>
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Status</label>
+                <select className="input w-full text-sm" value={docForm.status} onChange={(e) => setDocForm({ ...docForm, status: e.target.value as DocumentStatus })}>
+                  <option>Draft</option>
+                  <option>Pending Review</option>
+                  <option>Verified</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">File Size</label>
+                <input className="input w-full text-sm" value={docForm.fileSize} onChange={(e) => setDocForm({ ...docForm, fileSize: e.target.value })} placeholder="e.g. 245 KB" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-600 mb-1">Expiry Date</label>
+                <input className="input w-full text-sm" type="date" value={docForm.expiryDate} onChange={(e) => setDocForm({ ...docForm, expiryDate: e.target.value })} />
+              </div>
+            </div>
+            <p className="text-xs text-ink-500">The document will be linked to this case and the associated employee and medical record automatically.</p>
+            <button onClick={handleDocUpload} disabled={docUploading || !docForm.name.trim()} className="btn-primary text-sm">
+              {docUploading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Upload size={14} /> Register & Link Document</>}
+            </button>
+          </div>
+        )}
+
+        {linkedDocs.length === 0 && !showDocForm ? (
+          <p className="text-sm text-ink-400">No documents linked to this case yet. {canUploadDoc && 'Click "Upload Document" to register one.'}</p>
+        ) : (
           <div className="space-y-3">
             {linkedDocs.map((doc) => (
-              <DocumentSummary key={doc.id} doc={doc} />
+              <div key={doc.id} className="flex items-center gap-3 p-3 bg-ink-50 rounded-lg">
+                <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shrink-0">
+                  <FileText size={14} className="text-brand-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-ink-900 truncate">{doc.name}</p>
+                  <div className="flex items-center gap-2 text-xs text-ink-400">
+                    <span>{doc.type}</span>
+                    <Badge color={doc.status === 'Verified' ? 'success' : doc.status === 'Rejected' ? 'danger' : 'warning'}>{doc.status}</Badge>
+                    {doc.versionNumber && doc.versionNumber > 1 && <Badge color="brand">v{doc.versionNumber}</Badge>}
+                    <span>· {doc.uploadedBy}</span>
+                    <span>· {doc.uploadedDate}</span>
+                  </div>
+                </div>
+                {canVerifyDoc && (
+                  <select
+                    className="text-xs border border-ink-200 rounded-lg px-2 py-1 bg-white cursor-pointer focus:outline-none focus:border-brand-500 shrink-0"
+                    value={doc.status}
+                    onChange={(e) => handleDocStatusChange(doc.id, e.target.value as DocumentStatus)}
+                  >
+                    <option>Draft</option>
+                    <option>Pending Review</option>
+                    <option>Verified</option>
+                    <option>Rejected</option>
+                  </select>
+                )}
+                <ChevronRight size={16} className="text-ink-300 shrink-0" />
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Section 8: Notes & Correspondence */}
       <NotesPanel recordType="case" recordId={caseId} authorName={user?.name || 'Unknown'} canAddNote={canEdit} />
