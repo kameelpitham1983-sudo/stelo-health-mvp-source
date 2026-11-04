@@ -29,7 +29,7 @@
 - Outstanding decisions: create the first master administrator; approve wiring the disconnected modules to the database.
 
 ## Stage 6: Master administrator and module integration
-- Master administrator: not created. The profiles table has no accounts; the owner must sign up in the app first.
+- Master administrator: assigned to kameel.pitham1983@gmail.com (owner-approved, one-time database update guarded to a single account with no existing master administrator; an audit entry was written). Verified: exactly one master administrator; ordinary users' profile updates cannot change the role column; the role function still requires a master administrator. Not yet verified: signing in as this account in the app.
 - Providers, GOPs, Accommodation (hotels and bookings) and Visa Medicals: their hooks read and write the existing tables, and the matching RLS policies exist for signed-in users. Not verified in the running app.
 - Travel Health: list reads from the existing table (employer view for employers). The "create consultation" form on the page only adds to in-memory demo state and is not saved to the database. Fixing it needs a decision on how consultation fields map to the travel health table columns.
 - Build: `npm run build` passed. Type check: `tsc -p tsconfig.app.json` passed.
