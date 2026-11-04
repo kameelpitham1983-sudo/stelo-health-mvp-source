@@ -39,3 +39,12 @@
 - Cause: the Case Management page crashed when rendering one seeded case whose status ("in_progress") is not a valid case status. The crash blanked the whole app because there is no error boundary.
 - Fix: changed that synthetic case's status to "active" (CASE-2026-0001). No code changes.
 - Not verified: the app in a browser. Recommended follow-up: add an error boundary so one bad record cannot blank the whole app.
+
+## Stage 8: Controlled company and employee test (Version 9 baseline)
+- Inspected: company and employee create/update hooks; company and employee access rules (admins and coordinators manage companies; employers manage their own company's employees; providers and coordinators manage employees).
+- Created: STelo Functional Test Company (id d3469f90-1052-40e6-828f-855ebfceb22e), employee Test Employee (id 8c5b03bf-cf1d-4bf8-be78-83f2c9c73093), linked to that company. Both are synthetic and remain in place.
+- Edited: company contact name set to "Synthetic Test Contact"; employee job title set to "Synthetic Test Role". A fresh read confirmed both edits and the company-employee link.
+- Access check: an insert into companies by an unknown non-admin user was rejected by the access rules.
+- Limitation: these were run as the master administrator through the database with the same columns the app uses. Not tested: the browser forms, required-field messages, and page refresh.
+- Problems: the test plan's "Reference" and "Description" fields have no database column, so they cannot be saved. The employee reference (ST-EMP-TEST-001) also has no column.
+- No schema, policy, role, or other record was changed.
