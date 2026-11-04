@@ -64,3 +64,9 @@
 - Stored values and counting logic are unchanged. Build passed.
 - Not verified in the browser. The request's remaining sections were cut off in the message, so any other places that show these two values were not checked.
 - Re-run for the repeated Version 12 request: type check passed. Stored declared workforce values unchanged (Bluegum 85, Karoo 40, Northwind 240, STelo Functional Test Company 0). Linked employee counts unchanged (2, 1, 3, 1). No records or code changed in this run.
+
+## Stage 11: Travel health schema for consultation fields (Version 14)
+- Inspected: the travel health table (the only base table; the employer view reads from it) and its columns. The consultation form on the Travel Health page saves only to in-memory demo state. The database hook reads but does not write.
+- Migration applied (add_travel_health_purpose_and_provider): added two nullable text columns to the travel health table, purpose_of_travel and provider. Uses ADD COLUMN IF NOT EXISTS, so it is safe to re-run. No table recreated, no records changed, no policy or grant changed.
+- Verified: both columns exist as nullable text. The 2 existing travel health records are intact and have empty values in the new columns.
+- Not done: the employer view does not include the new columns, so employers cannot see them yet. The form is not yet wired to save to the table, and the hook does not read the new fields. Both need approval as the next step.
