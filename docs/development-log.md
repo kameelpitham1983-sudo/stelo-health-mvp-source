@@ -34,3 +34,8 @@
 - Travel Health: list reads from the existing table (employer view for employers). The "create consultation" form on the page only adds to in-memory demo state and is not saved to the database. Fixing it needs a decision on how consultation fields map to the travel health table columns.
 - Build: `npm run build` passed. Type check: `tsc -p tsconfig.app.json` passed.
 - Not done: sign-in persistence test, create/edit testing of seeded records, role-access testing, Travel Health create/edit.
+
+## Stage 7: White screen after administrator sign-in
+- Cause: the Case Management page crashed when rendering one seeded case whose status ("in_progress") is not a valid case status. The crash blanked the whole app because there is no error boundary.
+- Fix: changed that synthetic case's status to "active" (CASE-2026-0001). No code changes.
+- Not verified: the app in a browser. Recommended follow-up: add an error boundary so one bad record cannot blank the whole app.
