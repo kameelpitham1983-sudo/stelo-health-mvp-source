@@ -122,3 +122,80 @@
 - updated_at trigger: a set_updated_at trigger function is already defined elsewhere in the schema; reuse it if present, else define one in the migration.
 - Naming/migration convention: filename like 20261104180000_create_travel_consultations.sql; summary header in /* ... */; IF NOT EXISTS throughout; DROP POLICY IF EXISTS before each CREATE POLICY; GRANT to authenticated and service_role.
 - Not applied: no migration was created on disk and no schema was changed. This is the proposed design for owner approval before implementation in V18.
+
+## Stage 15: Revised travel consultations design and security review (Version 18, planning only)
+- Inspected additionally: providers table, profiles table, medicals table, audit_log table. Full base-table list confirmed (no medical_assessments table; the table is named medicals).
+- providers columns: id, name, provider_code, category, services (jsonb), status, tier, contact_person, phone, email, physical_address, and more. providers RLS: SELECT by admins/provider/employer/coordinator; INSERT admin-only; UPDATE admin or provider (self); DELETE admin-only.
+- profiles columns: id, role, company_id, linked_employee_id, display_name, avatar_initials, is_active, deactivated_at, created_at. No linked_provider_id column. So there is no existing way for RLS to know which provider record a signed-in provider user corresponds to.
+- medicals columns: id, employee_id, employee_name, company_id, company_name, type, status, assessment_date, provider_name, result, notes, created_at. A real FK from travel_consultations to medicals is supported.
+- audit_log columns: id, actor_id, actor_name, actor_role, record_type, record_id, record_reference, action, from_status, to_status, company_id, workflow_instance_id, details, success, created_at. Reusable for consultation status-change auditing.
+
+### Revised proposed table: public.travel_consultations
+Columns (exact names, types, constraints):
+- id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+- travel_health_id uuid REFERENCES public.travel_health(id) ON DELETE CASCADE  -- nullable; linked travel record when present
+- employee_id uuid REFERENCES public.employees(id) ON DELETE SET NULL
+- employee_name text NOT NULL DEFAULT ''
+- company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL
+- company_name text NOT NULL DEFAULT ''
+- provider_id uuid REFERENCES public.providers(id) ON DELETE SET NULL  -- proper FK to existing providers table (new; replaces the free-text provider column from V17 proposal)
+- provider_name text NOT NULL DEFAULT ''  -- denormalised for display, matching the visa_medical_cases convention
+- purpose_of_travel text
+- consultation_date date
+- status text NOT NULL DEFAULT 'Not Scheduled'  -- CHECK constraint: Not Scheduled, Scheduled, Completed, Post-Travel Review Required, Post-Travel Completed
+- vaccination_plan jsonb NOT NULL DEFAULT '[]'::jsonb
+- malaria_prophylaxis boolean NOT NULL DEFAULT false
+- travel_kit_issued boolean NOT NULL DEFAULT false
+- travel_advice text NOT NULL DEFAULT ''
+- clinician_notes text NOT NULL DEFAULT ''  -- clinical; hidden from employers
+- post_travel_review_date date
+- post_travel_notes text NOT NULL DEFAULT ''  -- clinical; hidden from employers
+- appointment_id uuid REFERENCES public.appointments(id) ON DELETE SET NULL
+- medical_id uuid REFERENCES public.medicals(id) ON DELETE SET NULL  -- real FK now that the medicals table is confirmed
+- questionnaire_status text NOT NULL DEFAULT 'Not Started'
+- created_at timestamptz NOT NULL DEFAULT now()
+- updated_at timestamptz NOT NULL DEFAULT now()
+- CONSTRAINT travel_consultations_status_check CHECK (status IN ('Not Scheduled','Scheduled','Completed','Post-Travel Review Required','Post-Travel Completed'))
+
+Indexes (all IF NOT EXISTS):
+- idx_travel_consultations_travel_health_id ON (travel_health_id)
+- idx_travel_consultations_employee_id ON (employee_id)
+- idx_travel_consultations_company_id ON (company_id)
+- idx_travel_consultations_provider_id ON (provider_id)
+- idx_travel_consultations_status ON (status)
+- idx_travel_consultations_consultation_date ON (consultation_date)
+
+### Employer view: travel_consultations_employer_view
+- security_invoker = true (honours base-table RLS).
+- SELECT all columns except clinician_notes and post_travel_notes.
+- Employers read through this view; the base-table SELECT policy still scopes to own company_id.
+
+### RLS policies (mirrors travel_health + visa_medical_cases)
+- SELECT: admins, own-company employers (company_id = user_company_id()), providers (see provider scoping below), coordinators.
+- INSERT: admins, own-company employers, providers, coordinators. WITH CHECK matches travel_health pattern.
+- UPDATE: admins, own-company employers, providers, coordinators. USING and WITH CHECK match. Clinical columns restricted via column-level grants (see below).
+- DELETE: admins only.
+- GRANT SELECT, INSERT, UPDATE, DELETE TO authenticated; GRANT SELECT, INSERT, UPDATE, DELETE TO service_role.
+- Column-level grants on the base table: grant UPDATE (non-clinical columns) to authenticated; grant UPDATE (clinician_notes, post_travel_notes) only to roles that should write clinical data. Since Postgres column grants cannot be role-conditional per user within a single role, clinical write restriction is enforced by: (a) not granting UPDATE on those columns to authenticated, and (b) a SECURITY DEFINER function travel_consultations_update_clinical that checks is_stelo_admin() OR user_role() IN ('provider','coordinator'), called by the frontend for clinical edits. Non-clinical edits go through the normal UPDATE path. This is the pattern recommended in the secure-data-access skill.
+
+### Provider scoping (revised)
+- The V17 proposal let providers see all consultations. Version 18 requires providers to see only consultations assigned or linked to them.
+- Blocker: profiles has no linked_provider_id, so RLS cannot today identify which provider record a signed-in provider user owns. Two options for the owner:
+  1. Add a linked_provider_id uuid column to profiles (a small migration, separate from this table) and a matching user_provider_id() helper. Then the SELECT policy for providers becomes: provider_id = user_provider_id(). This is the recommended approach.
+  2. Match provider users to providers by email. Fragile and not recommended; emails can differ.
+- Until one is chosen, the provider SELECT policy cannot be scoped correctly. The proposal is written with option 1 assumed; if the owner chooses option 2 or defers, the provider SELECT policy must be adjusted before the migration is applied.
+- Provider INSERT/UPDATE: only on rows where provider_id = user_provider_id() (they can create/edit only their own consultations). Employer and coordinator paths unchanged.
+
+### Audit
+- Status changes written to audit_log with record_type = 'travel_consultation', record_id = the consultation id, from_status / to_status, actor_id/name/role from the session. No new audit table needed.
+
+### updated_at trigger
+- Reuse the existing set_updated_at trigger function if one exists; otherwise define one in the migration and attach it to travel_consultations.
+
+### Migration file (not yet created)
+- Proposed filename: 20261104180000_create_travel_consultations.sql
+- Standard summary header, IF NOT EXISTS throughout, DROP POLICY IF EXISTS before each CREATE POLICY.
+
+### Not applied
+- No migration created on disk. No schema, policy, role, grant, application code or existing record changed. This is the revised design for owner approval before any implementation.
+- Outstanding decisions for the owner: (1) approve option 1 (linked_provider_id on profiles + user_provider_id helper) for provider scoping; (2) approve the column-level clinical-notes restriction via SECURITY DEFINER function; (3) approve the travel_consultations table and its employer view.
