@@ -48,3 +48,12 @@
 - Limitation: these were run as the master administrator through the database with the same columns the app uses. Not tested: the browser forms, required-field messages, and page refresh.
 - Problems: the test plan's "Reference" and "Description" fields have no database column, so they cannot be saved. The employee reference (ST-EMP-TEST-001) also has no column.
 - No schema, policy, role, or other record was changed.
+
+## Stage 9: Company employee count investigation (Version 10)
+- Cause: the company detail page shows two figures. "Employees" displays the company's stored headcount field (employee_count), which is entered separately and is not calculated from employee records. "Tracked in system" counts the linked employee records, filtered by the correct company ID.
+- The create-company save does not set a headcount, so it is stored as 0. That is why the synthetic company shows "Employees: 0".
+- Expected for STelo Functional Test Company: 1 linked employee (1 active). Headcount field 0 (not derived). "Tracked in system" shows 1 as expected.
+- Scope: not isolated. Stored headcounts for other companies do not match their linked records: Bluegum Financial Holdings 85 stored vs 2 linked; Karoo Fresh Produce 40 vs 1; Northwind Mining Services 240 vs 3. The company list shows only the stored headcount, so it shows the same mismatch.
+- Company detail, company list and employee list use the same company ID and employee-to-company link; no query error found.
+- Proposed fix (not applied): show the count of linked employee records on the company list and detail page, or label the stored figure "Declared headcount". Neither changes stored data.
+- No code, records, schema, RLS or permissions were changed in this stage.
