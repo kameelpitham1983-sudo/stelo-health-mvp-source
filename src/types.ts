@@ -135,6 +135,8 @@ export interface TravelHealthRecord {
   travelKitIssued: boolean;
   lastConsultation: string;
   status: 'Cleared' | 'Pending' | 'Action Required' | 'In Progress';
+  purposeOfTravel?: string;
+  provider?: string;
 }
 
 export type DocumentType = 'Medical Report' | 'Vaccination Record' | 'Travel Risk Assessment' | 'Fitness Certificate' | 'Drug Screen Result' | 'Company Contract' | 'Compliance Certificate';

@@ -656,6 +656,8 @@ function transformTravelHealth(row: Record<string, unknown>): TravelHealthRecord
     travelKitIssued: (row.travel_kit_issued as boolean) || false,
     lastConsultation: row.last_consultation ? (row.last_consultation as string) : '',
     status: (row.status as string) as TravelHealthRecord['status'],
+    purposeOfTravel: (row.purpose_of_travel as string) || '',
+    provider: (row.provider as string) || '',
   };
 }
 
@@ -669,7 +671,21 @@ export function useTravelHealth() {
     true,
     () => mockData.travelHealth,
   );
-  return { data, loading, error, refetch };
+
+  const updateTravelHealthDetails = useCallback(async (
+    recordId: string,
+    updates: { purposeOfTravel?: string; provider?: string },
+  ) => {
+    const updateData: Record<string, unknown> = {};
+    if (updates.purposeOfTravel !== undefined) updateData.purpose_of_travel = updates.purposeOfTravel || null;
+    if (updates.provider !== undefined) updateData.provider = updates.provider || null;
+    const { data: rows, error: err } = await supabase.from('travel_health').update(updateData).eq('id', recordId).select('id');
+    if (err) throw new Error(err.message);
+    if (!rows?.length) throw new Error('This travel health record could not be saved. Your account may not have permission to edit it.');
+    await refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch, updateTravelHealthDetails };
 }
 
 // --- Documents ---

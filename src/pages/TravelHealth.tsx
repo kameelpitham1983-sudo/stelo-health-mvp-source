@@ -71,7 +71,7 @@ const allConsultationStatuses: TravelConsultationStatus[] = [
 
 export function TravelHealth() {
   const { user } = useApp();
-  const { data: travelHealth, loading, error } = useTravelHealth();
+  const { data: travelHealth, loading, error, updateTravelHealthDetails } = useTravelHealth();
   const { data: employees } = useEmployees();
 
   const [search, setSearch] = useState('');
@@ -360,6 +360,7 @@ export function TravelHealth() {
         <CreateConsultationForm
           employees={employees}
           travelHealthRecords={travelHealth}
+          onSaveRecordDetails={updateTravelHealthDetails}
           onClose={() => setShowCreateForm(false)}
           onCreate={(tc) => {
             setDemoConsultations((prev) => [...prev, tc]);
@@ -438,6 +439,14 @@ export function TravelHealth() {
                             <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
                               <span className="flex items-center gap-2 text-sm text-ink-700"><Calendar size={14} className="text-ink-400" /> Return date</span>
                               <span className="text-sm font-medium text-ink-700">{record.returnDate}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
+                              <span className="flex items-center gap-2 text-sm text-ink-700"><Globe size={14} className="text-ink-400" /> Purpose of travel</span>
+                              <span className="text-sm font-medium text-ink-700">{record.purposeOfTravel || 'Not recorded'}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-ink-100">
+                              <span className="flex items-center gap-2 text-sm text-ink-700"><User size={14} className="text-ink-400" /> Provider</span>
+                              <span className="text-sm font-medium text-ink-700">{record.provider || 'Not recorded'}</span>
                             </div>
                           </div>
                         </div>
@@ -545,11 +554,13 @@ function LinkCard({ label, value, icon: Icon }: { label: string; value: string; 
 function CreateConsultationForm({
   employees,
   travelHealthRecords,
+  onSaveRecordDetails,
   onClose,
   onCreate,
 }: {
   employees: { id: string; name: string; companyName: string }[];
   travelHealthRecords: TravelHealthRecord[];
+  onSaveRecordDetails: (recordId: string, updates: { purposeOfTravel?: string; provider?: string }) => Promise<void>;
   onClose: () => void;
   onCreate: (tc: TravelConsultation) => void;
 }) {
@@ -559,8 +570,9 @@ function CreateConsultationForm({
   const [consultationDate, setConsultationDate] = useState('');
   const [providerName, setProviderName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     const emp = employees.find((em) => em.id === employeeId);
@@ -568,6 +580,20 @@ function CreateConsultationForm({
     if (!emp && !record) {
       setError('Select an employee or link to an existing travel health record.');
       return;
+    }
+    if (record && !isDemoMode) {
+      setSaving(true);
+      try {
+        await onSaveRecordDetails(record.id, {
+          purposeOfTravel: purposeOfTravel.trim() || undefined,
+          provider: providerName.trim() || undefined,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'The travel health record could not be saved.');
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
     }
     const newTc: TravelConsultation = {
       id: `tc-demo-${Date.now()}`,
@@ -633,8 +659,8 @@ function CreateConsultationForm({
             <input className="input w-full" value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="Clinician name" />
           </div>
         </div>
-        <button type="submit" className="btn-primary">
-          <Plus size={16} /> Create Consultation
+        <button type="submit" className="btn-primary" disabled={saving}>
+          <Plus size={16} /> {saving ? 'Saving...' : 'Create Consultation'}
         </button>
       </form>
     </div>
