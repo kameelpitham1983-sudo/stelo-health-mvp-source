@@ -168,7 +168,7 @@ export function Reports() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3"><Users size={16} className="text-brand-600" /><span className="text-xs font-semibold text-ink-500">Total Workforce</span></div>
           <p className="text-2xl font-bold font-display text-ink-900">{employees.length}</p>
-          <p className="text-xs text-ink-400 mt-1">Employees tracked in system</p>
+          <p className="text-xs text-ink-400 mt-1">Employees tracked in STelo</p>
         </div>
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3"><Stethoscope size={16} className="text-teal-600" /><span className="text-xs font-semibold text-ink-500">Total Medicals</span></div>

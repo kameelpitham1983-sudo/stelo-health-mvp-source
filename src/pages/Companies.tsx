@@ -189,11 +189,11 @@ export function Companies() {
             <h3 className="font-display font-bold text-ink-900 mb-4">Key metrics</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between py-2 border-b border-ink-100">
-                <span className="flex items-center gap-2 text-sm text-ink-500"><Users size={15} /> Employees</span>
+                <span className="flex items-center gap-2 text-sm text-ink-500"><Users size={15} /> Declared Workforce</span>
                 <span className="font-semibold text-ink-900">{selected.employeeCount.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-ink-100">
-                <span className="flex items-center gap-2 text-sm text-ink-500"><Users size={15} /> Tracked in system</span>
+                <span className="flex items-center gap-2 text-sm text-ink-500"><Users size={15} /> Employees tracked in STelo</span>
                 <span className="font-semibold text-ink-900">{companyEmployees.length}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-ink-100">
@@ -327,7 +327,7 @@ export function Companies() {
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-ink-100">
                 <div>
                   <p className="text-lg font-bold font-display text-ink-900">{company.employeeCount.toLocaleString()}</p>
-                  <p className="text-xs text-ink-400">Employees</p>
+                  <p className="text-xs text-ink-400">Declared Workforce</p>
                 </div>
                 <div>
                   <p className="text-lg font-bold font-display text-ink-900">{company.locations}</p>

@@ -57,3 +57,9 @@
 - Company detail, company list and employee list use the same company ID and employee-to-company link; no query error found.
 - Proposed fix (not applied): show the count of linked employee records on the company list and detail page, or label the stored figure "Declared headcount". Neither changes stored data.
 - No code, records, schema, RLS or permissions were changed in this stage.
+
+## Stage 10: Company workforce labels (Version 12)
+- Renamed the stored headcount label to "Declared Workforce" on the company detail page and company list.
+- Renamed the linked-record count label to "Employees tracked in STelo" on the company detail page and the Reports summary card.
+- Stored values and counting logic are unchanged. Build passed.
+- Not verified in the browser. The request's remaining sections were cut off in the message, so any other places that show these two values were not checked.
