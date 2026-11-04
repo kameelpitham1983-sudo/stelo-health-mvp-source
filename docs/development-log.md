@@ -63,3 +63,4 @@
 - Renamed the linked-record count label to "Employees tracked in STelo" on the company detail page and the Reports summary card.
 - Stored values and counting logic are unchanged. Build passed.
 - Not verified in the browser. The request's remaining sections were cut off in the message, so any other places that show these two values were not checked.
+- Re-run for the repeated Version 12 request: type check passed. Stored declared workforce values unchanged (Bluegum 85, Karoo 40, Northwind 240, STelo Functional Test Company 0). Linked employee counts unchanged (2, 1, 3, 1). No records or code changed in this run.
