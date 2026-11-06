@@ -1063,3 +1063,118 @@ Reversing this order would leave travel_consultations existing but with user_pro
 - No application code, page, hook, or existing record modified.
 - The corrected SQL in Stage 17 now reflects ON DELETE RESTRICT for travel_health_id. This is the final SQL that would be applied if the owner approves.
 - Waiting for explicit owner approval before implementing or applying anything.
+
+## Stage 19: Apply approved database migrations (Version 23)
+
+Both migrations were applied successfully with the owner's explicit approval. The SQL applied was the final reviewed Version 22 SQL with all security corrections (column-level SELECT grants, SET search_path on all SECURITY DEFINER functions, admin-only set_user_provider_link function, ON DELETE RESTRICT on travel_health_id).
+
+### Migrations applied
+1. 20261104175000_add_linked_provider_id_to_profiles.sql — SUCCESS
+2. 20261104180000_create_travel_consultations.sql — SUCCESS
+
+Both appear in the migration list.
+
+### Verification results (all confirmed against live database)
+
+**Table structure:**
+- travel_consultations table created with all 22 columns matching the reviewed specification.
+- CHECK constraint travel_consultations_status_check confirmed: status IN ('Not Scheduled','Scheduled','Completed','Post-Travel Review Required','Post-Travel Completed').
+
+**Foreign keys (all confirmed via pg_constraint):**
+| Constraint | Column | References | Delete rule |
+|---|---|---|---|
+| travel_consultations_travel_health_id_fkey | travel_health_id | travel_health(id) | RESTRICT (code 'r') |
+| travel_consultations_employee_id_fkey | employee_id | employees(id) | SET NULL (code 'n') |
+| travel_consultations_company_id_fkey | company_id | companies(id) | SET NULL (code 'n') |
+| travel_consultations_provider_id_fkey | provider_id | providers(id) | SET NULL (code 'n') |
+| travel_consultations_appointment_id_fkey | appointment_id | appointments(id) | SET NULL (code 'n') |
+| travel_consultations_medical_id_fkey | medical_id | medicals(id) | SET NULL (code 'n') |
+
+No CASCADE foreign keys. travel_health_id is RESTRICT as required.
+
+**Indexes (7 confirmed):**
+- travel_consultations_pkey (primary key)
+- idx_travel_consultations_travel_health_id
+- idx_travel_consultations_employee_id
+- idx_travel_consultations_company_id
+- idx_travel_consultations_provider_id
+- idx_travel_consultations_status
+- idx_travel_consultations_consultation_date
+
+**RLS:** Enabled (relrowsecurity = true). CONFIRMED.
+
+**RLS policies (4 confirmed via pg_policies):**
+- tc_select: SELECT TO authenticated — admins, own-company employers, own-record employees, own-provider providers, own-company coordinators.
+- tc_insert: INSERT TO authenticated — admins, own-company employers, own-provider providers, own-company coordinators.
+- tc_update: UPDATE TO authenticated — same as INSERT, USING and WITH CHECK identical.
+- tc_delete: DELETE TO authenticated — admins only.
+
+**Column-level grants (confirmed via information_schema.column_privileges):**
+- authenticated SELECT: 20 non-clinical columns. clinician_notes and post_travel_notes are NOT in the SELECT grant to authenticated. CONFIRMED: clinical columns not directly readable by authenticated users.
+- authenticated INSERT: all 22 columns (providers may include initial clinical notes on creation).
+- authenticated UPDATE: 19 non-clinical columns. clinician_notes and post_travel_notes are NOT in the UPDATE grant. CONFIRMED: clinical columns not directly writable by authenticated users.
+- service_role: full SELECT, INSERT, UPDATE, DELETE on all columns including clinical. Correct — service_role bypasses RLS.
+
+**Clinical column access — security verification:**
+- clinician_notes: NO SELECT grant to authenticated. NO UPDATE grant to authenticated. Only accessible via travel_consultations_get_clinical() (admin/provider only) or service_role.
+- post_travel_notes: same — NO SELECT or UPDATE grant to authenticated.
+- Employers, employees and coordinators cannot retrieve clinical notes through the Data API or any database interface. CONFIRMED SAFE.
+
+**Employer view:**
+- travel_consultations_employer_view exists with 21 columns (all non-clinical).
+- clinician_notes and post_travel_notes are NOT in the view. CONFIRMED.
+- security_invoker = true (confirmed via reloptions). CONFIRMED.
+
+**Functions (5 new, all confirmed via pg_proc):**
+| Function | SECURITY DEFINER | search_path | Execute roles |
+|---|---|---|---|
+| user_provider_id | true | public | authenticated, postgres, service_role |
+| set_user_provider_link | true | public | authenticated, postgres, service_role |
+| update_travel_consultations_updated_at | true | public | authenticated, postgres, service_role |
+| travel_consultations_get_clinical | true | public | authenticated, postgres, service_role |
+| travel_consultations_update_clinical | true | public | authenticated, postgres, service_role |
+
+All 5 functions have SET search_path = public. All 5 have EXECUTE revoked from PUBLIC and anon (only authenticated, postgres, service_role have execute).
+
+**Trigger:**
+- trg_travel_consultations_updated_at: BEFORE UPDATE ON travel_consultations, EXECUTE FUNCTION update_travel_consultations_updated_at(). CONFIRMED.
+
+**profiles.linked_provider_id:**
+- Column added, nullable, with FK to providers(id) ON DELETE SET NULL.
+- Existing profile (master_admin, id 5617bf99-...) has linked_provider_id = NULL. No users were auto-assigned. CONFIRMED.
+- Column-level UPDATE grant on profiles for authenticated: display_name, avatar_initials ONLY. linked_provider_id is NOT updatable by authenticated. Users cannot self-assign a provider. CONFIRMED SAFE.
+- linked_provider_id is set only via set_user_provider_link() which requires is_stelo_admin().
+
+**Existing records (all intact):**
+| Table | Row count |
+|---|---|
+| profiles | 1 |
+| providers | 3 |
+| travel_health | 2 |
+| employees | 7 |
+| companies | 4 |
+| appointments | 4 |
+| medicals | 4 |
+| travel_consultations | 0 (new, empty) |
+
+No existing records were modified, deleted, or cascaded. CONFIRMED.
+
+**Master administrator access:**
+- The existing master_admin profile is intact (id 5617bf99-..., role master_admin, is_active).
+- is_stelo_admin() returns true for master_admin. All tc_* policies and both clinical functions grant full access to is_stelo_admin(). CONFIRMED.
+
+**Security advisor results:**
+- 12 WARN-level findings, all of the same type: "authenticated_security_definer_function_executable".
+- 7 are pre-existing (deactivate_user, is_master_admin, is_stelo_admin, set_user_role, user_company_id, user_employee_id, user_role).
+- 5 are new (user_provider_id, set_user_provider_link, update_travel_consultations_updated_at, travel_consultations_get_clinical, travel_consultations_update_clinical).
+- These are by design: the functions need to be callable by authenticated users for use in RLS policies and application code. Each function has internal authorization checks (is_stelo_admin or provider ownership). This matches the existing pattern used throughout the database.
+- No ERROR or CRITICAL findings. No new finding types introduced.
+
+**No discrepancies found.** The applied SQL exactly matches the reviewed Version 22 SQL. All security checks passed.
+
+### What was NOT done
+- No application code, pages, or hooks were modified or created.
+- No synthetic consultations were created.
+- No provider links were assigned to existing users.
+- No existing policies, roles, or records were changed.
+- No publish or deploy.
