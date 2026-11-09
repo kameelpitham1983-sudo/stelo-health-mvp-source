@@ -1178,3 +1178,73 @@ No existing records were modified, deleted, or cascaded. CONFIRMED.
 - No provider links were assigned to existing users.
 - No existing policies, roles, or records were changed.
 - No publish or deploy.
+
+## Stage 20: Travel Health consultation application integration (Version 24)
+
+### Objective
+Complete the Travel Health consultation workflow so authorised users can create, save, retrieve, view, and edit consultations as genuine database records linked to employees, companies, travel health records, and providers. Preserve clinical information under the existing approved access controls.
+
+### Application changes
+
+**New hook: `useTravelConsultations` (in `src/hooks/useSupabaseData.ts`)**
+
+- `TravelConsultationRecord` interface: 22 fields mapping to the non-clinical table columns plus display fields (employeeName, companyName, providerName, purposeOfTravel, etc.).
+- `transformTravelConsultation()`: converts snake_case database rows to the camelCase interface. Handles null dates and defaults.
+- `travelConsultationColumns`: explicit column list selecting only the 21 non-clinical columns (excludes clinician_notes and post_travel_notes). Used for all SELECT queries.
+- `useTravelConsultations()` hook returns: `{ data, loading, error, refetch, getClinicalNotes, addConsultation, updateConsultation, updateClinicalNotes, deleteConsultation }`.
+  - **refetch**: reads from `travel_consultations_employer_view` for employer/employee roles, from `travel_consultations` base table for admin/coordinator/provider. Orders by created_at descending.
+  - **getClinicalNotes(id)**: calls `travel_consultations_get_clinical` RPC. Returns `{ clinicianNotes, postTravelNotes }`. The function returns empty strings for unauthorised callers (no error, no information leakage).
+  - **addConsultation(c)**: inserts a new row with all non-clinical fields plus clinician_notes and post_travel_notes (defaulting to empty). Audit-logs the creation. Calls `assertCan(user, 'medical.create')`.
+  - **updateConsultation(id, updates)**: updates only non-clinical fields (no clinician_notes or post_travel_notes in the update payload — those go through the RPC). Audit-logs the change. Calls `assertCan(user, 'medical.edit')`.
+  - **updateClinicalNotes(id, clinicianNotes, postTravelNotes)**: calls `travel_consultations_update_clinical` RPC. The function enforces admin/provider-only access server-side.
+  - **deleteConsultation(id)**: deletes the row. Calls `assertCan(user, 'medical.delete')`.
+- All write methods throw on demo mode (`isDemoMode`), matching existing hook conventions.
+- Audit logging via `useLogAuditEvent` with record_type `'travel_consultation'`.
+
+**Rewritten page: `src/pages/TravelHealth.tsx`**
+
+- Two-tab view: "Travel Health Records" (existing record display preserved) and "Consultations (count)".
+- **Consultation list**: card per consultation showing employee name, linked travel health destination/departure, consultation date, provider, status badge, risk level badge. Status filter dropdown. Click opens detail view.
+- **ConsultationDetail component**: full view/edit of a consultation.
+  - Edit mode (gated by `can(user, 'medical.edit')`): status, consultation date, provider, purpose of travel, post-travel review date, questionnaire status, malaria prophylaxis, travel kit issued, travel advice.
+  - Clinical notes section (gated by `canViewClinical(role)` — admin/master_admin/provider only): clinician notes and post-travel review notes loaded via `getClinicalNotes` RPC, saved via `updateClinicalNotes` RPC. Section header explicitly states clinical notes are not shared with employers or employees.
+  - Delete with confirmation (gated by `can(user, 'medical.delete')`).
+  - Linked records panel: shows travel health record, appointment, and medical assessment link status, plus questionnaire status badge.
+- **CreateConsultationForm component**: selects employee, links to existing travel health record (optional), selects provider, sets consultation date and purpose. Auto-derives employee name, company, vaccination plan, malaria/travel kit from linked data. Calls `addConsultation`.
+- Stats computed from real DB data: cleared, in progress, action required, consultations due, post-travel reviews due.
+- Demo mode notice shown when `isDemoMode` is true (consultations cannot be saved without a live database).
+- Existing travel health record display (expansion panels with vaccinations and travel preparation) preserved unchanged.
+
+### Database fix migration
+
+**Migration applied: `20261104210000_fix_travel_consultations_grants.sql`**
+
+Two issues found during V24 security verification:
+
+1. **CRITICAL — missing DELETE grant**: The V23 migration created the `tc_delete` RLS policy (admin-only) but never granted `DELETE` to `authenticated` at the table level. Without the grant, the policy was dead code and `deleteConsultation` would fail with a 42501 permission error. Fixed: `GRANT DELETE ON public.travel_consultations TO authenticated`. RLS still gates it to admin only.
+
+2. **Excess anon grants on employer view**: The V23 migration created `travel_consultations_employer_view` and granted SELECT to `authenticated`, but never revoked Supabase's default view grants (all CRUD to both `anon` and `authenticated`). While `security_invoker = true` means RLS blocks anon from seeing rows, the excess grants were unnecessary exposure. Fixed: `REVOKE ALL ON public.travel_consultations_employer_view FROM anon, authenticated; GRANT SELECT ON public.travel_consultations_employer_view TO authenticated`.
+
+**Post-fix verification:**
+- `travel_consultations` table privileges for authenticated: INSERT (table-level), DELETE (table-level), SELECT (20 non-clinical columns), UPDATE (19 non-clinical columns). clinician_notes and post_travel_notes are NOT in SELECT or UPDATE grants. CONFIRMED.
+- `travel_consultations_employer_view` privileges: SELECT for authenticated only. No anon grants. CONFIRMED.
+- Security advisor: 12 WARN findings (same as V23 — all SECURITY DEFINER functions with internal auth checks). No new findings. No ERROR or CRITICAL. CONFIRMED.
+
+### Build verification
+- `npm run build` passed (vite v5.4.8, 1781 modules transformed, 0 errors).
+- TypeScript compilation: no errors.
+
+### Schema verification (no discrepancies from V23)
+- `travel_consultations`: 22 columns, all matching the reviewed specification.
+- `travel_consultations_employer_view`: 21 non-clinical columns, security_invoker = true.
+- RLS: enabled. 4 policies (tc_select, tc_insert, tc_update, tc_delete) — all unchanged.
+- Column-level grants: SELECT (20 non-clinical), INSERT (all 22), UPDATE (19 non-clinical), DELETE (table-level, admin-only via RLS). Clinical columns not in SELECT or UPDATE grants to authenticated.
+- Clinical RPC functions: both have `SET search_path = public`, internal auth checks (is_stelo_admin or provider ownership), EXECUTE revoked from PUBLIC/anon.
+- Existing records: 0 consultations (new table). All other table counts unchanged.
+
+### What was NOT done
+- No existing policies were modified (the fix migration only added a missing grant and revoked excess view grants; no policy text changed).
+- No existing records were modified or deleted.
+- No provider links were assigned to existing users.
+- No publish or deploy.
+- No browser-based testing (no browser available in this environment). The workflow was verified through build success, schema inspection, grant verification, and security advisor — not through end-to-end UI testing.
