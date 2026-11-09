@@ -3097,3 +3097,246 @@ export function useVisaMedicalCases() {
 
   return { data, loading, error, refetch, addVisaMedicalCase, updateVisaMedicalCase, addVisaAuditEntry };
 }
+
+// --- Travel Consultations ---
+
+export interface TravelConsultationRecord {
+  id: string;
+  travelHealthId: string | null;
+  employeeId: string | null;
+  employeeName: string;
+  companyId: string | null;
+  companyName: string;
+  providerId: string | null;
+  providerName: string;
+  purposeOfTravel: string;
+  consultationDate: string | null;
+  status: string;
+  vaccinationPlan: { name: string; status: string }[];
+  malariaProphylaxis: boolean;
+  travelKitIssued: boolean;
+  travelAdvice: string;
+  postTravelReviewDate: string | null;
+  appointmentId: string | null;
+  medicalId: string | null;
+  questionnaireStatus: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function transformTravelConsultation(row: Record<string, unknown>): TravelConsultationRecord {
+  return {
+    id: row.id as string,
+    travelHealthId: (row.travel_health_id as string) || null,
+    employeeId: (row.employee_id as string) || null,
+    employeeName: (row.employee_name as string) || '',
+    companyId: (row.company_id as string) || null,
+    companyName: (row.company_name as string) || '',
+    providerId: (row.provider_id as string) || null,
+    providerName: (row.provider_name as string) || '',
+    purposeOfTravel: (row.purpose_of_travel as string) || '',
+    consultationDate: row.consultation_date ? (row.consultation_date as string) : null,
+    status: (row.status as string) || 'Not Scheduled',
+    vaccinationPlan: (row.vaccination_plan as { name: string; status: string }[]) || [],
+    malariaProphylaxis: (row.malaria_prophylaxis as boolean) || false,
+    travelKitIssued: (row.travel_kit_issued as boolean) || false,
+    travelAdvice: (row.travel_advice as string) || '',
+    postTravelReviewDate: row.post_travel_review_date ? (row.post_travel_review_date as string) : null,
+    appointmentId: (row.appointment_id as string) || null,
+    medicalId: (row.medical_id as string) || null,
+    questionnaireStatus: (row.questionnaire_status as string) || 'Not Started',
+    createdAt: (row.created_at as string) || '',
+    updatedAt: (row.updated_at as string) || '',
+  };
+}
+
+const travelConsultationColumns = [
+  'id', 'travel_health_id', 'employee_id', 'employee_name', 'company_id', 'company_name',
+  'provider_id', 'provider_name', 'purpose_of_travel', 'consultation_date', 'status',
+  'vaccination_plan', 'malaria_prophylaxis', 'travel_kit_issued', 'travel_advice',
+  'post_travel_review_date', 'appointment_id', 'medical_id', 'questionnaire_status',
+  'created_at', 'updated_at',
+].join(', ');
+
+export function useTravelConsultations() {
+  const { user } = useApp();
+  const [data, setData] = useState<TravelConsultationRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const logAudit = useLogAuditEvent();
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!supabaseConfigured) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
+    const isEmployerOrEmployee = user?.role === 'employer' || user?.role === 'employee';
+    const table = isEmployerOrEmployee ? 'travel_consultations_employer_view' : 'travel_consultations';
+    const { data: rows, error: err } = await supabase
+      .from(table)
+      .select(travelConsultationColumns)
+      .order('created_at', { ascending: false });
+    if (err) {
+      setError(err.message);
+      setData([]);
+    } else {
+      setData((rows as Record<string, unknown>[]).map(transformTravelConsultation));
+    }
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  const getClinicalNotes = useCallback(async (id: string): Promise<{ clinicianNotes: string; postTravelNotes: string }> => {
+    if (isDemoMode) return { clinicianNotes: '', postTravelNotes: '' };
+    const { data: result, error: err } = await supabase
+      .rpc('travel_consultations_get_clinical', { p_id: id });
+    if (err) throw new Error(err.message);
+    const r = (result as Record<string, unknown>[])?.[0];
+    return {
+      clinicianNotes: (r?.clinician_notes as string) || '',
+      postTravelNotes: (r?.post_travel_notes as string) || '',
+    };
+  }, []);
+
+  const addConsultation = useCallback(async (c: {
+    travelHealthId?: string | null;
+    employeeId?: string | null;
+    employeeName: string;
+    companyId?: string | null;
+    companyName?: string;
+    providerId?: string | null;
+    providerName?: string;
+    purposeOfTravel?: string;
+    consultationDate?: string | null;
+    status?: string;
+    vaccinationPlan?: { name: string; status: string }[];
+    malariaProphylaxis?: boolean;
+    travelKitIssued?: boolean;
+    travelAdvice?: string;
+    clinicianNotes?: string;
+    postTravelNotes?: string;
+    appointmentId?: string | null;
+    medicalId?: string | null;
+  }): Promise<TravelConsultationRecord> => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.create');
+    const { data: row, error: err } = await supabase
+      .from('travel_consultations')
+      .insert({
+        travel_health_id: c.travelHealthId || null,
+        employee_id: c.employeeId || null,
+        employee_name: c.employeeName,
+        company_id: c.companyId || null,
+        company_name: c.companyName || '',
+        provider_id: c.providerId || null,
+        provider_name: c.providerName || '',
+        purpose_of_travel: c.purposeOfTravel || null,
+        consultation_date: c.consultationDate || null,
+        status: c.status || 'Not Scheduled',
+        vaccination_plan: c.vaccinationPlan || [],
+        malaria_prophylaxis: c.malariaProphylaxis || false,
+        travel_kit_issued: c.travelKitIssued || false,
+        travel_advice: c.travelAdvice || '',
+        clinician_notes: c.clinicianNotes || '',
+        post_travel_notes: c.postTravelNotes || '',
+        appointment_id: c.appointmentId || null,
+        medical_id: c.medicalId || null,
+      })
+      .select(travelConsultationColumns)
+      .single();
+    if (err) throw new Error(err.message);
+    const created = transformTravelConsultation(row as Record<string, unknown>);
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'travel_consultation',
+      recordId: created.id,
+      recordReference: `${created.employeeName} — ${created.status}`,
+      action: 'create',
+      toStatus: created.status,
+      details: `Travel consultation created for ${created.employeeName}`,
+    });
+    await refetch();
+    return created;
+  }, [refetch, user, logAudit]);
+
+  const updateConsultation = useCallback(async (id: string, updates: {
+    consultationDate?: string | null;
+    status?: string;
+    purposeOfTravel?: string;
+    providerId?: string | null;
+    providerName?: string;
+    vaccinationPlan?: { name: string; status: string }[];
+    malariaProphylaxis?: boolean;
+    travelKitIssued?: boolean;
+    travelAdvice?: string;
+    postTravelReviewDate?: string | null;
+    questionnaireStatus?: string;
+    appointmentId?: string | null;
+    medicalId?: string | null;
+  }) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.edit');
+    const prev = data.find((c) => c.id === id);
+    const updateData: Record<string, unknown> = {};
+    if (updates.consultationDate !== undefined) updateData.consultation_date = updates.consultationDate || null;
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.purposeOfTravel !== undefined) updateData.purpose_of_travel = updates.purposeOfTravel || null;
+    if (updates.providerId !== undefined) updateData.provider_id = updates.providerId || null;
+    if (updates.providerName !== undefined) updateData.provider_name = updates.providerName || '';
+    if (updates.vaccinationPlan !== undefined) updateData.vaccination_plan = updates.vaccinationPlan;
+    if (updates.malariaProphylaxis !== undefined) updateData.malaria_prophylaxis = updates.malariaProphylaxis;
+    if (updates.travelKitIssued !== undefined) updateData.travel_kit_issued = updates.travelKitIssued;
+    if (updates.travelAdvice !== undefined) updateData.travel_advice = updates.travelAdvice;
+    if (updates.postTravelReviewDate !== undefined) updateData.post_travel_review_date = updates.postTravelReviewDate || null;
+    if (updates.questionnaireStatus !== undefined) updateData.questionnaire_status = updates.questionnaireStatus;
+    if (updates.appointmentId !== undefined) updateData.appointment_id = updates.appointmentId || null;
+    if (updates.medicalId !== undefined) updateData.medical_id = updates.medicalId || null;
+
+    const { data: rows, error: err } = await supabase
+      .from('travel_consultations')
+      .update(updateData)
+      .eq('id', id)
+      .select('id');
+    if (err) throw new Error(err.message);
+    if (!rows?.length) throw new Error('This consultation could not be saved. Your account may not have permission to edit it.');
+    await logAudit({
+      actorName: user?.name || 'Unknown',
+      actorRole: user?.role || 'admin',
+      recordType: 'travel_consultation',
+      recordId: id,
+      recordReference: prev ? `${prev.employeeName} — ${prev.status}` : id,
+      action: 'update',
+      fromStatus: prev?.status,
+      toStatus: updates.status,
+      details: updates.status ? `Status changed to ${updates.status}` : 'Travel consultation updated',
+    });
+    await refetch();
+  }, [refetch, data, user, logAudit]);
+
+  const updateClinicalNotes = useCallback(async (id: string, clinicianNotes: string | null, postTravelNotes: string | null) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    const { error: err } = await supabase
+      .rpc('travel_consultations_update_clinical', {
+        p_id: id,
+        p_clinician_notes: clinicianNotes,
+        p_post_travel_notes: postTravelNotes,
+      });
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch]);
+
+  const deleteConsultation = useCallback(async (id: string) => {
+    if (isDemoMode) throw new Error(demoWriteError);
+    assertCan(user, 'medical.delete');
+    const { error: err } = await supabase.from('travel_consultations').delete().eq('id', id);
+    if (err) throw new Error(err.message);
+    await refetch();
+  }, [refetch, user]);
+
+  return { data, loading, error, refetch, getClinicalNotes, addConsultation, updateConsultation, updateClinicalNotes, deleteConsultation };
+}
