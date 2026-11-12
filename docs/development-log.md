@@ -1179,6 +1179,22 @@ No existing records were modified, deleted, or cascaded. CONFIRMED.
 - No existing policies, roles, or records were changed.
 - No publish or deploy.
 
+## Stage 21: Company profile enhancements (Version 25)
+
+### Changes
+- Added contract status indicator to both the company list cards and the company detail header. The indicator is computed from contract_start/contract_end dates: "Active" (green), "Expiring soon" (amber, within 60 days), "Expired" (red), "Upcoming" (grey, start date in future), "No contract" (grey).
+- Added a 4-card stats row at the top of the company detail view: Tracked Employees, Completed Medicals, Compliance Rate (completed medicals / tracked employees as a percentage), and Fit for Duty count. Each card has a colour-coded icon matching the existing design system.
+- Contract end date in the key metrics panel now uses danger/warning colouring when expired or expiring soon.
+- Contract start/end display "—" when empty instead of blank.
+
+### Verification
+- `npm run build` passed (1781 modules, 0 errors).
+- No database changes. No existing functionality removed. Demo mode preserved.
+
+### Not done
+- No browser-based testing (no browser available).
+- Database migrations remain on hold pending verified backup.
+
 ## Stage 20: Travel Health consultation application integration (Version 24)
 
 ### Objective
@@ -1248,3 +1264,43 @@ Two issues found during V24 security verification:
 - No provider links were assigned to existing users.
 - No publish or deploy.
 - No browser-based testing (no browser available in this environment). The workflow was verified through build success, schema inspection, grant verification, and security advisor — not through end-to-end UI testing.
+
+## Stage 22: Migration preservation and handover preparation (Version 26)
+
+**Date:** 12 November 2026  
+**Scope:** Documentation only. No application, database, schema, RLS, auth, role, permission, or environment changes.
+
+### Documentation created
+- `docs/STelo-Health-Migration-Handover.md` — comprehensive handover document covering:
+  - Application structure and completed modules (27 pages, 16 components, 6 dashboards)
+  - GitHub repository status: no git repository exists in this Bolt workspace
+  - Latest changes: Stage 21 (company profile enhancements) and Stage 20 (travel consultations integration)
+  - Original Supabase project identity: reference `bewndqxrmvhwngnszmdb`, URL `https://bewndqxrmvhwngnszmdb.supabase.co`
+  - Current database state: 5 applied migrations, 12 tables (all empty, 0 rows, 0 auth users), wide-open RLS policies
+  - Missing schema: 27 tables, 16 functions, 3 triggers, 4 views — all defined in migration files but not in the database
+  - Environment variables required: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (values not exposed)
+  - Development handover: company management, employee management, appointment scheduling, medical assessment demo mode, clinical outcomes, certificates, all other modules
+  - Future migration instructions: step-by-step guide for importing into another Bolt account and reconnecting to the same Supabase project
+  - Outstanding items: database backup not confirmed, pending migrations on hold, first master administrator not created, GitHub repository existence unknown
+
+### Development log updated
+- This entry (Stage 22) added to `docs/development-log.md`
+
+### Git status
+- No git repository exists in this Bolt workspace. No commits, branches, or pushes are possible. Bolt manages versioning via Version History.
+
+### Verification
+- Supabase project reference and URL confirmed via MCP tools (12 November 2026)
+- Applied migrations confirmed: 5 only (list_migrations)
+- Database tables confirmed: 12, all with 0 rows (list_tables)
+- No application code modified
+- No database changes made
+
+### What was NOT done
+- No application functionality modified
+- No database schemas, tables, or records changed
+- No SQL run or migrations applied
+- No RLS, authentication, roles, or permissions changed
+- No environment variables changed
+- No publish or deploy
+- No commit or push (no git repository)

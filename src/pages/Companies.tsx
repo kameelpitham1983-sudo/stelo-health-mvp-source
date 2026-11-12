@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Building2, MapPin, Users, Calendar, Mail, Phone, ArrowLeft, Plus, Filter, Edit3, X, Check, AlertCircle, ArrowRight, Stethoscope } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search, Building2, MapPin, Users, Calendar, Mail, Phone, ArrowLeft, Plus, Filter, Edit3, X, Check, AlertCircle, ArrowRight, Stethoscope, FileCheck2, Clock, TrendingUp, Activity } from 'lucide-react';
 import { useCompanies } from '@/hooks/useSupabaseData';
 import { useEmployees, useMedicals } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
@@ -20,6 +20,19 @@ const tierColors: Record<string, 'brand' | 'teal' | 'ink'> = {
   'Mid-Market': 'teal',
   SMB: 'ink',
 };
+
+function contractStatus(start: string, end: string): { label: string; color: 'success' | 'warning' | 'danger' | 'ink'; daysLeft: number } {
+  if (!end) return { label: 'No contract', color: 'ink', daysLeft: 0 };
+  const now = new Date();
+  const endDate = new Date(end);
+  const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft < 0) return { label: 'Expired', color: 'danger', daysLeft };
+  if (daysLeft <= 60) return { label: 'Expiring soon', color: 'warning', daysLeft };
+  if (!start) return { label: 'Active', color: 'success', daysLeft };
+  const startDate = new Date(start);
+  if (startDate > now) return { label: 'Upcoming', color: 'ink', daysLeft };
+  return { label: 'Active', color: 'success', daysLeft };
+}
 
 const emptyForm: Partial<Company> = {
   name: '',
@@ -112,6 +125,10 @@ export function Companies() {
   if (selected) {
     const companyEmployees = employees.filter((e) => e.companyId === selected.id);
     const companyMedicals = medicals.filter((m) => m.companyName === selected.name);
+    const ct = contractStatus(selected.contractStart, selected.contractEnd);
+    const completedMedicals = companyMedicals.filter((m) => m.status === 'Completed');
+    const fitCount = companyEmployees.filter((e) => e.healthStatus === 'Fit').length;
+    const complianceRate = companyEmployees.length > 0 ? Math.round((completedMedicals.length / companyEmployees.length) * 100) : 0;
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -165,9 +182,10 @@ export function Companies() {
                   <p className="text-sm text-ink-500">{selected.industry}</p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Badge color={statusColors[selected.status]} dot>{selected.status}</Badge>
                 <Badge color={tierColors[selected.tier]}>{selected.tier}</Badge>
+                <Badge color={ct.color} dot>{ct.label}{ct.daysLeft > 0 && ct.daysLeft <= 60 ? ` (${ct.daysLeft}d)` : ''}</Badge>
               </div>
             </div>
           </div>
@@ -181,6 +199,37 @@ export function Companies() {
             <button onClick={() => setPageWithContext('appointments', { companyName: selected.name })} className="btn-secondary text-sm">
               <Calendar size={15} /> View Appointments
             </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="card p-5">
+            <div className="h-10 w-10 rounded-xl bg-brand-50 flex items-center justify-center mb-3">
+              <Users size={20} className="text-brand-600" />
+            </div>
+            <p className="text-2xl font-bold font-display text-ink-900">{companyEmployees.length}</p>
+            <p className="text-sm text-ink-500">Tracked Employees</p>
+          </div>
+          <div className="card p-5">
+            <div className="h-10 w-10 rounded-xl bg-success-50 flex items-center justify-center mb-3">
+              <FileCheck2 size={20} className="text-success-600" />
+            </div>
+            <p className="text-2xl font-bold font-display text-ink-900">{completedMedicals.length}</p>
+            <p className="text-sm text-ink-500">Completed Medicals</p>
+          </div>
+          <div className="card p-5">
+            <div className="h-10 w-10 rounded-xl bg-teal-50 flex items-center justify-center mb-3">
+              <TrendingUp size={20} className="text-teal-600" />
+            </div>
+            <p className="text-2xl font-bold font-display text-ink-900">{complianceRate}%</p>
+            <p className="text-sm text-ink-500">Compliance Rate</p>
+          </div>
+          <div className="card p-5">
+            <div className="h-10 w-10 rounded-xl bg-warning-50 flex items-center justify-center mb-3">
+              <Activity size={20} className="text-warning-600" />
+            </div>
+            <p className="text-2xl font-bold font-display text-ink-900">{fitCount}</p>
+            <p className="text-sm text-ink-500">Fit for Duty</p>
           </div>
         </div>
 
@@ -202,11 +251,11 @@ export function Companies() {
               </div>
               <div className="flex items-center justify-between py-2 border-b border-ink-100">
                 <span className="flex items-center gap-2 text-sm text-ink-500"><Calendar size={15} /> Contract start</span>
-                <span className="font-semibold text-ink-900">{selected.contractStart}</span>
+                <span className="font-semibold text-ink-900">{selected.contractStart || '—'}</span>
               </div>
               <div className="flex items-center justify-between py-2">
                 <span className="flex items-center gap-2 text-sm text-ink-500"><Calendar size={15} /> Contract end</span>
-                <span className="font-semibold text-ink-900">{selected.contractEnd}</span>
+                <span className={`font-semibold ${ct.color === 'danger' ? 'text-danger-600' : ct.color === 'warning' ? 'text-warning-600' : 'text-ink-900'}`}>{selected.contractEnd || '—'}</span>
               </div>
             </div>
           </div>
@@ -334,9 +383,12 @@ export function Companies() {
                   <p className="text-xs text-ink-400">Locations</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 mt-3 text-xs text-ink-400">
-                <MapPin size={12} />
-                {company.primaryLocation}
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-1.5 text-xs text-ink-400">
+                  <MapPin size={12} />
+                  {company.primaryLocation}
+                </div>
+                {(() => { const ci = contractStatus(company.contractStart, company.contractEnd); return <Badge color={ci.color} dot>{ci.label}</Badge>; })()}
               </div>
             </div>
           ))}
