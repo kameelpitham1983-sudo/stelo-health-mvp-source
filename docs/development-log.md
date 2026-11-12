@@ -1304,3 +1304,50 @@ Two issues found during V24 security verification:
 - No environment variables changed
 - No publish or deploy
 - No commit or push (no git repository)
+
+## Stage 23: Appointment scheduling and employee workflow enhancement (Version 27)
+
+**Date:** 12 November 2026
+**Scope:** Application improvements only. No database, schema, RLS, auth, or environment changes.
+
+### Fixes and improvements
+
+**1. Employee edit button bug fix (`src/pages/Employees.tsx`)**
+- The "Edit Details" button on the employee profile was gated by `isDemoMode` — it only appeared in demo mode, not when connected to a live database. Removed the `isDemoMode` condition so the button appears whenever the user has `employee.edit` permission.
+
+**2. Appointment history on employee profile (`src/pages/Employees.tsx`)**
+- Added an "Appointment History" card to the employee profile showing the 5 most recent appointments for that employee, sorted newest first. Each row shows type, date/time, provider, and status badge. A "View all" link navigates to the Appointments page filtered by that employee. This closes the workflow gap where the employee profile showed medical records but no appointment history.
+
+**3. Appointment stats summary cards (`src/pages/Appointments.tsx`)**
+- Added a 4-card stats row at the top of the Appointments page: Upcoming (brand), Completed (success), Pending (warning), and Cancelled/No-show (neutral). Each card has a colour-coded icon and large count, giving an at-a-glance dashboard view before the appointment list.
+
+**4. Clickable back-links in appointment detail (`src/pages/Appointments.tsx`)**
+- The employee name in the appointment detail header is now a clickable button that navigates to the Employees page with that employee's context. The company name is similarly clickable and navigates to the Companies page. Previously both were plain text with no navigation.
+
+**5. Clickable linked medicals and "Start Medical Assessment" button (`src/pages/Appointments.tsx`)**
+- Linked medical assessments in the appointment detail are now clickable buttons that navigate to the Medicals page with the medical record and employee context. A "Start Medical Assessment" button appears both when there are no linked medicals and after the list of existing ones, providing a clear entry point into the medical case workflow.
+
+### Verification
+- `npm run build` passed (1781 modules, 0 errors).
+- No database changes. No existing functionality removed. Demo mode preserved.
+- No browser-based testing (no browser available).
+
+### What works in the demonstration workflow
+- Company → Employee: open a company, view its employees, click an employee to see their profile.
+- Employee → Appointment: from the employee profile, click "Book Appointment" to go to the Appointments page with the employee pre-selected.
+- Appointment creation: fill in the form, conflict detection works, appointment appears in the list and stats.
+- Appointment detail: click an appointment to see full details, with clickable links back to the employee and company.
+- Appointment → Medical: from the appointment detail, click a linked medical or "Start Medical Assessment" to enter the medical workflow.
+- Employee appointment history: the employee profile now shows recent appointments alongside medical records.
+
+### What remains in Demo Mode
+- Medical Assessment page (no database table, by design).
+- All data when the database is not configured (demo mode with sample data).
+
+### Database persistence
+- Not verified. The database has 12 empty tables with wide-open RLS. All demonstration data is in-memory demo data. No migrations were applied.
+
+### Not done
+- No browser-based end-to-end testing.
+- No database migrations applied.
+- No publish or deploy.

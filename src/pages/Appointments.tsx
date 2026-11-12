@@ -40,7 +40,7 @@ const emptyForm: Partial<Appointment> = {
 };
 
 export function Appointments() {
-  const { user, navContext, clearNavContext } = useApp();
+  const { user, navContext, clearNavContext, setPageWithContext } = useApp();
   const { data: appointments, loading, error, addAppointment, updateAppointment } = useAppointments();
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
@@ -240,8 +240,12 @@ export function Appointments() {
                 <CalendarDays size={28} className="text-brand-600" />
               </div>
               <div className="mb-1">
-                <h2 className="text-xl font-display font-bold text-ink-900">{detailAppt.employeeName}</h2>
-                <p className="text-sm text-ink-500">{detailAppt.companyName} · {detailAppt.type}</p>
+                <button onClick={() => setPageWithContext('employees', { employeeName: detailAppt.employeeName, companyName: detailAppt.companyName })} className="text-xl font-display font-bold text-ink-900 hover:text-brand-600 transition-colors text-left">
+                  {detailAppt.employeeName}
+                </button>
+                <button onClick={() => setPageWithContext('companies', { companyName: detailAppt.companyName })} className="text-sm text-ink-500 hover:text-brand-600 transition-colors text-left block">
+                  {detailAppt.companyName} · {detailAppt.type}
+                </button>
               </div>
             </div>
           </div>
@@ -277,19 +281,27 @@ export function Appointments() {
           <div className="card p-5">
             <h3 className="font-display font-bold text-ink-900 mb-4 flex items-center gap-2"><Stethoscope size={18} className="text-brand-600" /> Linked Medical Assessments</h3>
             {linkedMedicals.length === 0 ? (
-              <p className="text-sm text-ink-400 py-6 text-center">No medical assessments linked to this employee.</p>
+              <div className="text-center py-6">
+                <p className="text-sm text-ink-400 mb-3">No medical assessments linked to this employee.</p>
+                <button onClick={() => setPageWithContext('medicals', { employeeName: detailAppt.employeeName, companyName: detailAppt.companyName })} className="btn-secondary text-sm">
+                  <Plus size={14} /> Start Medical Assessment
+                </button>
+              </div>
             ) : (
               <div className="space-y-2.5">
                 {linkedMedicals.map((m) => (
-                  <div key={m.id} className="p-3 bg-ink-50 rounded-lg">
+                  <button key={m.id} onClick={() => setPageWithContext('medicals', { medicalId: m.id, employeeName: detailAppt.employeeName, companyName: detailAppt.companyName })} className="p-3 bg-ink-50 rounded-lg w-full text-left hover:bg-ink-100 transition-colors">
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-sm font-semibold text-ink-900">{m.type}</p>
                       <Badge color={m.status === 'Completed' ? 'success' : m.status === 'Overdue' ? 'danger' : 'warning'}>{m.status}</Badge>
                     </div>
                     <p className="text-xs text-ink-500">{m.date} · {m.providerName} · {m.result}</p>
                     {m.notes && <p className="text-xs text-ink-400 mt-1">{m.notes}</p>}
-                  </div>
+                  </button>
                 ))}
+                <button onClick={() => setPageWithContext('medicals', { employeeName: detailAppt.employeeName, companyName: detailAppt.companyName })} className="btn-secondary text-sm w-full mt-2">
+                  <Plus size={14} /> Start Medical Assessment
+                </button>
               </div>
             )}
           </div>
@@ -429,6 +441,53 @@ export function Appointments() {
           <Plus size={16} /> Book Appointment
         </button>
         )}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+              <CalendarDays size={20} className="text-brand-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold font-display text-ink-900">{upcoming.length}</p>
+              <p className="text-xs text-ink-500">Upcoming</p>
+            </div>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-success-50 flex items-center justify-center shrink-0">
+              <Check size={20} className="text-success-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold font-display text-ink-900">{appointments.filter((a) => a.status === 'Completed').length}</p>
+              <p className="text-xs text-ink-500">Completed</p>
+            </div>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-warning-50 flex items-center justify-center shrink-0">
+              <Clock size={20} className="text-warning-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold font-display text-ink-900">{appointments.filter((a) => a.status === 'Pending').length}</p>
+              <p className="text-xs text-ink-500">Pending</p>
+            </div>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-ink-100 flex items-center justify-center shrink-0">
+              <Building size={20} className="text-ink-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold font-display text-ink-900">{appointments.filter((a) => a.status === 'Cancelled' || a.status === 'No-show').length}</p>
+              <p className="text-xs text-ink-500">Cancelled / No-show</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-2">

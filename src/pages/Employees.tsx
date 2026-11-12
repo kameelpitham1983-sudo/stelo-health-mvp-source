@@ -19,7 +19,7 @@ import {
   FileText,
   ArrowRight,
 } from 'lucide-react';
-import { useEmployees, useCompanies, useMedicals, isDemoMode } from '@/hooks/useSupabaseData';
+import { useEmployees, useCompanies, useMedicals, useAppointments, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
@@ -59,6 +59,7 @@ export function Employees() {
   const { data: employees, loading, error, addEmployee, updateEmployee } = useEmployees();
   const { data: companies } = useCompanies();
   const { data: medicals } = useMedicals();
+  const { data: appointments } = useAppointments();
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -146,6 +147,9 @@ export function Employees() {
   if (selected) {
     const employeeMedicals = medicals.filter((m) => m.employeeId === selected.id);
     const company = companies.find((c) => c.id === selected.companyId);
+    const employeeAppointments = appointments
+      .filter((a) => a.employeeName === selected.name)
+      .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -175,7 +179,7 @@ export function Employees() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
-            {isDemoMode && can(user, 'employee.edit') && (
+            {can(user, 'employee.edit') && (
               <button onClick={startEdit} className="btn-secondary text-sm">
                 <Pencil size={15} /> Edit Details
               </button>
@@ -273,6 +277,28 @@ export function Employees() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-ink-900 flex items-center gap-2"><Calendar size={18} className="text-brand-600" /> Appointment History</h3>
+            <button onClick={() => setPageWithContext('appointments', { employeeName: selected.name, companyName: selected.companyName })} className="text-xs text-brand-600 font-medium hover:text-brand-700">View all</button>
+          </div>
+          {employeeAppointments.length === 0 ? (
+            <p className="text-sm text-ink-400 py-4 text-center">No appointments on file.</p>
+          ) : (
+            <div className="space-y-2">
+              {employeeAppointments.slice(0, 5).map((a) => (
+                <button key={a.id} onClick={() => setPageWithContext('appointments', { employeeName: selected.name, companyName: selected.companyName })} className="flex items-center justify-between py-2 border-b border-ink-100 last:border-0 w-full text-left hover:bg-ink-50 -mx-1 px-1 rounded transition-colors">
+                  <div>
+                    <p className="text-sm font-semibold text-ink-900">{a.type}</p>
+                    <p className="text-xs text-ink-400">{a.date} · {a.time} · {a.providerName || 'Not assigned'}</p>
+                  </div>
+                  <Badge color={statusColors[a.status] || 'ink'} dot>{a.status}</Badge>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <NotesPanel recordType="employee" recordId={selected.id} authorName={user?.name || 'STelo Admin'} />
