@@ -76,11 +76,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAuthReady(true);
       return;
     }
-    supabase.auth.getSession().then(({ data: { session } }) => loadSessionUser(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) loadSessionUser(session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return;
+      if (!mounted) return;
       (async () => { await loadSessionUser(session); })();
     });
-    return () => subscription.unsubscribe();
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, [loadSessionUser]);
 
   const login = useCallback((role: UserRole) => {
