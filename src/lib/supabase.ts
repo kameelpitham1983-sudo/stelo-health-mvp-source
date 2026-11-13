@@ -1,12 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseUrl = 'https://bewndqxrmvhwngnszmdb.supabase.co';
+const supabaseAnonKey = 'sb_publishable_GCoDAONmvt1APYvWMVMolA_XCWws4KI';
 
-const missingEnv = !supabaseUrl || !supabaseAnonKey;
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-export const supabase: SupabaseClient = missingEnv
-  ? createClient('https://placeholder.supabase.co', 'placeholder-anon-key')
-  : createClient(supabaseUrl, supabaseAnonKey);
-
-export const supabaseConfigured = !missingEnv;
+export const supabaseConfigured = true;
