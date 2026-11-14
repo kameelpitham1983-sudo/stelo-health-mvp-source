@@ -232,7 +232,7 @@ export function Settings() {
               </div>
             )}
 
-            {tab === 'users' && canManageUsers && <UserManagementTab currentUserRole={user.role} />}
+            {tab === 'users' && canManageUsers && <UserManagementTab currentUserRole={user.role} currentUserId={user.id} />}
 
             {tab === 'profile' && (
               <div className="mt-6 pt-4 border-t border-ink-100 flex justify-end">
@@ -248,7 +248,7 @@ export function Settings() {
   );
 }
 
-function UserManagementTab({ currentUserRole }: { currentUserRole: UserRole }) {
+function UserManagementTab({ currentUserRole, currentUserId }: { currentUserRole: UserRole; currentUserId: string }) {
   const [users, setUsers] = useState<UserListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -330,7 +330,7 @@ function UserManagementTab({ currentUserRole }: { currentUserRole: UserRole }) {
       <div className="space-y-2">
         {users.map((u) => {
           const RoleIcon = roleIcons[u.role] || User;
-          const isSelf = u.id === supabase.auth.getUser()?.data?.user?.id;
+          const isSelf = u.id === currentUserId;
           const isMasterAdmin = u.role === 'master_admin';
           const canModify = !isSelf && !isMasterAdmin && currentUserRole === 'master_admin';
           return (

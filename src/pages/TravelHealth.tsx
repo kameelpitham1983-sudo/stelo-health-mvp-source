@@ -28,7 +28,7 @@ import {
 import { useTravelHealth, useEmployees, useProviders, isDemoMode } from '@/hooks/useSupabaseData';
 import { useTravelConsultations, type TravelConsultationRecord } from '@/hooks/useSupabaseData';
 import { Badge } from '@/components/Badge';
-import type { TravelHealthRecord, VaccineStatus } from '@/types';
+import type { TravelHealthRecord, VaccineStatus, UserRole } from '@/types';
 
 const riskColors: Record<string, 'success' | 'warning' | 'danger' | 'ink'> = {
   Low: 'success',
@@ -470,7 +470,7 @@ function ConsultationDetail({
   consultation: TravelConsultationRecord;
   travelHealthRecords: TravelHealthRecord[];
   providers: { id: string; name: string }[];
-  user: { role: string; name: string } | null;
+  user: { role: UserRole; name: string } | null;
   onBack: () => void;
   onUpdate: (id: string, updates: Record<string, unknown>) => Promise<void>;
   onUpdateClinical: (id: string, clinicianNotes: string | null, postTravelNotes: string | null) => Promise<void>;

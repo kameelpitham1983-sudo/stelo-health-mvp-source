@@ -3183,7 +3183,7 @@ export function useTravelConsultations() {
       setError(err.message);
       setData([]);
     } else {
-      setData((rows as Record<string, unknown>[]).map(transformTravelConsultation));
+      setData((rows as unknown as Record<string, unknown>[]).map(transformTravelConsultation));
     }
     setLoading(false);
   }, [user]);
@@ -3249,7 +3249,7 @@ export function useTravelConsultations() {
       .select(travelConsultationColumns)
       .single();
     if (err) throw new Error(err.message);
-    const created = transformTravelConsultation(row as Record<string, unknown>);
+    const created = transformTravelConsultation(row as unknown as Record<string, unknown>);
     await logAudit({
       actorName: user?.name || 'Unknown',
       actorRole: user?.role || 'admin',
