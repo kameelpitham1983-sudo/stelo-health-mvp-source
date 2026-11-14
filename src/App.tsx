@@ -28,6 +28,7 @@ import { Onboarding } from '@/pages/Onboarding';
 import { Screening } from '@/pages/Screening';
 import { MedicalAssessment } from '@/pages/MedicalAssessment';
 import { GuidedOnboarding } from '@/components/GuidedOnboarding';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { canAccessPage } from '@/lib/permissions';
 
 function AppContent() {
@@ -66,7 +67,9 @@ function AppContent() {
   const allowed = canAccessPage(user.role, currentPage);
   return (
     <Layout>
-      {allowed ? pages[currentPage] : <RoleDashboard />}
+      <ErrorBoundary>
+        {allowed ? pages[currentPage] : <RoleDashboard />}
+      </ErrorBoundary>
       {showOnboarding && <GuidedOnboarding onComplete={completeOnboarding} onOpenPage={setPage} />}
     </Layout>
   );

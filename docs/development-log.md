@@ -1408,3 +1408,60 @@ Two issues found during V24 security verification:
 - The `companyNameFor()` helper at line 221 calls `applyDemoRecords(mockData.companies, ...)` unconditionally, but is only called from dead demo-code branches (buildDemoEmployee and the updateEmployee demo fallback after an early return). No production impact.
 - `saveDemoMedicalOverride` export at line 427 is dead code (only called from demo mode paths). No production impact.
 - Build and type check pass after all fixes.
+
+## Stage 19: Synopsis operational case-management report and error boundary (current version)
+
+### Synopsis rewrite (COMPLETE)
+- Replaced the per-employee clinical draft generator with a morning case-management briefing report.
+- The new Synopsis page has two principal sections:
+  1. **Open Cases — Detailed Summary**: Shows cases with open statuses (new, active, overdue, on_hold, exception) that are eligible for the Synopsis. Each case shows employee/patient name, company, case reference, case type, status, priority, next action, due date, coordinator, provider, target completion date, date opened, last update, and description. Cases are sorted: pinned first, then by priority, then by date opened.
+  2. **Pending Cases / Appointments — Compact List**: Shows pending cases (awaiting_* statuses) and upcoming pending/confirmed appointments. Each item shows employee name, company, reference, status, date, time, and type. Items already in the Open Cases section are not duplicated.
+- **Run Synopsis button**: Prominent button generates the report from live `useCases()` and `useAppointments()` data. Shows counts of open cases, pending items, and pinned records. No fabricated or hardcoded records.
+- **Pinning**: Authorised users can pin/unpin any open case. Pinned records are visually marked with a badge and highlighted border. Pinning does not change the case status. A "Pinned only" filter shows just pinned records. Pin state is stored in localStorage (browser-local) — documented as a database dependency for approval.
+- **Scheduled opening date**: A calendar icon on each open case lets users set a future date when the case becomes eligible for the Open Cases section. Default is 14 days before the case opened date, adjustable by the user. The case status is not changed. Cases with a future opening date are excluded from Open Cases until that date arrives. Opening dates are stored in localStorage — documented as a database dependency for approval.
+- **Filters**: Open cases, pending, pinned only, company, case type, date range (date opened). Reset to defaults button.
+- **Meeting notes and follow-ups**: Reuses the existing `useSynopsisNotes` and `useSynopsisFollowUps` hooks. Notes and follow-up actions attach to a saved synopsis record selected from a dropdown. Only roles with `medical.clinical_review` permission can add notes and follow-ups.
+- **Empty states**: Proper empty states for no open cases, no pending items, and no pinned records.
+- **Navigation**: Cases can be opened in Case Management via the chevron button (navigates to the cases page).
+- **Role permissions**: Employer access is company-scoped via `canViewCompany`. Meeting notes restricted to `medical.clinical_review` permission.
+- **Responsive**: Grid layout adapts from 1 column on mobile to multi-column on desktop.
+
+### Error boundary (COMPLETE)
+- Added `ErrorBoundary` component (`src/components/ErrorBoundary.tsx`) wrapping the page content in `App.tsx`.
+- Catches render errors from any page component and shows a user-friendly error message with a reload button, instead of blanking the entire app (which happened in Stage 7).
+- No database changes required.
+
+### Database dependencies documented (NOT applied)
+- **Case pinning**: No `is_pinned` or `pinned_at` column on the `cases` table. Currently stored in localStorage. A migration adding `is_pinned boolean DEFAULT false` and `pinned_by uuid` to `cases` is recommended for approval.
+- **Scheduled opening date**: No `synopsis_opening_date` column on `cases`. Currently stored in localStorage. A migration adding `synopsis_opening_date date` to `cases` is recommended for approval.
+- These localStorage-based features work for a single user on a single browser but do not persist across browsers or devices. They are safe frontend-only implementations.
+
+### Files changed
+- `src/pages/Synopsis.tsx` — complete rewrite (operational case-management report)
+- `src/components/ErrorBoundary.tsx` — new file (error boundary component)
+- `src/App.tsx` — added ErrorBoundary import and wrapper around page content
+
+### Files reused (not modified)
+- `src/hooks/useSupabaseData.ts` — `useCases`, `useAppointments`, `useSynopses`, `useSynopsisNotes`, `useSynopsisFollowUps` hooks used as-is
+- `src/lib/permissions.ts` — `can`, `canViewCompany` functions used as-is
+- `src/components/Badge.tsx` — used for status/priority badges
+- `src/context/AppContext.tsx` — `setPage` used for navigation to cases page
+
+### Build verification (COMPLETE)
+- `npm run build` passed: 1781 modules, 17.62s. No errors.
+
+### Tests performed
+- Production build: PASSED.
+- Type checking (via Vite build): PASSED.
+- No browser-based testing performed (no browser available in this environment).
+
+### Not verified
+- End-to-end browser testing of the Synopsis report with live data.
+- Whether the original Supabase project (`bewndqxrmvhwngnszmdb`) has the `cases`, `appointments`, `synopses`, `synopsis_meeting_notes`, and `synopsis_follow_ups` tables the Synopsis depends on.
+- Pin and opening date persistence across browsers (localStorage is browser-local by design).
+
+### Outstanding items for Stephanie
+1. Database alignment (see Stage 18 report) — the Synopsis depends on `cases`, `appointments`, `synopses`, `synopsis_meeting_notes`, and `synopsis_follow_ups` tables existing on the connected project.
+2. Approve adding `is_pinned` and `synopsis_opening_date` columns to the `cases` table so pinning and scheduled opening dates persist across browsers and users.
+3. Clinical approval of whether the Synopsis should display any clinical fields (currently shows only non-clinical case fields: description, next action, coordinator, provider, dates).
+4. Provider verification governance (see Section 6 of programme) — no changes made, gaps documented.
