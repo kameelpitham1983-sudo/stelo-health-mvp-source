@@ -267,7 +267,7 @@ function UserManagementTab({ currentUserRole, currentUserId }: { currentUserRole
     } else {
       setUsers((data || []).map((row: Record<string, unknown>) => ({
         id: row.id as string,
-        email: '',
+        email: (row.email as string) || '',
         role: row.role as string,
         displayName: row.display_name as string,
         isActive: row.is_active as boolean,
@@ -372,8 +372,9 @@ function UserManagementTab({ currentUserRole, currentUserId }: { currentUserRole
       </div>
 
       {currentUserRole === 'master_admin' && (
-        <div className="p-3 bg-brand-50 text-brand-700 text-xs rounded-lg">
-          To invite new users, use the invitation link from the sidebar or have the person sign up — then assign their role here. The invite-user edge function requires deployment to the project before email invitations can be sent.
+        <div className="p-3 bg-brand-50 text-brand-700 text-xs rounded-lg space-y-1">
+          <p>To invite new users, use the invitation link from the sidebar or have the person sign up — then assign their role here. The invite-user edge function requires deployment to the project before email invitations can be sent.</p>
+          <p className="text-ink-500">After assigning a role, use the Companies page to link the user to a company if they need company-scoped access (e.g. employer or employee roles).</p>
         </div>
       )}
     </div>

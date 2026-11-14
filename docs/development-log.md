@@ -1465,3 +1465,39 @@ Two issues found during V24 security verification:
 2. Approve adding `is_pinned` and `synopsis_opening_date` columns to the `cases` table so pinning and scheduled opening dates persist across browsers and users.
 3. Clinical approval of whether the Synopsis should display any clinical fields (currently shows only non-clinical case fields: description, next action, coordinator, provider, dates).
 4. Provider verification governance (see Section 6 of programme) — no changes made, gaps documented.
+
+## Stage 20: Travel Health and User Management functional review (current version)
+
+### Travel Health review (COMPLETE)
+- Reviewed all Travel Health functionality: dashboard stats, records list, record detail expansion, consultations list, consultation detail/edit, create consultation form, clinical notes, post-travel review, linked records, and questionnaire status.
+- **Fields that persist in the database** (via travel_consultations table): status, consultation date, provider (id + name), purpose of travel, travel advice, malaria prophylaxis, travel kit issued, post-travel review date, questionnaire status, vaccination plan (JSONB). These are saved via `updateConsultation` which writes directly to the `travel_consultations` table.
+- **Clinical notes** (clinician notes, post-travel notes): saved via RPC function `travel_consultations_update_clinical` — persists correctly and is only visible to admin/master_admin/provider roles. Employers and employees see the employer view which omits clinical columns. Clinical/non-clinical separation is correct.
+- **Fields on the travel_health base record** (purpose_of_travel, provider): saved via `updateTravelHealthDetails` only when creating a consultation linked to an existing record. The base travel health record is otherwise read-only in the UI.
+- **Employer/employee access**: uses `travel_consultations_employer_view` which hides clinical columns. Correct.
+- **Bug fixed**: When consultations failed to load (database error or missing table), the entire Travel Health page was blocked by an early return. Fixed: the error now shows as a warning notice above the records, and travel health records remain fully accessible.
+- **Not verified in browser**: all of the above was confirmed by code review only. No browser-based testing was performed.
+
+### User Management review (COMPLETE)
+- Reviewed user list loading, role changes, activation/deactivation, self-account protection, and master admin protection.
+- User list loads from `profiles` table with columns: id, role, display_name, is_active, company_id. Email is not available from the profiles table (it lives in auth.users which is not directly queryable from the frontend).
+- Role changes call `set_user_role` RPC — server-side enforced, audited.
+- Deactivation calls `deactivate_user` RPC — server-side enforced, audited.
+- Only master_admin can modify users. Self-account and master_admin accounts are protected from modification.
+- **Improvement**: added guidance note for master admins that company assignment for employer/employee roles must be done via the Companies page, since the User Management tab does not have a company assignment dropdown.
+- **Gap documented**: No company assignment UI in User Management. When a role is changed to employer, the user's company_id must be set separately. This requires either a company dropdown in the user list (needs profiles UPDATE permission on company_id column) or a separate user-to-company linking screen. This is a design decision for Stephanie.
+- **Gap documented**: Email addresses are not shown because they are stored in auth.users, not profiles. Showing emails would require either an edge function or a database view that joins profiles to auth.users.
+- **Not verified in browser**: all of the above was confirmed by code review only.
+
+### Build verification (COMPLETE)
+- `tsc --noEmit` passed.
+- `vite build` passed: 1781 modules, 15.73s. No errors.
+
+### Files changed
+- `src/pages/TravelHealth.tsx` — consultations error no longer blocks the entire page; shows as a warning notice instead.
+- `src/pages/Settings.tsx` — added company assignment guidance note for master admins.
+
+### Not verified
+- No browser-based testing performed.
+- Whether the travel_consultations table and its RPC functions exist on the original project (bewndqxrmvhwngnszmdb) is unverified.
+- Whether the set_user_role and deactivate_user RPC functions exist on the original project is unverified.
+

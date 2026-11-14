@@ -134,14 +134,12 @@ export function TravelHealth() {
     );
   }
 
-  if (consultationsError) {
-    return (
-      <div className="card p-6 text-center">
-        <AlertCircle size={24} className="text-danger-500 mx-auto mb-2" />
-        <p className="text-sm text-ink-600">Failed to load consultations: {consultationsError}</p>
-      </div>
-    );
-  }
+  const consultationsNotice = consultationsError ? (
+    <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
+      <AlertCircle size={16} className="shrink-0" />
+      Consultations could not be loaded: {consultationsError}. Travel health records are still available below.
+    </div>
+  ) : null;
 
   // --- Consultation detail/edit view ---
   if (selectedConsultation) {
@@ -171,6 +169,8 @@ export function TravelHealth() {
           Demo mode — travel health records shown are fictional sample data. Consultations require a live database connection to save.
         </div>
       )}
+
+      {consultationsNotice}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
