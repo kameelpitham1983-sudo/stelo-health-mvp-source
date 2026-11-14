@@ -1,9 +1,9 @@
 {
-  "projectId": "72555217",
+  "projectId": "72870762",
   "functions": {
     "invite-user": {
       "hasChanged": false,
-      "hash": "da917d53b4572beb6f2d6fabd26ed544e6a19555d0c1a0ae2025d10caacdb628"
+      "hash": "8326ed68e5912e43563112f54241d09d0be37e3483ee05460104cb089d6dff8c"
     }
   }
 }
