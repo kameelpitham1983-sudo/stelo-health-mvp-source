@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { CalendarDays, Clock, MapPin, Video, Building, Plus, ChevronDown, X, AlertCircle, Check, Edit3, Trash2, Search, Stethoscope, ArrowRight } from 'lucide-react';
-import { useAppointments, useEmployees, useCompanies, useMedicals, isDemoMode } from '@/hooks/useSupabaseData';
+import { useAppointments, useEmployees, useCompanies, useMedicals, useProviders, isDemoMode } from '@/hooks/useSupabaseData';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
@@ -44,6 +44,7 @@ export function Appointments() {
   const { data: employees } = useEmployees();
   const { data: companies } = useCompanies();
   const { data: medicals } = useMedicals();
+  const { data: providers } = useProviders();
 
   const [view, setView] = useState<'upcoming' | 'all'>('upcoming');
   const [showForm, setShowForm] = useState(false);
@@ -393,7 +394,30 @@ export function Appointments() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-ink-700 mb-1">Provider</label>
-                <input className="input w-full" value={formData.providerName || ''} onChange={(e) => setFormData({ ...formData, providerName: e.target.value })} placeholder="Clinician name" />
+                <select
+                  className="input w-full"
+                  value={formData.providerName || ''}
+                  onChange={(e) => {
+                    const selected = providers.find((p) => p.name === e.target.value);
+                    setFormData({
+                      ...formData,
+                      providerName: e.target.value,
+                      location: selected?.physicalAddress || formData.location || '',
+                    });
+                  }}
+                >
+                  <option value="">Select provider...</option>
+                  {providers
+                    .filter((p) => p.status === 'Verified' || p.status === 'Onboarding' || p.status === 'Pending Verification')
+                    .map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name} — {p.category}
+                      </option>
+                    ))}
+                </select>
+                {providers.length === 0 && (
+                  <p className="text-xs text-ink-400 mt-1">No providers in the network yet. Add one in the Providers page.</p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-semibold text-ink-700 mb-1">Location</label>
