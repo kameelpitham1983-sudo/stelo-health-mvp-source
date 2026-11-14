@@ -5,7 +5,6 @@ import { can } from '@/lib/permissions';
 import { isDemoMode, useCompanies } from '@/hooks/useSupabaseData';
 import { useOnboardingCases } from '@/hooks/useOnboardingCases';
 import { OnboardingStagePanel } from '@/components/OnboardingStagePanel';
-import { DemoNotice } from '@/components/DemoNotice';
 import {
   ONBOARDING_STAGES,
   getActiveStageId,
@@ -80,12 +79,6 @@ export function Onboarding() {
         <p className="text-sm text-ink-600 mt-1">Occupational and travel medical onboarding, from client consent to an opened employee case.</p>
         <p className="text-xs text-ink-500 mt-2 bg-ink-50 rounded-lg p-3">{modeBanner}</p>
       </div>
-
-      <DemoNotice steps={[
-        'Start a case by entering the client company name, then work through the 13 stages in order.',
-        'Responsible role: Admin or Coordinator runs the stages. Client HR and employees complete their own steps.',
-        'Next step: open the case and complete the current stage. Stages marked manual happen outside the app.',
-      ]} />
 
       {error && <p className="text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</p>}
 

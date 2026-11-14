@@ -124,7 +124,7 @@ Deno.serve(async (req: Request) => {
 
     // Invite new user via Supabase Auth
     const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", ".bolt.new") || undefined,
+      redirectTo: Deno.env.get("APP_REDIRECT_URL") || undefined,
     });
 
     if (inviteErr) {

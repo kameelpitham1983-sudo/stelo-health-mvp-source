@@ -13,8 +13,6 @@ import {
   Info,
 } from 'lucide-react';
 import { Badge } from '@/components/Badge';
-import { isDemoMode } from '@/hooks/useSupabaseData';
-import { questionnaireTemplates, questionnaireInstances } from '@/data/mockData';
 import { supabase } from '@/lib/supabase';
 import { useApp } from '@/context/AppContext';
 import type {
@@ -37,8 +35,6 @@ const statusOrder: QuestionnaireInstanceStatus[] = ['Not Started', 'Draft', 'Sub
 
 const FITNESS_OPTIONS = ['Fit', 'Fit with restrictions', 'Temporarily unfit', 'Permanently unfit', 'Requires specialist review'];
 
-const STORAGE_KEY = (medicalId: string) => `stelo-q-${medicalId}`;
-
 interface QuestionnaireWorkflowProps {
   medical: Medical;
   onBack: () => void;
@@ -47,15 +43,11 @@ interface QuestionnaireWorkflowProps {
 export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflowProps) {
   const { user } = useApp();
 
-  const existingInstance = useMemo(
-    () => questionnaireInstances.find((qi) => qi.medicalId === medical.id),
-    [medical.id],
-  );
-
+  const [existingInstance, setExistingInstance] = useState<QuestionnaireInstance | null>(null);
   const [persistedTemplates, setPersistedTemplates] = useState<QuestionnaireTemplate[]>([]);
 
   const availableTemplates = useMemo(
-    () => (persistedTemplates.length > 0 ? persistedTemplates : questionnaireTemplates).filter((t) => t.medicalTypes.includes(medical.type)),
+    () => persistedTemplates.filter((t) => t.medicalTypes.includes(medical.type)),
     [medical.type, persistedTemplates],
   );
 
@@ -99,25 +91,11 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
     [availableTemplates, instance.templateId, selectedTemplateId],
   );
 
-  // Load: Supabase (live mode) or localStorage (demo mode)
   useEffect(() => {
-    if (isDemoMode) {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY(medical.id));
-        if (raw) {
-          const saved = JSON.parse(raw) as QuestionnaireInstance;
-          setInstance({ ...saved, fitnessOutcome: saved.fitnessOutcome || '' });
-        } else if (existingInstance) {
-          setInstance(existingInstance);
-        }
-      } catch {
-        // corrupted storage — fall back to existing or fresh
-      }
-      return;
-    }
-
+    let mounted = true;
     (async () => {
       const { data: rows } = await supabase.from('questionnaire_templates').select('*').eq('is_active', true).order('name');
+      if (!mounted) return;
       if (rows && rows.length > 0) {
         const loaded = rows.map((row: Record<string, unknown>) => ({
           id: row.id as string,
@@ -128,14 +106,15 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
         }));
         setPersistedTemplates(loaded);
         const matching = loaded.find((item) => item.medicalTypes.includes(medical.type));
-        if (matching && !existingInstance) {
+        if (matching) {
           setSelectedTemplateId(matching.id);
           setInstance((current) => ({ ...current, templateId: matching.id, templateName: matching.name }));
         }
       }
       const { data: saved } = await supabase.from('questionnaire_instances').select('*').eq('medical_id', medical.id).maybeSingle();
+      if (!mounted) return;
       if (saved) {
-        setInstance({
+        const loadedInstance: QuestionnaireInstance = {
           id: saved.id as string,
           medicalId: saved.medical_id as string,
           templateId: saved.template_id as string,
@@ -157,20 +136,15 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
           submittedAt: saved.submitted_at as string | null,
           reviewedBy: saved.reviewed_by as string,
           reviewedAt: saved.reviewed_at as string | null,
-        });
+        };
+        setExistingInstance(loadedInstance);
+        setInstance(loadedInstance);
       }
     })();
-  }, [medical.id, medical.type, existingInstance]);
+    return () => { mounted = false; };
+  }, [medical.id, medical.type]);
 
   const persistInstance = useCallback(async (next: QuestionnaireInstance, action: string, fromStatus: string | null = null) => {
-    if (isDemoMode) {
-      try {
-        localStorage.setItem(STORAGE_KEY(medical.id), JSON.stringify(next));
-      } catch {
-        // storage full or unavailable — non-fatal in demo
-      }
-      return;
-    }
     if (!user) return;
     const payload = {
       medical_id: next.medicalId,
@@ -252,7 +226,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
     setInstance(next);
     try {
       await persistInstance(next, 'draft_saved', instance.status);
-      setSaveNotice(isDemoMode ? 'Draft saved locally. Demo mode — not saved to the live database.' : 'Draft saved.');
+      setSaveNotice('Draft saved.');
       setSubmitError(null);
     } catch {
       setSubmitError('Could not save this questionnaire. Please try again.');
@@ -270,7 +244,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
     setInstance(next);
     try {
       await persistInstance(next, 'submitted', instance.status);
-      setSaveNotice(isDemoMode ? 'Questionnaire submitted locally. Demo mode — not saved to the live database.' : 'Questionnaire submitted for clinician review.');
+      setSaveNotice('Questionnaire submitted for clinician review.');
       setSubmitError(null);
     } catch {
       setSubmitError('Could not submit this questionnaire. Please try again.');
@@ -303,7 +277,7 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
     setInstance(next);
     try {
       await persistInstance(next, 'review_completed', instance.status);
-      setSaveNotice(isDemoMode ? 'Review completed locally. Demo mode — not saved to the live database.' : 'Review completed and fitness outcome recorded.');
+      setSaveNotice('Review completed and fitness outcome recorded.');
       setSubmitError(null);
     } catch {
       setSubmitError('Could not complete the review. Please try again.');
@@ -354,14 +328,6 @@ export function QuestionnaireWorkflow({ medical, onBack }: QuestionnaireWorkflow
           </div>
         </div>
       </div>
-
-      {/* Demo banner */}
-      {isDemoMode && (
-        <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
-          <AlertCircle size={16} className="shrink-0" />
-          Demo mode — questionnaire answers are stored in your browser only and will not be saved as live records.
-        </div>
-      )}
 
       {/* Workflow progress bar */}
       <div className="card p-5">

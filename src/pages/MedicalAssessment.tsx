@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, CheckCircle2, Circle, ClipboardCheck, Plus } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
-import { isDemoMode, saveDemoMedicalOverride, useCases, useEmployees, useMedicals } from '@/hooks/useSupabaseData';
+import { useCases, useEmployees, useMedicals } from '@/hooks/useSupabaseData';
 import { useOnboardingCases } from '@/hooks/useOnboardingCases';
 import { useMedicalAssessments, type MedicalAssessmentPatch } from '@/hooks/useMedicalAssessments';
 import { MedicalAssessmentStagePanel } from '@/components/MedicalAssessmentStagePanel';
@@ -91,11 +91,7 @@ export function MedicalAssessment() {
       status: 'Completed' as const,
       notes: [linked?.notes, outcomeNote].filter(Boolean).join('\n'),
     };
-    if (isDemoMode) {
-      saveDemoMedicalOverride(selected.medicalId, medicalPatch);
-    } else {
-      await updateMedical(selected.medicalId, medicalPatch);
-    }
+    await updateMedical(selected.medicalId, medicalPatch);
     const employee = employees.find((e) => e.id === selected.employeeId);
     if (employee) {
       await updateEmployeeFitness(
@@ -108,9 +104,7 @@ export function MedicalAssessment() {
     }
   };
 
-  const modeBanner = isDemoMode
-    ? 'Demo Mode: simulated records held in this browser session. Nothing is saved to the live database. Recorded outcomes update the linked Medical record in this session only.'
-    : 'Live: recording an approved outcome also updates the linked Medical record.';
+  const modeBanner = 'Recording an approved outcome also updates the linked Medical record and the employee fitness status.';
 
   const currentStepId = selected ? getMedicalAssessmentStepId(selected) : null;
   const currentIndex = MEDICAL_ASSESSMENT_STEPS.findIndex((s) => s.id === currentStepId);

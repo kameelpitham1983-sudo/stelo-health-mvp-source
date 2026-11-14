@@ -3,13 +3,11 @@ import { useApp, type NavContext } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Search, Stethoscope, Calendar, Plus, ChevronDown, X, AlertCircle, Check, ArrowLeft, Edit3, FileText, User, Building2, Clock, ShieldCheck, ClipboardList, Lock } from 'lucide-react';
 import { useMedicals, useEmployees, useCompanies } from '@/hooks/useSupabaseData';
-import { isDemoMode } from '@/hooks/useSupabaseData';
+import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/Badge';
 import { QuestionnaireWorkflow } from '@/components/QuestionnaireWorkflow';
 import { NotesPanel } from '@/components/NotesPanel';
-import { DemoNotice } from '@/components/DemoNotice';
-import { questionnaireInstances } from '@/data/mockData';
-import type { Medical, MedicalType, MedicalStatus, HealthStatus } from '@/types';
+import type { Medical, MedicalType, MedicalStatus, HealthStatus, QuestionnaireInstance, QuestionnaireInstanceStatus } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'brand' | 'ink'> = {
   Completed: 'success',
@@ -327,11 +325,6 @@ export function Medicals() {
 
   return (
     <div className="space-y-6">
-      <DemoNotice steps={[
-        'Required: employee, medical type, date and status. Choose the employee first to fill in their name and company.',
-        'Responsible role: Admin, Coordinator or Provider creates and edits medicals. Only Admin or Provider records clinical review.',
-        'Next step: when a medical is marked Completed with a result, the employee fitness status is updated as well.',
-      ]} />
       {showForm && (
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -509,7 +502,7 @@ export function Medicals() {
                     <p className="text-sm font-medium text-ink-700 truncate">{med.result}</p>
                   </div>
                   <Badge color={statusColors[med.status]} dot>{med.status}</Badge>
-                  {questionnaireInstances.find((qi) => qi.medicalId === med.id) && (
+                  {false && (
                     <span className="hidden sm:flex items-center gap-1 text-xs text-ink-400">
                       <ClipboardList size={12} /> Questionnaire
                     </span>
@@ -534,37 +527,39 @@ export function Medicals() {
 }
 
 function QuestionnaireStatusBadge({ medicalId, version = 0 }: { medicalId: string; version?: number }) {
-  const mockInstance = questionnaireInstances.find((qi) => qi.medicalId === medicalId);
-
-  const [liveInstance, setLiveInstance] = useState<typeof mockInstance | null>(mockInstance || null);
+  const [liveInstance, setLiveInstance] = useState<QuestionnaireInstance | null>(null);
 
   useEffect(() => {
-    if (isDemoMode && mockInstance) {
-      try {
-        const raw = localStorage.getItem(`stelo-q-${medicalId}`);
-        if (raw) {
-          const saved = JSON.parse(raw);
-          setLiveInstance({
-            ...mockInstance,
-            status: saved.status || mockInstance.status,
-            clinicianComments: saved.clinicianComments ?? mockInstance.clinicianComments,
-            fitnessOutcome: saved.fitnessOutcome ?? mockInstance.fitnessOutcome,
-            reviewedBy: saved.reviewedBy ?? mockInstance.reviewedBy,
-            reviewedAt: saved.reviewedAt ?? mockInstance.reviewedAt,
-            flaggedForReview: saved.flaggedForReview ?? mockInstance.flaggedForReview,
-            submittedBy: saved.submittedBy ?? mockInstance.submittedBy,
-            submittedAt: saved.submittedAt ?? mockInstance.submittedAt,
-          });
-          return;
-        }
-      } catch {
-        // corrupted storage — fall back to mock
-      }
-      setLiveInstance(mockInstance);
-    } else {
-      setLiveInstance(mockInstance);
-    }
-  }, [medicalId, version, mockInstance]);
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.from('questionnaire_instances').select('*').eq('medical_id', medicalId).maybeSingle();
+      if (!mounted || !data) return;
+      setLiveInstance({
+        id: data.id as string,
+        medicalId: data.medical_id as string,
+        templateId: data.template_id as string,
+        templateName: data.template_name as string,
+        employeeName: data.employee_name as string,
+        employeeId: data.employee_id as string,
+        medicalType: data.medical_type as Medical['type'],
+        status: data.status as QuestionnaireInstanceStatus,
+        answers: (data.answers || {}) as Record<string, string>,
+        flaggedForReview: (data.flagged_for_review || []) as string[],
+        clinicianComments: data.clinician_comments as string,
+        additionalTests: data.additional_tests as string,
+        recommendations: data.recommendations as string,
+        fitnessOutcome: (data.fitness_outcome as string) || '',
+        followUpDate: data.follow_up_date as string | null,
+        completedBy: data.completed_by as string,
+        completedAt: data.completed_at as string | null,
+        submittedBy: data.submitted_by as string,
+        submittedAt: data.submitted_at as string | null,
+        reviewedBy: data.reviewed_by as string,
+        reviewedAt: data.reviewed_at as string | null,
+      });
+    })();
+    return () => { mounted = false; };
+  }, [medicalId, version]);
 
   const instance = liveInstance;
   if (!instance) {
