@@ -30,8 +30,7 @@ import {
 import { Badge } from '@/components/Badge';
 import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
-import { isDemoMode, useProviders, useMedicals, useAppointments } from '@/hooks/useSupabaseData';
-import { providers as demoProviders, medicals as mockMedicals, appointments as mockAppointments } from '@/data/mockData';
+import { useProviders, useMedicals, useAppointments } from '@/hooks/useSupabaseData';
 import { NotesPanel } from '@/components/NotesPanel';
 import type {
   Provider,
@@ -207,10 +206,8 @@ export function Providers() {
     const p = selectedProvider;
     const CatIcon = categoryIcons[p.category] || Building2;
 
-    const medList = liveMedicals.length > 0 ? liveMedicals : mockMedicals;
-    const aptList = liveAppointments.length > 0 ? liveAppointments : mockAppointments;
-    const linkedMedicals = medList.filter((m) => m.providerName && p.name.includes(m.providerName.split('—')[0].trim()));
-    const linkedAppointments = aptList.filter((a) => a.providerName && p.name.includes(a.providerName.split('—')[0].trim()));
+    const linkedMedicals = liveMedicals.filter((m) => m.providerName && p.name.includes(m.providerName.split('—')[0].trim()));
+    const linkedAppointments = liveAppointments.filter((a) => a.providerName && p.name.includes(a.providerName.split('—')[0].trim()));
 
     return (
       <ProviderDetail
@@ -228,12 +225,7 @@ export function Providers() {
 
   return (
     <div className="space-y-6">
-      {isDemoMode && (
-        <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
-          <AlertCircle size={16} className="shrink-0" />
-          Demo mode — all provider records are fictional sample data with unverified placeholder fields. New records and changes are stored locally only and not saved as live records.
-        </div>
-      )}
+
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -463,12 +455,7 @@ function ProviderDetail({
         </div>
       </div>
 
-      {isDemoMode && (
-        <div className="p-3 bg-warning-50 text-warning-700 text-sm rounded-lg flex items-center gap-2">
-          <AlertCircle size={16} className="shrink-0" />
-          Demo mode — this provider record is fictional sample data. All fields are unverified placeholders. Changes are stored locally only.
-        </div>
-      )}
+
 
       {/* Header */}
       <div className="card overflow-hidden">

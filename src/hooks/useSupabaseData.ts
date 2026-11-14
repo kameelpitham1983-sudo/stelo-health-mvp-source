@@ -2528,11 +2528,11 @@ export function useGOPs() {
       .order('created_at', { ascending: false });
     if (err) {
       setError(err.message);
-      setData(mockData.demoGOPs);
+      setData([]);
     } else {
       const gops = (rows as Record<string, unknown>[]).map(transformGOP);
       if (gops.length === 0) {
-        setData(mockData.demoGOPs);
+        setData([]);
       } else {
         // Fetch invoices and audit entries for each GOP
         const gopIds = gops.map((g) => g.id);
@@ -2847,10 +2847,10 @@ export function useHotelBookings() {
       .order('created_at', { ascending: false });
     if (err) {
       setError(err.message);
-      setData(mockData.demoHotelBookings);
+      setData([]);
     } else {
       const bookings = (rows as Record<string, unknown>[]).map(transformHotelBooking);
-      setData(bookings.length > 0 ? bookings : mockData.demoHotelBookings);
+      setData(bookings);
     }
     setLoading(false);
   }, []);
@@ -2975,11 +2975,11 @@ export function useVisaMedicalCases() {
       .order('created_at', { ascending: false });
     if (err) {
       setError(err.message);
-      setData(mockData.visaMedicalCases);
+      setData([]);
     } else {
       const cases = (rows as Record<string, unknown>[]).map(transformVisaMedicalCase);
       if (cases.length === 0) {
-        setData(mockData.visaMedicalCases);
+        setData([]);
       } else {
         const caseIds = cases.map((c) => c.id);
         const { data: auditRows } = await supabase

@@ -5,7 +5,6 @@ import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
-import { DemoNotice } from '@/components/DemoNotice';
 import type { Appointment, AppointmentType, AppointmentMode, AppointmentStatus } from '@/types';
 
 const statusColors: Record<string, 'success' | 'warning' | 'danger' | 'ink' | 'brand'> = {
@@ -321,11 +320,6 @@ export function Appointments() {
 
   return (
     <div className="space-y-6">
-      <DemoNotice steps={[
-        'Required: employee and date. Pick the employee first to fill in their company.',
-        'Responsible role: Admin, Coordinator or Provider books and changes appointments.',
-        'Next step: after the visit, set the appointment to Completed. Reminders are not sent in Demo.',
-      ]} />
       {showForm && (
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">

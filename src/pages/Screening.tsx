@@ -5,7 +5,6 @@ import { can } from '@/lib/permissions';
 import { isDemoMode, useCases, useEmployees } from '@/hooks/useSupabaseData';
 import { useScreeningRecords, type ScreeningPatch } from '@/hooks/useScreeningRecords';
 import { ScreeningDetail } from '@/components/ScreeningDetail';
-import { DemoNotice } from '@/components/DemoNotice';
 import { getScreeningStatusLabel, type ScreeningType } from '@/lib/screeningWorkflow';
 import type { PermissionAction } from '@/lib/permissions';
 
@@ -66,12 +65,6 @@ export function Screening() {
         <p className="text-sm text-ink-600 mt-1">Screening linked to the employee record. Clinicians decide eligibility and interpret results.</p>
         <p className="text-xs text-ink-500 mt-2 bg-ink-50 rounded-lg p-3">{modeBanner}</p>
       </div>
-
-      <DemoNotice steps={[
-        'Required: employee. Create a screening for an employee, then work through the 9 steps in order.',
-        'Responsible role: Admin, Coordinator or Provider manages screenings. Only Admin or Provider makes the review decision.',
-        'Next step: complete the open step shown on the record. Clinicians decide eligibility and interpret results.',
-      ]} />
 
       {error && <p className="text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</p>}
 

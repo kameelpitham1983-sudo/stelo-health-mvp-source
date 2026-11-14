@@ -24,7 +24,6 @@ import { useApp } from '@/context/AppContext';
 import { can } from '@/lib/permissions';
 import { Badge } from '@/components/Badge';
 import { NotesPanel } from '@/components/NotesPanel';
-import { DemoNotice } from '@/components/DemoNotice';
 import { EmployeeForm } from '@/components/EmployeeForm';
 import type { Employee } from '@/types';
 
@@ -308,11 +307,6 @@ export function Employees() {
 
   return (
     <div className="space-y-6">
-      <DemoNotice steps={[
-        'Required: full name, email, job title and company. Pick the company from the list first.',
-        'Responsible role: Admin or Coordinator registers and edits employees.',
-        'Next step: open the new employee, then start a medical assessment or onboarding for them.',
-      ]} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-display font-bold text-ink-900">Employees</h2>
